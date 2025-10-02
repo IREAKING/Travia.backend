@@ -9,11 +9,8 @@ import (
 )
 
 func LoadEnv() {
-	// Load only from .env for local development; ignore if missing.
-	err := godotenv.Load("env/.env")
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
+	// Load only from .env for local development; ignore if missing
+	_ = godotenv.Load(".env")
 }
 
 type Config struct {
@@ -69,9 +66,13 @@ func NewServerConfig() *ServerConfig {
 	if port == "" {
 		port = os.Getenv("PORT_NUMBER")
 	}
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "0.0.0.0"
+	}
 	return &ServerConfig{
 		Environment: os.Getenv("ENVIRONMENT"),
-		Host:        os.Getenv("HOST"),
+		Host:        host,
 		Port:        port,
 		SecretKey:   os.Getenv("SECRET_KEY"),
 		ApiSecret:   os.Getenv("API_SECRET"),

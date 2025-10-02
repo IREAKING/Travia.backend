@@ -25,11 +25,17 @@ FROM alpine:latest
 # Set the working directory
 WORKDIR /app
 
+# Install root CA certificates for outbound HTTPS (e.g., to Postgres, OAuth, etc.)
+RUN apk --no-cache add ca-certificates
+
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/main .
 
 # Expose the port your application listens on (Cloud Run expects 8080 by default)
 EXPOSE 8080
+
+# Run Gin in release mode in production
+ENV GIN_MODE=release
 
 # Command to run the application
 CMD ["./main"]

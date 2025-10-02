@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,13 +14,18 @@ import (
 
 // InitDB initializes and returns a database connection pool
 func InitDB(cfg *config.DatabaseConfig) (*pgxpool.Pool, error) {
-	// Construct database URL optimized for Supabase
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+	// sslmode is configurable via env; default to require for Cloud environments
+	sslMode := os.Getenv("DB_SSLMODE")
+	if sslMode == "" {
+		sslMode = "require"
+	}
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
 		cfg.Port,
 		cfg.DBName,
+		sslMode,
 	)
 
 	// Configure connection pool
