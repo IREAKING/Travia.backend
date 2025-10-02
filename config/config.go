@@ -62,9 +62,9 @@ type ServerConfig struct {
 }
 
 func NewServerConfig() *ServerConfig {
-	port := os.Getenv("PORT")
+	port := os.Getenv("PORT_NUMBER")
 	if port == "" {
-		port = os.Getenv("PORT_NUMBER")
+		port = "8080"
 	}
 	host := os.Getenv("HOST")
 	if host == "" {
