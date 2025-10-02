@@ -235,6 +235,59 @@
                 }
             }
         },
+        "/auth/updateUserById/{id}": {
+            "put": {
+                "description": "Cập nhật thông tin user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Cập nhật thông tin user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID của user",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Thông tin cập nhật",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.GetUpdateUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thành công",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Lỗi yêu cầu không hợp lệ",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Lỗi server",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/storage/list": {
             "post": {
                 "description": "List all images in the bucket",
@@ -420,6 +473,35 @@
                     }
                 }
             }
+        },
+        "/tour/getAllTourCategory": {
+            "get": {
+                "description": "Lấy danh mục tour",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tour"
+                ],
+                "summary": "Lấy danh mục tour",
+                "responses": {
+                    "200": {
+                        "description": "Thành công",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Lỗi server",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -471,6 +553,26 @@
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GetUpdateUser": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ngay_cap_nhat": {
                     "type": "string"
                 },
                 "phone": {

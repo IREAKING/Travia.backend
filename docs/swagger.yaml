@@ -35,6 +35,19 @@ definitions:
       phone:
         type: string
     type: object
+  models.GetUpdateUser:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      ngay_cap_nhat:
+        type: string
+      phone:
+        type: string
+    type: object
   models.LoginRequest:
     properties:
       email:
@@ -205,6 +218,41 @@ paths:
       summary: Đăng xuất
       tags:
       - auth
+  /auth/updateUserById/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin user
+      parameters:
+      - description: ID của user
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin cập nhật
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.GetUpdateUser'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Cập nhật thông tin user
+      tags:
+      - auth
   /storage/list:
     post:
       consumes:
@@ -331,6 +379,25 @@ paths:
       summary: Test multiple file upload with HTML form
       tags:
       - Storage
+  /tour/getAllTourCategory:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh mục tour
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh mục tour
+      tags:
+      - tour
 securityDefinitions:
   ApiKeyAuth:
     in: header
