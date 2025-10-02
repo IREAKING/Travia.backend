@@ -1,0 +1,339 @@
+definitions:
+  gin.H:
+    additionalProperties: {}
+    type: object
+  handler.SupabaseFile:
+    properties:
+      bucket_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      last_accessed_at:
+        type: string
+      metadata:
+        properties:
+          mimetype:
+            type: string
+          size:
+            type: integer
+        type: object
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.CreateUser:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+    type: object
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  models.OTP:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    type: object
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Travia API for travel management
+  termsOfService: http://swagger.io/terms/
+  title: Travia API
+  version: "1.0"
+paths:
+  /auth/createUser:
+    post:
+      consumes:
+      - application/json
+      description: Tạo tài khoản từ OTP
+      parameters:
+      - description: Thông tin OTP
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.OTP'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: OTP không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Tạo tài khoản từ OTP
+      tags:
+      - auth
+  /auth/createUserForm:
+    post:
+      consumes:
+      - application/json
+      description: Tạo tài khoản từ form
+      parameters:
+      - description: Thông tin tài khoản
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateUser'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "409":
+          description: Email đã được đăng ký
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Tạo tài khoản từ form
+      tags:
+      - auth
+  /auth/getUserById/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thông tin user
+      parameters:
+      - description: ID của user
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thông tin user
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Đăng nhập
+      parameters:
+      - description: Thông tin đăng nhập
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng nhập
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Đăng xuất
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng xuất
+      tags:
+      - auth
+  /storage/list:
+    post:
+      consumes:
+      - application/json
+      description: List all images in the bucket
+      parameters:
+      - description: Folder path
+        in: query
+        name: folder_path
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: string
+      - description: Offset
+        in: query
+        name: offset
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.SupabaseFile'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: List images in the bucket
+      tags:
+      - Storage
+  /storage/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload image with a specific path in the bucket
+      parameters:
+      - description: Image file to upload (JPEG, PNG, GIF, WebP, BMP)
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Folder path
+        in: formData
+        name: folder_path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Upload image with a specific path in the bucket
+      tags:
+      - Storage
+  /storage/upload-multiple:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload multiple images with a specific path in the bucket. You
+        can select multiple files in the Swagger UI by holding Ctrl/Cmd while clicking
+        files.
+      parameters:
+      - description: Image files to upload (JPEG, PNG, GIF, WebP, BMP) - select multiple
+          files by holding Ctrl/Cmd
+        in: formData
+        name: files
+        required: true
+        type: file
+      - description: Folder path
+        in: formData
+        name: folder_path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "206":
+          description: Partial Content
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Upload multiple images with a specific path in the bucket
+      tags:
+      - Storage
+  /storage/upload-multiple-test:
+    get:
+      description: Returns an HTML form for testing multiple file uploads
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML form
+          schema:
+            type: string
+      summary: Test multiple file upload with HTML form
+      tags:
+      - Storage
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
