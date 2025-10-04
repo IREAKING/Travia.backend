@@ -41,6 +41,38 @@
                 }
             }
         },
+        "/admin/getBookingsByMonth": {
+            "get": {
+                "description": "Thống kê số lượng đặt chỗ theo tháng trong năm",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Lấy đặt chỗ theo tháng",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/getBookingsByStatus": {
             "get": {
                 "description": "Lấy đơn đặt chỗ theo trạng thái",
@@ -63,6 +95,77 @@
                     },
                     "500": {
                         "description": "Lỗi server",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/getNewUsersByMonth": {
+            "get": {
+                "description": "Thống kê số người dùng đăng ký mới theo tháng trong năm",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Lấy người dùng mới theo tháng",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/getRevenueByDateRange": {
+            "get": {
+                "description": "Tổng doanh thu trong khoảng thời gian chỉ định",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Doanh thu theo khoảng thời gian",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Ngày bắt đầu (YYYY-MM-DD)",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ngày kết thúc (YYYY-MM-DD)",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
                         }
@@ -99,6 +202,32 @@
                 }
             }
         },
+        "/admin/getRevenueBySupplier": {
+            "get": {
+                "description": "Thống kê doanh thu của từng nhà cung cấp",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Doanh thu theo nhà cung cấp",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Giới hạn",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/getRevenueByYear": {
             "get": {
                 "description": "Lấy doanh thu theo năm",
@@ -128,6 +257,84 @@
                 }
             }
         },
+        "/admin/getReviewStatsByTour": {
+            "get": {
+                "description": "Chi tiết phân bố rating cho các tour",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Thống kê đánh giá theo tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Giới hạn",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/getTopCustomers": {
+            "get": {
+                "description": "Khách hàng chi tiêu nhiều nhất",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Top khách hàng",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Giới hạn",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/getTopSuppliers": {
+            "get": {
+                "description": "Lấy danh sách nhà cung cấp hàng đầu theo số tour và booking",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Top nhà cung cấp",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Giới hạn kết quả",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/getTopToursByBookings": {
             "get": {
                 "description": "Lấy tour theo số đơn đặt chỗ",
@@ -150,6 +357,82 @@
                     },
                     "500": {
                         "description": "Lỗi server",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/getToursByCategory": {
+            "get": {
+                "description": "Thống kê số lượng tour và booking theo danh mục",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Tour theo danh mục",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/getUpcomingDepartures": {
+            "get": {
+                "description": "Danh sách chuyến khởi hành sắp tới với thông tin chỗ trống",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Lịch khởi hành sắp tới",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Giới hạn",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/getUserGrowth": {
+            "get": {
+                "description": "Số người dùng mới theo ngày trong khoảng thời gian",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Tăng trưởng người dùng",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Ngày bắt đầu (YYYY-MM-DD)",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ngày kết thúc (YYYY-MM-DD)",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
                         }
