@@ -72,6 +72,101 @@ info:
   title: Travia API
   version: "1.0"
 paths:
+  /admin/getAdminSummary:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tổng quan admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tổng quan admin
+      tags:
+      - admin
+  /admin/getBookingsByStatus:
+    get:
+      consumes:
+      - application/json
+      description: Lấy đơn đặt chỗ theo trạng thái
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy đơn đặt chỗ theo trạng thái
+      tags:
+      - admin
+  /admin/getRevenueByMonth:
+    get:
+      consumes:
+      - application/json
+      description: Lấy doanh thu theo tháng
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy doanh thu theo tháng
+      tags:
+      - admin
+  /admin/getRevenueByYear:
+    get:
+      consumes:
+      - application/json
+      description: Lấy doanh thu theo năm
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy doanh thu theo năm
+      tags:
+      - admin
+  /admin/getTopToursByBookings:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tour theo số đơn đặt chỗ
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tour theo số đơn đặt chỗ
+      tags:
+      - admin
   /auth/createUser:
     post:
       consumes:
@@ -379,6 +474,25 @@ paths:
       summary: Test multiple file upload with HTML form
       tags:
       - Storage
+  /tour/getAllTour:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tour
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách tour
+      tags:
+      - tour
   /tour/getAllTourCategory:
     get:
       consumes:
@@ -396,6 +510,25 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Lấy danh mục tour
+      tags:
+      - tour
+  /tour/getTourDetailByID/:id:
+    get:
+      consumes:
+      - application/json
+      description: Lấy chi tiết tour
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy chi tiết tour
       tags:
       - tour
 securityDefinitions:

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/sessions"
@@ -504,6 +505,7 @@ func (s *Server) GetUserById(c *gin.Context) {
 		"data":    user,
 	})
 }
+
 // cập nhật thông tin user
 // @summary Cập nhật thông tin user
 // @description Cập nhật thông tin user
@@ -532,6 +534,18 @@ func (s *Server) UpdateUserById(c *gin.Context) {
 			"message": err.Error(),
 		})
 		return
+	}
+	// Enforce self-or-admin at handler level as defense-in-depth
+	if v, exists := c.Get("claims"); exists {
+		if claims, ok := v.(*utils.JwtClams); ok {
+			// allow admin
+			if strings.ToLower(claims.Vaitro) != "quan_tri" {
+				if !strings.EqualFold(claims.Id.String(), _id) {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Không có quyền cập nhật user này"})
+					return
+				}
+			}
+		}
 	}
 
 	user, err := s.z.UpdateUserById(context.Background(), db.UpdateUserByIdParams{

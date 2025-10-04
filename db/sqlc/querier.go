@@ -12,10 +12,28 @@ import (
 
 type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (NguoiDung, error)
+	GetAdminSummary(ctx context.Context) (GetAdminSummaryRow, error)
 	GetAllTour(ctx context.Context) ([]Tour, error)
 	GetAllTourCategory(ctx context.Context) ([]DanhMucTour, error)
+	GetAllTourWithRelations(ctx context.Context) ([]GetAllTourWithRelationsRow, error)
+	GetBookingsByMonth(ctx context.Context, year int32) ([]GetBookingsByMonthRow, error)
+	GetBookingsByStatus(ctx context.Context) ([]GetBookingsByStatusRow, error)
+	GetNewUsersByMonth(ctx context.Context, year int32) ([]GetNewUsersByMonthRow, error)
+	GetRevenueByDateRange(ctx context.Context, arg GetRevenueByDateRangeParams) (GetRevenueByDateRangeRow, error)
+	GetRevenueByMonth(ctx context.Context, ngayThanhToan pgtype.Timestamp) ([]GetRevenueByMonthRow, error)
+	GetRevenueBySupplier(ctx context.Context, limit int32) ([]GetRevenueBySupplierRow, error)
+	GetRevenueByYear(ctx context.Context, ngayThanhToan pgtype.Timestamp) ([]GetRevenueByYearRow, error)
+	GetReviewStatsByTour(ctx context.Context, limit int32) ([]GetReviewStatsByTourRow, error)
+	GetTopCustomers(ctx context.Context, limit int32) ([]GetTopCustomersRow, error)
+	GetTopSuppliers(ctx context.Context, limit int32) ([]GetTopSuppliersRow, error)
+	GetTopToursByBookings(ctx context.Context, limit int32) ([]GetTopToursByBookingsRow, error)
+	GetTourDetailByID(ctx context.Context, id int32) (Tour, error)
+	GetTourDetailByIDWithRelations(ctx context.Context, id int32) (Tour, error)
+	GetToursByCategory(ctx context.Context) ([]GetToursByCategoryRow, error)
+	GetUpcomingDepartures(ctx context.Context, limit int32) ([]GetUpcomingDeparturesRow, error)
 	GetUserByEmail(ctx context.Context, email string) (NguoiDung, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (NguoiDung, error)
+	GetUserGrowth(ctx context.Context, arg GetUserGrowthParams) ([]GetUserGrowthRow, error)
 	UpdateUserById(ctx context.Context, arg UpdateUserByIdParams) (NguoiDung, error)
 }
 

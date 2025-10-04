@@ -10,7 +10,7 @@ import (
 
 func LoadEnv() {
 	// Load only from .env for local development; ignore if missing
-	_ = godotenv.Load(".env")
+	_ = godotenv.Load("env/.env")
 }
 
 type Config struct {
@@ -101,6 +101,9 @@ type RedisConfig struct {
 }
 
 func NewRedisConfig() *RedisConfig {
+	if os.Getenv("REDIS_DB") == "" {
+		os.Setenv("REDIS_DB", "0")
+	}
 	db, err := strconv.Atoi(os.Getenv("REDIS_DB"))
 	if err != nil {
 		log.Fatalf("Error converting REDIS_DB to int: %v", err)

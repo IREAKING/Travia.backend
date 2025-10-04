@@ -20,17 +20,62 @@ func (s *Server) SetupRoutes() {
 	api := s.router.Group("/api")
 	auth := api.Group("/auth")
 	{
-		auth.GET("/getUserById/:id", s.GetUserById)
+		// Public
 		auth.POST("/createUserForm", s.CreateUserForm)
 		auth.POST("/createUser", s.CreateUser)
 		auth.POST("/login", s.Login)
-		auth.POST("/logout", s.Logout)
-		auth.PUT("/updateUserById/:id", s.UpdateUserById)
+
+		// Protected
+		authAuth := auth.Group("")
+		authAuth.Use(middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret))
+		{
+			authAuth.GET("/getUserById/:id", s.GetUserById)
+			authAuth.POST("/logout", s.Logout)
+			authAuth.PUT("/updateUserById/:id", middleware.SelfOrRoles("quan_tri"), s.UpdateUserById)
+		}
 		oauth := auth.Group("/oauth")
 		{
 			oauth.GET("/:provider", s.AuthHandler())
 			oauth.GET("/:provider/callback", s.AuthCallbackHandler())
 		}
+	}
+	tour := api.Group("/tour")
+	{
+		tour.GET("/getAllTourCategory", s.GetAllTourCategory)
+		tour.GET("/getAllTour", s.GetAllTour)
+		tour.GET("/getTourDetailByID/:id", s.GetTourDetailByID)
+	}
+	// Admin routes - Only for quan_tri role
+	admin := api.Group("/admin")
+	admin.Use(
+		middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
+		middleware.RequireRoles("quan_tri"),
+	)
+	{
+		// Dashboard & Summary
+		admin.GET("/getAdminSummary", s.GetAdminSummary)
+
+		// Revenue analytics
+		admin.GET("/getRevenueByMonth", s.GetRevenueByMonth)
+		admin.GET("/getRevenueByYear", s.GetRevenueByYear)
+		admin.GET("/getRevenueByDateRange", s.GetRevenueByDateRange)
+		admin.GET("/getRevenueBySupplier", s.GetRevenueBySupplier)
+
+		// Bookings & Tours
+		admin.GET("/getBookingsByStatus", s.GetBookingsByStatus)
+		admin.GET("/getBookingsByMonth", s.GetBookingsByMonth)
+		admin.GET("/getTopToursByBookings", s.GetTopToursByBookings)
+		admin.GET("/getToursByCategory", s.GetToursByCategory)
+		admin.GET("/getUpcomingDepartures", s.GetUpcomingDepartures)
+
+		// Users & Customers
+		admin.GET("/getNewUsersByMonth", s.GetNewUsersByMonth)
+		admin.GET("/getUserGrowth", s.GetUserGrowth)
+		admin.GET("/getTopCustomers", s.GetTopCustomers)
+
+		// Suppliers & Reviews
+		admin.GET("/getTopSuppliers", s.GetTopSuppliers)
+		admin.GET("/getReviewStatsByTour", s.GetReviewStatsByTour)
 	}
 
 }

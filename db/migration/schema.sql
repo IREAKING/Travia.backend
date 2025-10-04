@@ -1,6 +1,19 @@
 -- Tạo các ENUM types
 CREATE TYPE vai_tro_nguoi_dung AS ENUM ('khach_hang', 'quan_tri', 'nha_cung_cap');
 
+-- Cấu hình tìm kiếm toàn văn cho tiếng Việt (dựa trên unaccent + simple)
+CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'vietnamese') THEN
+        CREATE TEXT SEARCH CONFIGURATION vietnamese ( COPY = pg_catalog.simple );
+        ALTER TEXT SEARCH CONFIGURATION vietnamese
+            ALTER MAPPING FOR hword, hword_part, word WITH unaccent, simple;
+    END IF;
+END
+$$;
+
 -- Người dùng
 CREATE TABLE nguoi_dung (
     id UUID PRIMARY KEY default gen_random_uuid(),

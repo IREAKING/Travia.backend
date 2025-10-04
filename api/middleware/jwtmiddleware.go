@@ -46,3 +46,66 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// RequireRoles cho phép truy cập nếu vai trò của người dùng thuộc một trong các roles được chỉ định
+func RequireRoles(roles ...string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, r := range roles {
+		allowed[strings.ToLower(r)] = struct{}{}
+	}
+	return func(c *gin.Context) {
+		v, exists := c.Get("claims")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Thiếu thông tin xác thực"})
+			c.Abort()
+			return
+		}
+		claims, ok := v.(*utils.JwtClams)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Thông tin xác thực không hợp lệ"})
+			c.Abort()
+			return
+		}
+		if _, ok := allowed[strings.ToLower(claims.Vaitro)]; !ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Không có quyền truy cập"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+// SelfOrRoles cho phép nếu là chính chủ theo param :id hoặc có vai trò trong danh sách
+func SelfOrRoles(roles ...string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, r := range roles {
+		allowed[strings.ToLower(r)] = struct{}{}
+	}
+	return func(c *gin.Context) {
+		v, exists := c.Get("claims")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Thiếu thông tin xác thực"})
+			c.Abort()
+			return
+		}
+		claims, ok := v.(*utils.JwtClams)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Thông tin xác thực không hợp lệ"})
+			c.Abort()
+			return
+		}
+		// Cho phép nếu là admin (quan_tri) hoặc các vai trò khác trong danh sách
+		if _, ok := allowed[strings.ToLower(claims.Vaitro)]; ok {
+			c.Next()
+			return
+		}
+		// Nếu không, chỉ cho phép nếu id khớp
+		pathID := c.Param("id")
+		if pathID != "" && strings.EqualFold(pathID, claims.Id.String()) {
+			c.Next()
+			return
+		}
+		c.JSON(http.StatusForbidden, gin.H{"error": "Không có quyền thực hiện hành động này"})
+		c.Abort()
+	}
+}
