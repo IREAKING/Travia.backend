@@ -1,0 +1,224 @@
+{
+  "tieu_de": "Tour Du Lịch Hà Nội - Hạ Long 3 Ngày 2 Đêm",
+  "mo_ta": "Khám phá vẻ đẹp của thủ đô Hà Nội và kỳ quan thiên nhiên Vịnh Hạ Long. Trải nghiệm văn hóa, ẩm thực và cảnh đẹp tuyệt vời của miền Bắc Việt Nam.",
+  "danh_muc_id": 1,
+  "so_ngay": 3,
+  "so_dem": 2,
+  "gia_moi_nguoi": 2500000,
+  "don_vi_tien_te": "VND",
+  "nha_cung_cap_id": 1,
+  
+  "images": [
+    {
+      "link": "https://example.com/images/halong-bay-main.jpg",
+      "mo_ta_alt": "Vịnh Hạ Long - Di sản thiên nhiên thế giới",
+      "la_anh_chinh": true,
+      "thu_tu_hien_thi": 1
+    },
+    {
+      "link": "https://example.com/images/hanoi-oldquarter.jpg",
+      "mo_ta_alt": "Phố cổ Hà Nội",
+      "la_anh_chinh": false,
+      "thu_tu_hien_thi": 2
+    },
+    {
+      "link": "https://example.com/images/cruise-ship.jpg",
+      "mo_ta_alt": "Du thuyền sang trọng trên vịnh Hạ Long",
+      "la_anh_chinh": false,
+      "thu_tu_hien_thi": 3
+    }
+  ],
+  
+  "destinations": [
+    {
+      "diem_den_id": 1,
+      "thu_tu_tham_quan": 1,
+      "thoi_gian_luu_tru_gio": 8
+    },
+    {
+      "diem_den_id": 5,
+      "thu_tu_tham_quan": 2,
+      "thoi_gian_luu_tru_gio": 24
+    },
+    {
+      "diem_den_id": 12,
+      "thu_tu_tham_quan": 3,
+      "thoi_gian_luu_tru_gio": 6
+    }
+  ],
+  
+  "itineraries": [
+    {
+      "ngay_thu": 1,
+      "tieu_de": "Hà Nội - Khám phá Thủ Đô",
+      "mo_ta": "Tham quan các di tích lịch sử nổi tiếng của Hà Nội và thưởng thức ẩm thực đường phố",
+      "gio_bat_dau": "08:00:00",
+      "gio_ket_thuc": "18:00:00",
+      "dia_diem": "Hà Nội",
+      "activities": [
+        {
+          "ten": "Đón khách tại sân bay Nội Bài",
+          "gio_bat_dau": "08:00:00",
+          "gio_ket_thuc": "09:00:00",
+          "mo_ta": "Xe đón khách tại sân bay và di chuyển vào trung tâm thành phố",
+          "thu_tu": 1
+        },
+        {
+          "ten": "Tham quan Văn Miếu - Quốc Tử Giám",
+          "gio_bat_dau": "09:30:00",
+          "gio_ket_thuc": "11:00:00",
+          "mo_ta": "Khám phá trường đại học đầu tiên của Việt Nam, được xây dựng từ thế kỷ 11",
+          "thu_tu": 2
+        },
+        {
+          "ten": "Ăn trưa với đặc sản Hà Nội",
+          "gio_bat_dau": "11:30:00",
+          "gio_ket_thuc": "13:00:00",
+          "mo_ta": "Thưởng thức bún chả, phở Hà Nội tại nhà hàng địa phương",
+          "thu_tu": 3
+        },
+        {
+          "ten": "Thăm Hồ Hoàn Kiếm và Đền Ngọc Sơn",
+          "gio_bat_dau": "13:30:00",
+          "gio_ket_thuc": "15:00:00",
+          "mo_ta": "Dạo quanh hồ Hoàn Kiếm, biểu tượng của Hà Nội",
+          "thu_tu": 4
+        },
+        {
+          "ten": "Khám phá Phố Cổ 36 phố phường",
+          "gio_bat_dau": "15:30:00",
+          "gio_ket_thuc": "18:00:00",
+          "mo_ta": "Dạo bộ qua khu phố cổ với kiến trúc độc đáo và các cửa hàng truyền thống",
+          "thu_tu": 5
+        },
+        {
+          "ten": "Check-in khách sạn và nghỉ ngơi",
+          "gio_bat_dau": "18:00:00",
+          "gio_ket_thuc": "19:00:00",
+          "mo_ta": "Nhận phòng tại khách sạn 3 sao trung tâm Hà Nội",
+          "thu_tu": 6
+        }
+      ]
+    },
+    {
+      "ngay_thu": 2,
+      "tieu_de": "Hà Nội - Hạ Long - Du thuyền",
+      "mo_ta": "Di chuyển đến Vịnh Hạ Long và trải nghiệm du thuyền qua đêm trên vịnh",
+      "gio_bat_dau": "07:00:00",
+      "gio_ket_thuc": "21:00:00",
+      "dia_diem": "Vịnh Hạ Long",
+      "activities": [
+        {
+          "ten": "Ăn sáng tại khách sạn",
+          "gio_bat_dau": "07:00:00",
+          "gio_ket_thuc": "08:00:00",
+          "mo_ta": "Buffet sáng tại khách sạn",
+          "thu_tu": 1
+        },
+        {
+          "ten": "Di chuyển Hà Nội - Hạ Long",
+          "gio_bat_dau": "08:00:00",
+          "gio_ket_thuc": "11:30:00",
+          "mo_ta": "Di chuyển bằng xe limousine cao cấp, khoảng 170km",
+          "thu_tu": 2
+        },
+        {
+          "ten": "Lên du thuyền và ăn trưa",
+          "gio_bat_dau": "12:00:00",
+          "gio_ket_thuc": "13:30:00",
+          "mo_ta": "Check-in du thuyền và thưởng thức buffet hải sản trên boong",
+          "thu_tu": 3
+        },
+        {
+          "ten": "Khám phá động Thiên Cung",
+          "gio_bat_dau": "14:00:00",
+          "gio_ket_thuc": "15:30:00",
+          "mo_ta": "Tham quan hang động với hệ thống nhũ đá kỳ thú",
+          "thu_tu": 4
+        },
+        {
+          "ten": "Chèo kayak và bơi lội",
+          "gio_bat_dau": "16:00:00",
+          "gio_ket_thuc": "17:30:00",
+          "mo_ta": "Hoạt động thể thao nước tự do tại khu vực được chỉ định",
+          "thu_tu": 5
+        },
+        {
+          "ten": "Ngắm hoàng hôn trên vịnh",
+          "gio_bat_dau": "17:30:00",
+          "gio_ket_thuc": "18:30:00",
+          "mo_ta": "Thư giãn trên boong tàu và ngắm cảnh hoàng hôn tuyệt đẹp",
+          "thu_tu": 6
+        },
+        {
+          "ten": "Bữa tối BBQ trên boong",
+          "gio_bat_dau": "19:00:00",
+          "gio_ket_thuc": "21:00:00",
+          "mo_ta": "Tiệc BBQ hải sản và biểu diễn văn nghệ, câu mực đêm",
+          "thu_tu": 7
+        }
+      ]
+    },
+    {
+      "ngay_thu": 3,
+      "tieu_de": "Hạ Long - Hà Nội - Trở về",
+      "mo_ta": "Sáng tham quan thêm vịnh Hạ Long, trưa về Hà Nội và kết thúc chuyến đi",
+      "gio_bat_dau": "06:00:00",
+      "gio_ket_thuc": "17:00:00",
+      "dia_diem": "Hạ Long - Hà Nội",
+      "activities": [
+        {
+          "ten": "Ngắm bình minh và tập Thái Cực Quyền",
+          "gio_bat_dau": "06:00:00",
+          "gio_ket_thuc": "07:00:00",
+          "mo_ta": "Tham gia lớp Thái Cực Quyền trên boong hoặc ngắm cảnh bình minh",
+          "thu_tu": 1
+        },
+        {
+          "ten": "Ăn sáng nhẹ trên tàu",
+          "gio_bat_dau": "07:00:00",
+          "gio_ket_thuc": "08:00:00",
+          "mo_ta": "Bánh mì, cà phê và trái cây",
+          "thu_tu": 2
+        },
+        {
+          "ten": "Tham quan làng chài Vung Viêng",
+          "gio_bat_dau": "08:00:00",
+          "gio_ket_thuc": "10:00:00",
+          "mo_ta": "Ghé thăm làng chài nổi và tìm hiểu đời sống của người dân địa phương",
+          "thu_tu": 3
+        },
+        {
+          "ten": "Về tàu và trả phòng",
+          "gio_bat_dau": "10:00:00",
+          "gio_ket_thuc": "11:00:00",
+          "mo_ta": "Hoàn tất thủ tục trả phòng trên du thuyền",
+          "thu_tu": 4
+        },
+        {
+          "ten": "Ăn trưa tại nhà hàng bờ",
+          "gio_bat_dau": "11:30:00",
+          "gio_ket_thuc": "13:00:00",
+          "mo_ta": "Bữa trưa cuối cùng tại nhà hàng trước khi về Hà Nội",
+          "thu_tu": 5
+        },
+        {
+          "ten": "Di chuyển về Hà Nội",
+          "gio_bat_dau": "13:00:00",
+          "gio_ket_thuc": "16:30:00",
+          "mo_ta": "Xe đưa khách về Hà Nội",
+          "thu_tu": 6
+        },
+        {
+          "ten": "Tiễn khách tại sân bay hoặc khách sạn",
+          "gio_bat_dau": "16:30:00",
+          "gio_ket_thuc": "17:00:00",
+          "mo_ta": "Kết thúc chuyến đi, chúc quý khách hành trình vui vẻ",
+          "thu_tu": 7
+        }
+      ]
+    }
+  ]
+}
+
+

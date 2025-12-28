@@ -1,0 +1,4102 @@
+definitions:
+  big.Int:
+    type: object
+  db.CountSuppliersByStatusRow:
+    properties:
+      dang_hoat_dong:
+        type: boolean
+      total:
+        type: integer
+    type: object
+  db.CreateBookingParams:
+    properties:
+      khoi_hanh_id:
+        type: integer
+      nguoi_dung_id:
+        type: string
+      phuong_thuc_thanh_toan:
+        type: string
+      so_nguoi_lon:
+        type: integer
+      so_tre_em:
+        type: integer
+    type: object
+  db.CreateDestinationParams:
+    properties:
+      anh:
+        type: string
+      khu_vuc:
+        type: string
+      kinh_do:
+        $ref: '#/definitions/pgtype.Numeric'
+      mo_ta:
+        type: string
+      quoc_gia:
+        type: string
+      ten:
+        type: string
+      vi_do:
+        $ref: '#/definitions/pgtype.Numeric'
+    type: object
+  db.CreateFavoriteTourParams:
+    properties:
+      nguoi_dung_id:
+        type: string
+      tour_id:
+        type: integer
+    type: object
+  db.DeleteFavoriteTourParams:
+    properties:
+      nguoi_dung_id:
+        type: string
+      tour_id:
+        type: integer
+    type: object
+  db.DiemDen:
+    properties:
+      anh:
+        type: string
+      id:
+        type: integer
+      iso2:
+        type: string
+      iso3:
+        type: string
+      khu_vuc:
+        type: string
+      kinh_do:
+        $ref: '#/definitions/pgtype.Numeric'
+      mo_ta:
+        type: string
+      ngay_cap_nhat:
+        $ref: '#/definitions/pgtype.Timestamp'
+      ngay_tao:
+        $ref: '#/definitions/pgtype.Timestamp'
+      quoc_gia:
+        type: string
+      ten:
+        type: string
+      tinh:
+        type: string
+      vi_do:
+        $ref: '#/definitions/pgtype.Numeric'
+    type: object
+  db.GetAllTourRow:
+    properties:
+      anh_chinh:
+        type: string
+      avg_rating:
+        type: number
+      danh_muc_id:
+        type: integer
+      danh_muc_ten:
+        type: string
+      diem_den: {}
+      don_vi_tien_te:
+        type: string
+      gia_nguoi_lon:
+        $ref: '#/definitions/pgtype.Numeric'
+      gia_sau_giam_nguoi_lon: {}
+      gia_sau_giam_tre_em: {}
+      gia_tre_em:
+        $ref: '#/definitions/pgtype.Numeric'
+      giam_gia_phan_tram: {}
+      id:
+        type: integer
+      mo_ta:
+        type: string
+      next_departure_date: {}
+      nha_cung_cap_ten:
+        type: string
+      noi_bat:
+        type: boolean
+      so_dem:
+        type: integer
+      so_ngay:
+        type: integer
+      tieu_de:
+        type: string
+      total_reviews:
+        type: integer
+      trang_thai:
+        type: string
+    type: object
+  db.GetBookingStatsByStatusRow:
+    properties:
+      so_luong:
+        type: integer
+      tong_tien: {}
+      trang_thai:
+        $ref: '#/definitions/db.NullTrangThaiDatCho'
+    type: object
+  db.GetBookingsByDayOfWeekRow:
+    properties:
+      doanh_thu: {}
+      ngay_trong_tuan:
+        $ref: '#/definitions/pgtype.Numeric'
+      so_booking:
+        type: integer
+      ten_ngay: {}
+    type: object
+  db.GetDashboardOverviewRow:
+    properties:
+      dat_cho_da_thanh_toan:
+        type: integer
+      diem_danh_gia_trung_binh: {}
+      doanh_thu_thang_nay: {}
+      tong_danh_gia:
+        type: integer
+      tong_dat_cho:
+        type: integer
+      tong_doanh_thu: {}
+      tong_khach_hang:
+        type: integer
+      tong_nguoi_dung:
+        type: integer
+      tong_nha_cung_cap:
+        type: integer
+      tong_tour:
+        type: integer
+      tour_dang_hoat_dong:
+        type: integer
+    type: object
+  db.GetDashboardOverviewWithComparisonRow:
+    properties:
+      booking_thang_nay:
+        type: integer
+      booking_thang_truoc:
+        type: integer
+      doanh_thu_thang_nay: {}
+      doanh_thu_thang_truoc: {}
+      nguoi_dung_moi_thang_nay:
+        type: integer
+      nguoi_dung_moi_thang_truoc:
+        type: integer
+      tong_dat_cho_thanh_cong:
+        type: integer
+      tong_nguoi_dung:
+        type: integer
+      tong_tour:
+        type: integer
+    type: object
+  db.GetNewUsersTodayRow:
+    properties:
+      khach_hang_moi:
+        type: integer
+      nguoi_dung_moi_hom_nay:
+        type: integer
+      nha_cung_cap_moi:
+        type: integer
+    type: object
+  db.GetRecentBookingsRow:
+    properties:
+      email_khach_hang:
+        type: string
+      id:
+        type: integer
+      ngay_dat:
+        $ref: '#/definitions/pgtype.Timestamp'
+      ngay_khoi_hanh:
+        $ref: '#/definitions/pgtype.Date'
+      so_nguoi_lon:
+        type: integer
+      so_tre_em:
+        type: integer
+      ten_khach_hang:
+        type: string
+      ten_tour:
+        type: string
+      tong_tien:
+        $ref: '#/definitions/pgtype.Numeric'
+      trang_thai:
+        $ref: '#/definitions/db.NullTrangThaiDatCho'
+    type: object
+  db.GetRevenueByDayRow:
+    properties:
+      doanh_thu: {}
+      ngay:
+        $ref: '#/definitions/pgtype.Date'
+      so_booking:
+        type: integer
+    type: object
+  db.GetRevenueByMonthRow:
+    properties:
+      doanh_thu: {}
+      so_booking:
+        type: integer
+      thang:
+        $ref: '#/definitions/pgtype.Interval'
+      trung_binh_booking: {}
+    type: object
+  db.GetRevenueByYearRow:
+    properties:
+      doanh_thu: {}
+      nam:
+        $ref: '#/definitions/pgtype.Numeric'
+      so_booking:
+        type: integer
+    type: object
+  db.GetSupplierWithTourCountRow:
+    properties:
+      active_tours:
+        type: integer
+      dia_chi:
+        type: string
+      giay_to_kinh_doanh:
+        type: string
+      id:
+        type: string
+      logo:
+        type: string
+      ma_so_thue:
+        type: string
+      mo_ta:
+        type: string
+      nam_thanh_lap:
+        $ref: '#/definitions/pgtype.Date'
+      quoc_gia:
+        type: string
+      so_nhan_vien:
+        type: string
+      ten:
+        type: string
+      thanh_pho:
+        type: string
+      total_tours:
+        type: integer
+      website:
+        type: string
+    type: object
+  db.GetTopActiveUsersRow:
+    properties:
+      email:
+        type: string
+      ho_ten:
+        type: string
+      id:
+        type: string
+      so_booking:
+        type: integer
+      tong_chi_tieu: {}
+    type: object
+  db.GetTopBookedToursRow:
+    properties:
+      anh_chinh:
+        type: string
+      diem_trung_binh: {}
+      gia_nguoi_lon:
+        $ref: '#/definitions/pgtype.Numeric'
+      id:
+        type: integer
+      so_booking:
+        type: integer
+      ten_danh_muc:
+        type: string
+      ten_nha_cung_cap:
+        type: string
+      tieu_de:
+        type: string
+      tong_doanh_thu: {}
+    type: object
+  db.GetTourDetailByIDRow:
+    properties:
+      departures:
+        items:
+          type: integer
+        type: array
+      destinations:
+        items:
+          type: integer
+        type: array
+      don_vi_tien_te:
+        type: string
+      gia_nguoi_lon:
+        $ref: '#/definitions/pgtype.Numeric'
+      gia_tre_em:
+        $ref: '#/definitions/pgtype.Numeric'
+      giam_gia_den:
+        $ref: '#/definitions/pgtype.Date'
+      giam_gia_phan_tram:
+        $ref: '#/definitions/pgtype.Numeric'
+      giam_gia_tu:
+        $ref: '#/definitions/pgtype.Date'
+      id:
+        type: integer
+      images:
+        items:
+          type: integer
+        type: array
+      itinerary:
+        items:
+          type: integer
+        type: array
+      logo_ncc:
+        type: string
+      mo_ta:
+        type: string
+      ngay_cap_nhat:
+        $ref: '#/definitions/pgtype.Timestamp'
+      ngay_tao:
+        $ref: '#/definitions/pgtype.Timestamp'
+      noi_bat:
+        type: boolean
+      so_dem:
+        type: integer
+      so_lon_nhat:
+        type: integer
+      so_ngay:
+        type: integer
+      so_nho_nhat:
+        type: integer
+      ten_danh_muc:
+        type: string
+      ten_nha_cung_cap:
+        type: string
+      tieu_de:
+        type: string
+      trang_thai:
+        type: string
+    type: object
+  db.GetTourPriceDistributionRow:
+    properties:
+      khoang_gia:
+        type: string
+      so_luong:
+        type: integer
+    type: object
+  db.GetToursCreatedByMonthRow:
+    properties:
+      so_luong:
+        type: integer
+      thang:
+        $ref: '#/definitions/pgtype.Interval'
+    type: object
+  db.GetUserGrowthByDayRow:
+    properties:
+      ngay:
+        $ref: '#/definitions/pgtype.Date'
+      so_luong:
+        type: integer
+    type: object
+  db.GetUserGrowthByMonthRow:
+    properties:
+      khach_hang_moi:
+        type: integer
+      nha_cung_cap_moi:
+        type: integer
+      thang:
+        $ref: '#/definitions/pgtype.Interval'
+      tong_dang_ky:
+        type: integer
+    type: object
+  db.GetUserStatsByRoleRow:
+    properties:
+      da_xac_thuc:
+        type: integer
+      dang_hoat_dong:
+        type: integer
+      so_luong:
+        type: integer
+      vai_tro:
+        $ref: '#/definitions/db.NullVaiTroNguoiDung'
+    type: object
+  db.NhaCungCap:
+    properties:
+      dia_chi:
+        type: string
+      giay_to_kinh_doanh:
+        type: string
+      id:
+        type: string
+      logo:
+        type: string
+      ma_so_thue:
+        type: string
+      mo_ta:
+        type: string
+      nam_thanh_lap:
+        $ref: '#/definitions/pgtype.Date'
+      quoc_gia:
+        type: string
+      so_nhan_vien:
+        type: string
+      ten:
+        type: string
+      thanh_pho:
+        type: string
+      website:
+        type: string
+    type: object
+  db.NullTrangThaiDatCho:
+    properties:
+      trang_thai_dat_cho:
+        $ref: '#/definitions/db.TrangThaiDatCho'
+      valid:
+        description: Valid is true if TrangThaiDatCho is not NULL
+        type: boolean
+    type: object
+  db.NullVaiTroNguoiDung:
+    properties:
+      vai_tro_nguoi_dung:
+        $ref: '#/definitions/db.VaiTroNguoiDung'
+      valid:
+        description: Valid is true if VaiTroNguoiDung is not NULL
+        type: boolean
+    type: object
+  db.ResetPasswordParams:
+    properties:
+      email:
+        type: string
+      mat_khau_ma_hoa:
+        type: string
+    type: object
+  db.TrangThaiDatCho:
+    enum:
+    - cho_xac_nhan
+    - da_xac_nhan
+    - da_thanh_toan
+    - da_huy
+    - hoan_thanh
+    type: string
+    x-enum-varnames:
+    - TrangThaiDatChoChoXacNhan
+    - TrangThaiDatChoDaXacNhan
+    - TrangThaiDatChoDaThanhToan
+    - TrangThaiDatChoDaHuy
+    - TrangThaiDatChoHoanThanh
+  db.UpdateSupplierParams:
+    properties:
+      dia_chi:
+        type: string
+      id:
+        type: string
+      logo:
+        type: string
+      mo_ta:
+        type: string
+      ten:
+        type: string
+      website:
+        type: string
+    type: object
+  db.VaiTroNguoiDung:
+    enum:
+    - khach_hang
+    - quan_tri
+    - nha_cung_cap
+    type: string
+    x-enum-varnames:
+    - VaiTroNguoiDungKhachHang
+    - VaiTroNguoiDungQuanTri
+    - VaiTroNguoiDungNhaCungCap
+  gin.H:
+    additionalProperties: {}
+    type: object
+  handler.ChangePasswordRequest:
+    properties:
+      mat_khau_cu:
+        type: string
+      mat_khau_moi:
+        type: string
+    type: object
+  handler.CreateDepartureRequest:
+    properties:
+      ghi_chu:
+        type: string
+      ngay_ket_thuc:
+        type: string
+      ngay_khoi_hanh:
+        type: string
+      suc_chua:
+        type: integer
+      tour_id:
+        type: integer
+      trang_thai:
+        type: string
+    required:
+    - ngay_ket_thuc
+    - ngay_khoi_hanh
+    - suc_chua
+    - tour_id
+    type: object
+  handler.CreateVNPayPaymentRequest:
+    properties:
+      booking_id:
+        type: integer
+      return_url:
+        type: string
+    required:
+    - booking_id
+    type: object
+  handler.LocationResponse:
+    properties:
+      cached_at:
+        type: string
+      city:
+        type: string
+      country:
+        type: string
+      country_code:
+        type: string
+      currency:
+        type: string
+      ip:
+        type: string
+      languages:
+        type: string
+      latitude:
+        type: number
+      longitude:
+        type: number
+      region:
+        type: string
+      region_code:
+        type: string
+      timezone:
+        type: string
+    type: object
+  handler.SupabaseFile:
+    properties:
+      bucket_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      last_accessed_at:
+        type: string
+      metadata:
+        properties:
+          mimetype:
+            type: string
+          size:
+            type: integer
+        type: object
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  handler.UpdateDepartureRequest:
+    properties:
+      ghi_chu:
+        type: string
+      ngay_ket_thuc:
+        type: string
+      ngay_khoi_hanh:
+        type: string
+      suc_chua:
+        type: integer
+      trang_thai:
+        type: string
+    type: object
+  models.AddPassengersParams:
+    properties:
+      dat_cho_id:
+        type: integer
+      ghi_chu:
+        type: string
+      gioi_tinh:
+        type: string
+      ho_ten:
+        type: string
+      loai_khach:
+        type: string
+      ngay_sinh:
+        type: string
+      quoc_tich:
+        type: string
+      so_giay_to_tuy_thanh:
+        type: string
+    type: object
+  models.CreateDiscountTourRequest:
+    properties:
+      ngay_bat_dau:
+        type: string
+      ngay_ket_thuc:
+        type: string
+      phan_tram:
+        type: number
+      tour_id:
+        type: integer
+    type: object
+  models.CreateSupplierRequest:
+    properties:
+      thong_tin_dang_nhap:
+        properties:
+          email:
+            type: string
+          mat_khau:
+            type: string
+          nguoi_dai_dien:
+            type: string
+          so_dien_thoai:
+            type: string
+        type: object
+      thong_tin_nha_cung_cap:
+        properties:
+          dia_chi:
+            type: string
+          logo_url:
+            type: string
+          mo_ta:
+            type: string
+          ten:
+            type: string
+          website:
+            type: string
+        type: object
+    type: object
+  models.CreateTourFullRequest:
+    properties:
+      cau_hinh_nhom_tours:
+        description: Cấu hình nhóm (optional)
+        properties:
+          so_lon_nhat:
+            type: integer
+          so_nho_nhat:
+            type: integer
+        type: object
+      danh_muc_id:
+        type: integer
+      dia_diem_tours:
+        description: Điểm đến
+        items:
+          properties:
+            diem_den_id:
+              type: integer
+            thu_tu_tham_quan:
+              type: integer
+          required:
+          - diem_den_id
+          type: object
+        type: array
+      don_vi_tien_te:
+        type: string
+      gia_nguoi_lon:
+        type: number
+      gia_tre_em:
+        type: number
+      hinh_anh_tours:
+        description: Ảnh tour
+        items:
+          properties:
+            la_anh_chinh:
+              type: boolean
+            link:
+              type: string
+            mo_ta_alt:
+              type: string
+            thu_tu_hien_thi:
+              type: integer
+          required:
+          - link
+          type: object
+        type: array
+      lich_khoi_hanh_tours:
+        description: Lịch khởi hành (optional)
+        items:
+          properties:
+            ghi_chu:
+              description: Optional notes
+              type: string
+            ngay_ket_thuc:
+              description: 'Format: "YYYY-MM-DD"'
+              type: string
+            ngay_khoi_hanh:
+              description: 'Format: "YYYY-MM-DD"'
+              type: string
+            suc_chua:
+              description: Capacity
+              minimum: 1
+              type: integer
+            trang_thai:
+              description: 'Optional: len_lich, xac_nhan, huy, hoan_thanh'
+              type: string
+          required:
+          - ngay_ket_thuc
+          - ngay_khoi_hanh
+          - suc_chua
+          type: object
+        type: array
+      lich_trinh_tours:
+        description: Lịch trình với hoạt động
+        items:
+          properties:
+            dia_diem:
+              type: string
+            gio_bat_dau:
+              description: 'Format: "HH:MM:SS"'
+              type: string
+            gio_ket_thuc:
+              description: 'Format: "HH:MM:SS"'
+              type: string
+            hoat_dong_lich_trinh_tours:
+              description: Hoạt động trong ngày
+              items:
+                properties:
+                  gio_bat_dau:
+                    description: 'Format: "HH:MM:SS"'
+                    type: string
+                  gio_ket_thuc:
+                    description: 'Format: "HH:MM:SS"'
+                    type: string
+                  mo_ta:
+                    type: string
+                  ten:
+                    type: string
+                  thu_tu:
+                    type: integer
+                required:
+                - ten
+                type: object
+              type: array
+            mo_ta:
+              type: string
+            ngay_thu:
+              type: integer
+            thong_tin_luu_tru:
+              type: string
+            tieu_de:
+              type: string
+          required:
+          - ngay_thu
+          - tieu_de
+          type: object
+        type: array
+      mo_ta:
+        type: string
+      nha_cung_cap_id:
+        type: integer
+      noi_bat:
+        type: boolean
+      so_dem:
+        minimum: 0
+        type: integer
+      so_ngay:
+        minimum: 1
+        type: integer
+      tieu_de:
+        description: Thông tin tour cơ bản
+        type: string
+      trang_thai:
+        type: string
+    required:
+    - gia_nguoi_lon
+    - gia_tre_em
+    - nha_cung_cap_id
+    - so_ngay
+    - tieu_de
+    type: object
+  models.CreateUser:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      phone:
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    type: object
+  models.GetUser:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      ngay_cap_nhat:
+        type: string
+      ngay_tao:
+        type: string
+      phone:
+        type: string
+      tong_dat_cho:
+        type: integer
+      tong_dat_cho_da_thanh_toan:
+        type: integer
+      tong_dat_cho_dang_cho_xac_nhan:
+        type: integer
+    type: object
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  models.OTP:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    type: object
+  models.RefreshTokenRequest:
+    properties:
+      refreshToken:
+        type: string
+    required:
+    - refreshToken
+    type: object
+  models.UpdateDiscountTourRequest:
+    properties:
+      id:
+        type: integer
+      ngay_bat_dau:
+        type: string
+      ngay_ket_thuc:
+        type: string
+      phan_tram:
+        type: number
+      tour_id:
+        type: integer
+    type: object
+  models.UpdateUser:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      ngay_cap_nhat:
+        type: string
+      phone:
+        type: string
+    type: object
+  pgtype.Date:
+    properties:
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      time:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  pgtype.InfinityModifier:
+    enum:
+    - 1
+    - 0
+    - -1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - Infinity
+    - Finite
+    - NegativeInfinity
+  pgtype.Interval:
+    properties:
+      days:
+        format: int32
+        type: integer
+      microseconds:
+        format: int64
+        type: integer
+      months:
+        format: int32
+        type: integer
+      valid:
+        type: boolean
+    type: object
+  pgtype.Numeric:
+    properties:
+      exp:
+        format: int32
+        type: integer
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      int:
+        $ref: '#/definitions/big.Int'
+      naN:
+        type: boolean
+      valid:
+        type: boolean
+    type: object
+  pgtype.Timestamp:
+    properties:
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      time:
+        description: Time zone will be ignored when encoding to PostgreSQL.
+        type: string
+      valid:
+        type: boolean
+    type: object
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Travia API for travel management
+  termsOfService: http://swagger.io/terms/
+  title: Travia API
+  version: "1.0"
+paths:
+  /admin/getBookingsByDayOfWeek:
+    get:
+      consumes:
+      - application/json
+      description: Lấy số booking theo ngày trong tuần
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetBookingsByDayOfWeekRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy số booking theo ngày trong tuần
+      tags:
+      - Admin
+  /admin/getBookingsByStatus:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thống kê booking theo trạng thái
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetBookingStatsByStatusRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy thống kê booking theo trạng thái
+      tags:
+      - Admin
+  /admin/getDashboardOverview:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tổng quan dashboard
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetDashboardOverviewRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy tổng quan dashboard
+      tags:
+      - Admin
+  /admin/getDashboardOverviewWithComparison:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tổng quan dashboard với so sánh tháng trước
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetDashboardOverviewWithComparisonRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy tổng quan dashboard với so sánh tháng trước
+      tags:
+      - Admin
+  /admin/getNewUsersToday:
+    get:
+      consumes:
+      - application/json
+      description: Lấy số người dùng mới hôm nay
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetNewUsersTodayRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy số người dùng mới hôm nay
+      tags:
+      - Admin
+  /admin/getRecentBookings:
+    get:
+      consumes:
+      - application/json
+      description: Lấy booking gần đây
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetRecentBookingsRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy booking gần đây
+      tags:
+      - Admin
+  /admin/getRevenueByDay:
+    get:
+      consumes:
+      - application/json
+      description: Lấy doanh thu theo ngày (30 ngày gần nhất)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetRevenueByDayRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy doanh thu theo ngày (30 ngày gần nhất)
+      tags:
+      - Admin
+  /admin/getRevenueByMonth:
+    get:
+      consumes:
+      - application/json
+      description: Lấy doanh thu theo tháng (12 tháng gần nhất)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetRevenueByMonthRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy doanh thu theo tháng (12 tháng gần nhất)
+      tags:
+      - Admin
+  /admin/getRevenueByYear:
+    get:
+      consumes:
+      - application/json
+      description: Lấy doanh thu theo năm
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetRevenueByYearRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy doanh thu theo năm
+      tags:
+      - Admin
+  /admin/getTopActiveUsers:
+    get:
+      consumes:
+      - application/json
+      description: Lấy top người dùng hoạt động nhiều nhất (theo số booking)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetTopActiveUsersRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy top người dùng hoạt động nhiều nhất (theo số booking)
+      tags:
+      - Admin
+  /admin/getTopBookedTours:
+    get:
+      consumes:
+      - application/json
+      description: Lấy top tours được đặt nhiều nhất
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetTopBookedToursRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy top tours được đặt nhiều nhất
+      tags:
+      - Admin
+  /admin/getTourPriceDistribution:
+    get:
+      consumes:
+      - application/json
+      description: Lấy phân bố giá tour
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetTourPriceDistributionRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy phân bố giá tour
+      tags:
+      - Admin
+  /admin/getToursCreatedByMonth:
+    get:
+      consumes:
+      - application/json
+      description: Lấy số tour mới theo tháng
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetToursCreatedByMonthRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy số tour mới theo tháng
+      tags:
+      - Admin
+  /admin/getUserGrowthByDay:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tăng trưởng người dùng theo ngày (30 ngày gần nhất)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetUserGrowthByDayRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy tăng trưởng người dùng theo ngày (30 ngày gần nhất)
+      tags:
+      - Admin
+  /admin/getUserGrowthByMonth:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tăng trưởng người dùng theo tháng (12 tháng gần nhất)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetUserGrowthByMonthRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy tăng trưởng người dùng theo tháng (12 tháng gần nhất)
+      tags:
+      - Admin
+  /admin/getUserStatsByRole:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thống kê người dùng theo vai trò
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetUserStatsByRoleRow'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy thống kê người dùng theo vai trò
+      tags:
+      - Admin
+  /admin/transactions:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tất cả giao dịch thanh toán với phân trang
+      parameters:
+      - description: 'Số lượng giao dịch mỗi trang (default: 20)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Số lượng giao dịch bỏ qua (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      - description: Lọc theo trạng thái (cho_thanh_toan, dang_cho_thanh_toan, thanh_cong,
+          that_bai)
+        in: query
+        name: status
+        type: string
+      - description: Lọc theo cổng thanh toán
+        in: query
+        name: gateway
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy danh sách giao dịch thanh toán
+      tags:
+      - Admin
+  /auth/changePassword:
+    put:
+      consumes:
+      - application/json
+      description: Đổi mật khẩu
+      parameters:
+      - description: Thông tin đổi mật khẩu
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đổi mật khẩu
+      tags:
+      - auth
+  /auth/createUser:
+    post:
+      consumes:
+      - application/json
+      description: Tạo tài khoản từ OTP
+      parameters:
+      - description: Thông tin OTP
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.OTP'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: OTP không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Tạo tài khoản từ OTP
+      tags:
+      - auth
+  /auth/createUserForm:
+    post:
+      consumes:
+      - application/json
+      description: Tạo tài khoản từ form
+      parameters:
+      - description: Thông tin tài khoản
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateUser'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "409":
+          description: Email đã được đăng ký
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Tạo tài khoản từ form
+      tags:
+      - auth
+  /auth/getUserById/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thông tin user
+      parameters:
+      - description: ID của user
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thông tin user
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      deprecated: true
+      description: Đăng nhập chung (deprecated - sử dụng /login/user, /login/admin
+        hoặc /login/supplier)
+      parameters:
+      - description: Thông tin đăng nhập
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng nhập (deprecated)
+      tags:
+      - auth
+  /auth/login/admin:
+    post:
+      consumes:
+      - application/json
+      description: Đăng nhập dành cho quản trị viên
+      parameters:
+      - description: Thông tin đăng nhập
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Không có quyền truy cập
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng nhập cho admin
+      tags:
+      - auth
+  /auth/login/supplier:
+    post:
+      consumes:
+      - application/json
+      description: Đăng nhập dành cho nhà cung cấp
+      parameters:
+      - description: Thông tin đăng nhập
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Không có quyền truy cập
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng nhập cho nhà cung cấp
+      tags:
+      - auth
+  /auth/login/user:
+    post:
+      consumes:
+      - application/json
+      description: Đăng nhập dành cho người dùng với vai trò khách hàng
+      parameters:
+      - description: Thông tin đăng nhập
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Không có quyền truy cập
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng nhập cho người dùng/khách hàng
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Đăng xuất (tokens được xóa ở frontend)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng xuất
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Làm mới access token bằng refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Refresh token không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Làm mới token
+      tags:
+      - auth
+  /auth/resetPassword/{email}:
+    put:
+      consumes:
+      - application/json
+      description: Đặt lại mật khẩu
+      parameters:
+      - description: Thông tin đặt lại mật khẩu
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/db.ResetPasswordParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đặt lại mật khẩu
+      tags:
+      - auth
+  /auth/updateUser:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin user
+      parameters:
+      - description: Thông tin cập nhật
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateUser'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Cập nhật thông tin user
+      tags:
+      - auth
+  /auth/updateUserById/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin user
+      parameters:
+      - description: ID của user
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin cập nhật
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.GetUser'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Cập nhật thông tin user
+      tags:
+      - auth
+  /booking/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get booking details by ID
+      parameters:
+      - description: Booking ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Get booking by ID
+      tags:
+      - Booking
+  /booking/add-passengers:
+    post:
+      consumes:
+      - application/json
+      description: Add passengers
+      parameters:
+      - description: Passengers
+        in: body
+        name: passengers
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/models.AddPassengersParams'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Add passengers
+      tags:
+      - Booking
+  /booking/create:
+    post:
+      consumes:
+      - application/json
+      description: Create booking
+      parameters:
+      - description: Booking
+        in: body
+        name: booking
+        required: true
+        schema:
+          $ref: '#/definitions/db.CreateBookingParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Create booking
+      tags:
+      - Booking
+  /booking/hold-seat/{khoi_hanh_id}/{so_nguoi_lon}/{so_tre_em}:
+    post:
+      consumes:
+      - application/json
+      description: Hold seat
+      parameters:
+      - description: Khoi Hanh ID
+        in: path
+        name: khoi_hanh_id
+        required: true
+        type: integer
+      - description: So Nguoi Lon
+        in: path
+        name: so_nguoi_lon
+        required: true
+        type: integer
+      - description: So Tre Em
+        in: path
+        name: so_tre_em
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Hold seat
+      tags:
+      - Booking
+  /booking/my-bookings:
+    get:
+      consumes:
+      - application/json
+      description: Get my bookings with pagination
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Get my bookings
+      tags:
+      - Booking
+  /departure/{id}:
+    delete:
+      description: Xóa một lịch khởi hành
+      parameters:
+      - description: Departure ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa lịch khởi hành
+      tags:
+      - departure
+    get:
+      description: Lấy thông tin chi tiết của một lịch khởi hành
+      parameters:
+      - description: Departure ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lấy chi tiết lịch khởi hành
+      tags:
+      - departure
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin lịch khởi hành
+      parameters:
+      - description: Departure ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateDepartureRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật lịch khởi hành
+      tags:
+      - departure
+  /departure/{id}/cancel:
+    put:
+      description: Hủy một lịch khởi hành (đặt status = huy)
+      parameters:
+      - description: Departure ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Hủy lịch khởi hành
+      tags:
+      - departure
+  /departure/create:
+    post:
+      consumes:
+      - application/json
+      description: Tạo lịch khởi hành mới cho tour
+      parameters:
+      - description: Departure data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateDepartureRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tạo lịch khởi hành
+      tags:
+      - departure
+  /departure/tour/{tour_id}:
+    get:
+      description: Lấy tất cả lịch khởi hành của một tour
+      parameters:
+      - description: Tour ID
+        in: path
+        name: tour_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lấy lịch khởi hành theo tour
+      tags:
+      - departure
+  /departure/upcoming:
+    get:
+      description: Lấy danh sách lịch khởi hành trong 30 ngày tới
+      parameters:
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lấy lịch khởi hành sắp tới
+      tags:
+      - departure
+  /destination:
+    post:
+      consumes:
+      - application/json
+      description: Tạo điểm đến
+      parameters:
+      - description: Destination
+        in: body
+        name: destination
+        required: true
+        schema:
+          $ref: '#/definitions/db.CreateDestinationParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.CreateDestinationParams'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Tạo điểm đến
+      tags:
+      - Destination
+  /destination/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy điểm đến theo ID
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.DiemDen'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy điểm đến theo ID
+      tags:
+      - Destination
+  /destination/city/{province}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách thành phố theo tỉnh thành
+      parameters:
+      - description: Province
+        in: path
+        name: province
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách thành phố theo tỉnh thành
+      tags:
+      - Destination
+  /destination/country:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách quốc gia
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách quốc gia
+      tags:
+      - Destination
+  /destination/for-tour-creation:
+    get:
+      consumes:
+      - application/json
+      description: Lấy điểm đến với pagination và search, tối ưu cho create tour
+      parameters:
+      - description: 'Limit (default: 20)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy điểm đến với pagination và search cho create tour
+      tags:
+      - Destination
+  /destination/getAllDestination:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả điểm đến
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.DiemDen'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tất cả điểm đến
+      tags:
+      - Destination
+  /destination/hierarchical:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả điểm đến được nhóm theo quốc gia, tỉnh thành và thành
+        phố
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tất cả điểm đến theo cấu trúc phân cấp
+      tags:
+      - Destination
+  /destination/province/{country}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tỉnh thành theo quốc gia
+      parameters:
+      - description: Country
+        in: path
+        name: country
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách tỉnh thành theo quốc gia
+      tags:
+      - Destination
+  /favorite/:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa tour yêu thích
+      parameters:
+      - description: Favorite
+        in: body
+        name: favorite
+        required: true
+        schema:
+          $ref: '#/definitions/db.DeleteFavoriteTourParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Xóa tour yêu thích
+      tags:
+      - Favorite
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tour yêu thích
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy danh sách tour yêu thích
+      tags:
+      - Favorite
+    post:
+      consumes:
+      - application/json
+      description: Thêm tour yêu thích
+      parameters:
+      - description: Favorite
+        in: body
+        name: favorite
+        required: true
+        schema:
+          $ref: '#/definitions/db.CreateFavoriteTourParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Thêm tour yêu thích
+      tags:
+      - Favorite
+  /location:
+    get:
+      consumes:
+      - application/json
+      description: Phát hiện quốc gia và thông tin địa lý dựa trên địa chỉ IP của
+        người dùng. Kết quả được cache trong 24 giờ.
+      parameters:
+      - description: IP address (tùy chọn, nếu không có sẽ tự động detect)
+        in: query
+        name: ip
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.LocationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thông tin vị trí địa lý của người dùng
+      tags:
+      - Location
+  /location/{ip}:
+    get:
+      consumes:
+      - application/json
+      description: Phát hiện quốc gia và thông tin địa lý dựa trên địa chỉ IP được
+        cung cấp
+      parameters:
+      - description: IP Address
+        in: path
+        name: ip
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.LocationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thông tin vị trí địa lý theo IP cụ thể
+      tags:
+      - Location
+  /payment/vnpay/create:
+    post:
+      consumes:
+      - application/json
+      description: Tạo URL thanh toán VNPay cho booking
+      parameters:
+      - description: Payment Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateVNPayPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Tạo URL thanh toán VNPay
+      tags:
+      - Payment
+  /payment/vnpay/ipn:
+    post:
+      consumes:
+      - application/json
+      description: Xử lý IPN callback từ VNPay server (tương đương payment_ipn trong
+        Python)
+      parameters:
+      - description: Amount
+        in: formData
+        name: vnp_Amount
+        required: true
+        type: string
+      - description: Bank Code
+        in: formData
+        name: vnp_BankCode
+        type: string
+      - description: Bank Transaction No
+        in: formData
+        name: vnp_BankTranNo
+        type: string
+      - description: Card Type
+        in: formData
+        name: vnp_CardType
+        type: string
+      - description: Order Info
+        in: formData
+        name: vnp_OrderInfo
+        required: true
+        type: string
+      - description: Pay Date
+        in: formData
+        name: vnp_PayDate
+        required: true
+        type: string
+      - description: Response Code
+        in: formData
+        name: vnp_ResponseCode
+        required: true
+        type: string
+      - description: TMN Code
+        in: formData
+        name: vnp_TmnCode
+        required: true
+        type: string
+      - description: Transaction No
+        in: formData
+        name: vnp_TransactionNo
+        required: true
+        type: string
+      - description: Transaction Status
+        in: formData
+        name: vnp_TransactionStatus
+        required: true
+        type: string
+      - description: Transaction Ref
+        in: formData
+        name: vnp_TxnRef
+        required: true
+        type: string
+      - description: Secure Hash
+        in: formData
+        name: vnp_SecureHash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: VNPay IPN Callback
+      tags:
+      - Payment
+  /payment/vnpay/return:
+    get:
+      consumes:
+      - application/json
+      description: Xử lý callback khi user quay lại từ VNPay
+      parameters:
+      - description: Amount
+        in: query
+        name: vnp_Amount
+        required: true
+        type: string
+      - description: Bank Code
+        in: query
+        name: vnp_BankCode
+        type: string
+      - description: Bank Transaction No
+        in: query
+        name: vnp_BankTranNo
+        type: string
+      - description: Card Type
+        in: query
+        name: vnp_CardType
+        type: string
+      - description: Order Info
+        in: query
+        name: vnp_OrderInfo
+        required: true
+        type: string
+      - description: Pay Date
+        in: query
+        name: vnp_PayDate
+        required: true
+        type: string
+      - description: Response Code
+        in: query
+        name: vnp_ResponseCode
+        required: true
+        type: string
+      - description: TMN Code
+        in: query
+        name: vnp_TmnCode
+        required: true
+        type: string
+      - description: Transaction No
+        in: query
+        name: vnp_TransactionNo
+        required: true
+        type: string
+      - description: Transaction Status
+        in: query
+        name: vnp_TransactionStatus
+        required: true
+        type: string
+      - description: Transaction Ref
+        in: query
+        name: vnp_TxnRef
+        required: true
+        type: string
+      - description: Secure Hash
+        in: query
+        name: vnp_SecureHash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: VNPay Return Callback
+      tags:
+      - Payment
+  /storage/list:
+    post:
+      consumes:
+      - application/json
+      description: List all images in the bucket
+      parameters:
+      - description: Folder path
+        in: query
+        name: folder_path
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: string
+      - description: Offset
+        in: query
+        name: offset
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.SupabaseFile'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: List images in the bucket
+      tags:
+      - Storage
+  /storage/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload image with a specific path in the bucket
+      parameters:
+      - description: Image file to upload (JPEG, PNG, GIF, WebP, BMP)
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Folder path
+        in: formData
+        name: folder_path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Upload image with a specific path in the bucket
+      tags:
+      - Storage
+  /storage/upload-multiple:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload multiple images with a specific path in the bucket. You
+        can select multiple files in the Swagger UI by holding Ctrl/Cmd while clicking
+        files.
+      parameters:
+      - description: Image files to upload (JPEG, PNG, GIF, WebP, BMP) - select multiple
+          files by holding Ctrl/Cmd
+        in: formData
+        name: files
+        required: true
+        type: file
+      - description: Folder path
+        in: formData
+        name: folder_path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "206":
+          description: Partial Content
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Upload multiple images with a specific path in the bucket
+      tags:
+      - Storage
+  /storage/upload-multiple-test:
+    get:
+      description: Returns an HTML form for testing multiple file uploads
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML form
+          schema:
+            type: string
+      summary: Test multiple file upload with HTML form
+      tags:
+      - Storage
+  /storage/upload-tour-images:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload multiple images for tour creation and return URLs for tour
+        creation
+      parameters:
+      - description: Image files to upload (JPEG, PNG, GIF, WebP, BMP)
+        in: formData
+        name: files
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Upload multiple images for tour creation
+      tags:
+      - Storage
+  /supplier:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả nhà cung cấp
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.NhaCungCap'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tất cả nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy nhà cung cấp theo ID
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.NhaCungCap'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy nhà cung cấp theo ID
+      tags:
+      - Supplier
+  /supplier/active:
+    get:
+      consumes:
+      - application/json
+      description: Lấy nhà cung cấp đang hoạt động
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.NhaCungCap'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy nhà cung cấp đang hoạt động
+      tags:
+      - Supplier
+  /supplier/all:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả nhà cung cấp bao gồm cả nhà cung cấp đã xóa
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.NhaCungCap'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tất cả nhà cung cấp bao gồm cả nhà cung cấp đã xóa
+      tags:
+      - Supplier
+  /supplier/approve/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Phê duyệt đối tác
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Phê duyệt đối tác
+      tags:
+      - Supplier
+  /supplier/bookings/advanced:
+    get:
+      consumes:
+      - application/json
+      description: 'Lấy danh sách đặt chỗ với nhiều filter: trạng thái, tour, thời
+        gian, search, pagination, sort'
+      parameters:
+      - description: Trạng thái (cho_xac_nhan, da_xac_nhan, da_thanh_toan, hoan_thanh,
+          da_huy)
+        in: query
+        name: trang_thai
+        type: string
+      - description: Tour ID
+        in: query
+        name: tour_id
+        type: integer
+      - description: Ngày đặt chỗ từ (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Ngày đặt chỗ đến (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: Ngày khởi hành từ (YYYY-MM-DD)
+        in: query
+        name: departure_start_date
+        type: string
+      - description: Ngày khởi hành đến (YYYY-MM-DD)
+        in: query
+        name: departure_end_date
+        type: string
+      - description: Tìm kiếm theo tên khách hàng, email hoặc tên tour
+        in: query
+        name: search_keyword
+        type: string
+      - description: Phương thức thanh toán
+        in: query
+        name: phuong_thuc_thanh_toan
+        type: string
+      - description: Số tiền tối thiểu
+        in: query
+        name: min_amount
+        type: number
+      - description: Số tiền tối đa
+        in: query
+        name: max_amount
+        type: number
+      - default: ngay_dat_desc
+        description: Sắp xếp (ngay_dat_asc, ngay_dat_desc, tong_tien_asc, tong_tien_desc,
+          ngay_khoi_hanh_asc, ngay_khoi_hanh_desc)
+        in: query
+        name: sort_by
+        type: string
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách đặt chỗ theo trạng thái với filter nâng cao
+      tags:
+      - Supplier
+  /supplier/count:
+    get:
+      consumes:
+      - application/json
+      description: Đếm số lượng nhà cung cấp
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            format: int64
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đếm số lượng nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/count-by-status:
+    get:
+      consumes:
+      - application/json
+      description: Đếm số lượng nhà cung cấp theo trạng thái
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.CountSuppliersByStatusRow'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đếm số lượng nhà cung cấp theo trạng thái
+      tags:
+      - Supplier
+  /supplier/createSupplier:
+    post:
+      consumes:
+      - application/json
+      description: Đăng ký đối tác và chờ admin duyệt
+      parameters:
+      - description: Thông tin đối tác
+        in: body
+        name: supplier
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateSupplierRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng ký đối tác
+      tags:
+      - Supplier
+  /supplier/dashboard/booking-stats:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thống kê booking theo trạng thái và thời gian
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thống kê booking theo trạng thái
+      tags:
+      - Supplier
+  /supplier/dashboard/cancellation-analysis:
+    get:
+      consumes:
+      - application/json
+      description: Lấy phân tích tỷ lệ hủy booking và doanh thu mất đi
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy phân tích tỷ lệ hủy booking
+      tags:
+      - Supplier
+  /supplier/dashboard/customer-stats:
+    get:
+      consumes:
+      - application/json
+      description: Lấy top khách hàng theo số lần đặt hoặc tổng tiền
+      parameters:
+      - default: spent
+        description: Sort by (spent, bookings)
+        in: query
+        name: sort_by
+        type: string
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thống kê khách hàng
+      tags:
+      - Supplier
+  /supplier/dashboard/monthly-comparison:
+    get:
+      consumes:
+      - application/json
+      description: So sánh số booking và doanh thu tháng hiện tại với tháng trước
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: So sánh tháng hiện tại với tháng trước
+      tags:
+      - Supplier
+  /supplier/dashboard/overview:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tổng quan dashboard với các thống kê tổng hợp
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tổng quan dashboard
+      tags:
+      - Supplier
+  /supplier/dashboard/rating-analysis:
+    get:
+      consumes:
+      - application/json
+      description: Lấy phân tích đánh giá tour với số lượng theo từng sao
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy phân tích đánh giá
+      tags:
+      - Supplier
+  /supplier/dashboard/recent-bookings:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách booking gần đây nhất
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy booking gần đây
+      tags:
+      - Supplier
+  /supplier/dashboard/revenue-by-time:
+    get:
+      consumes:
+      - application/json
+      description: Lấy doanh thu theo khoảng thời gian (day, week, month)
+      parameters:
+      - default: day
+        description: Period (day, week, month)
+        in: query
+        name: period
+        required: true
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy doanh thu theo khoảng thời gian
+      tags:
+      - Supplier
+  /supplier/dashboard/revenue-chart:
+    get:
+      consumes:
+      - application/json
+      description: Lấy dữ liệu doanh thu theo thời gian cho biểu đồ
+      parameters:
+      - default: day
+        description: Period (day, week, month)
+        in: query
+        name: period
+        required: true
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy biểu đồ doanh thu
+      tags:
+      - Supplier
+  /supplier/dashboard/top-tours:
+    get:
+      consumes:
+      - application/json
+      description: Lấy top tours bán chạy nhất theo doanh thu, số booking hoặc đánh
+        giá
+      parameters:
+      - default: revenue
+        description: Sort by (revenue, bookings, rating)
+        in: query
+        name: sort_by
+        type: string
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy top tours bán chạy nhất
+      tags:
+      - Supplier
+  /supplier/dashboard/tour-stats:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thống kê tour theo trạng thái
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thống kê tour theo trạng thái
+      tags:
+      - Supplier
+  /supplier/dashboard/upcoming-departures:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách lịch khởi hành sắp tới
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy lịch khởi hành sắp tới
+      tags:
+      - Supplier
+  /supplier/delete/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa nhà cung cấp
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Xóa nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/info:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thông tin nhà cung cấp
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy thông tin nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/pending:
+    get:
+      consumes:
+      - application/json
+      description: lấy danh sách nhà cung cấp chờ phê duyệt
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: lấy danh sách nhà cung cấp chờ phê duyệt
+      tags:
+      - Supplier
+  /supplier/register:
+    post:
+      consumes:
+      - application/json
+      description: Đăng ký đối tác và chờ admin duyệt (endpoint công khai)
+      parameters:
+      - description: Thông tin đối tác
+        in: body
+        name: supplier
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateSupplierRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đăng ký đối tác
+      tags:
+      - Supplier
+  /supplier/reject/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Từ chối đối tác
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Từ chối đối tác
+      tags:
+      - Supplier
+  /supplier/restore/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Khôi phục nhà cung cấp
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.NhaCungCap'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Khôi phục nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/search/{keyword}:
+    get:
+      consumes:
+      - application/json
+      description: Tìm kiếm nhà cung cấp
+      parameters:
+      - description: Keyword
+        in: path
+        name: keyword
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.NhaCungCap'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Tìm kiếm nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/soft-delete/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa nhà cung cấp
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Xóa nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/tours/my:
+    get:
+      consumes:
+      - application/json
+      description: lấy danh sách tour của nhà cung cấp
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - default: '""'
+        description: Trạng thái
+        in: query
+        name: trang_thai
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: lấy danh sách tour của nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/tours/update-status/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật trạng thái tour
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Trạng thái
+        in: body
+        name: trang_thai
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Cập nhật trạng thái tour
+      tags:
+      - Supplier
+  /supplier/updateSupplier:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật nhà cung cấp
+      parameters:
+      - description: Thông tin cập nhật
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/db.UpdateSupplierParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Lỗi yêu cầu không hợp lệ
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Cập nhật nhà cung cấp
+      tags:
+      - Supplier
+  /supplier/with-tour-count:
+    get:
+      consumes:
+      - application/json
+      description: Lấy nhà cung cấp với số lượng tour
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.GetSupplierWithTourCountRow'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy nhà cung cấp với số lượng tour
+      tags:
+      - Supplier
+  /tour:
+    post:
+      consumes:
+      - application/json
+      description: Tạo tour bao gồm ảnh, điểm đến, lịch trình và hoạt động trong 1
+        transaction. Đảm bảo tính toàn vẹn dữ liệu (all or nothing)
+      parameters:
+      - description: Tour data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateTourFullRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tạo tour với đầy đủ thông tin (1 transaction)
+      tags:
+      - tour
+  /tour/:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tour
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 1
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/db.GetAllTourRow'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách tour
+      tags:
+      - tour
+  /tour/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy chi tiết tour
+      parameters:
+      - description: ID tour
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/db.GetTourDetailByIDRow'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy chi tiết tour
+      tags:
+      - tour
+  /tour/categories:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh mục tour
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh mục tour
+      tags:
+      - tour
+  /tour/discount:
+    post:
+      consumes:
+      - application/json
+      description: Tạo khuyến mãi tour
+      parameters:
+      - description: Khuyến mãi tour
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateDiscountTourRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Tạo khuyến mãi tour
+      tags:
+      - tour
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật khuyến mãi tour
+      parameters:
+      - description: Khuyến mãi tour
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateDiscountTourRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Cập nhật khuyến mãi tour
+      tags:
+      - tour
+  /tour/discount/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa khuyến mãi tour
+      parameters:
+      - description: ID khuyến mãi tour
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Xóa khuyến mãi tour
+      tags:
+      - tour
+    get:
+      consumes:
+      - application/json
+      description: Lấy khuyến mãi tour theo tour id
+      parameters:
+      - description: ID tour
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy khuyến mãi tour theo tour id
+      tags:
+      - tour
+  /tour/filter:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tour theo filter
+      parameters:
+      - in: query
+        name: danh_muc_id
+        type: integer
+      - in: query
+        name: gia_max
+        type: number
+      - in: query
+        name: gia_min
+        type: number
+      - in: query
+        name: limit
+        type: integer
+      - in: query
+        name: offset
+        type: integer
+      - in: query
+        name: rating_min
+        type: number
+      - in: query
+        name: so_ngay_max
+        type: integer
+      - in: query
+        name: so_ngay_min
+        type: integer
+      - in: query
+        name: sort_by
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách tour theo filter
+      tags:
+      - tour
+  /tour/search:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tour theo tên
+      parameters:
+      - description: Keyword
+        in: query
+        name: keyword
+        type: string
+      - description: Diem den id
+        in: query
+        name: diem_den_id
+        type: integer
+      - description: Diem den ten
+        in: query
+        name: diem_den_ten
+        type: string
+      - description: So ngay min
+        in: query
+        name: so_ngay_min
+        type: integer
+      - description: So ngay max
+        in: query
+        name: so_ngay_max
+        type: integer
+      - description: So dem min
+        in: query
+        name: so_dem_min
+        type: integer
+      - description: So dem max
+        in: query
+        name: so_dem_max
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách tour theo tên
+      tags:
+      - tour
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,276 @@
+-- Migration: Add Payment Tables for Stripe Integration
+-- Created: October 2025
+-- Purpose: Support international payments via Stripe
+
+-- Payment method types
+CREATE TYPE loai_thanh_toan AS ENUM (
+    'stripe_card',      -- Credit/Debit card qua Stripe
+    'paypal',           -- PayPal
+    'vnpay',            -- VNPay (local Vietnam)
+    'momo',             -- MoMo wallet
+    'bank_transfer',    -- Chuyển khoản ngân hàng
+    'cash'              -- Tiền mặt
+);
+
+-- Payment status
+CREATE TYPE trang_thai_thanh_toan AS ENUM (
+    'pending',          -- Đang chờ thanh toán
+    'processing',       -- Đang xử lý
+    'completed',        -- Hoàn thành
+    'failed',           -- Thất bại
+    'cancelled',        -- Đã hủy
+    'refunded',         -- Đã hoàn tiền
+    'partially_refunded' -- Hoàn một phần
+);
+
+-- Payments table
+CREATE TABLE thanh_toan (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dat_cho_id INT NOT NULL REFERENCES dat_cho_tour(id) ON DELETE CASCADE,
+    nguoi_dung_id UUID NOT NULL REFERENCES nguoi_dung(id) ON DELETE CASCADE,
+    
+    -- Payment amount
+    so_tien DECIMAL(12,2) NOT NULL CHECK (so_tien >= 0),
+    don_vi_tien_te VARCHAR(3) NOT NULL DEFAULT 'USD', -- USD, VND, EUR, etc.
+    
+    -- Payment method
+    phuong_thuc loai_thanh_toan NOT NULL,
+    trang_thai trang_thai_thanh_toan DEFAULT 'pending',
+    
+    -- Stripe specific fields
+    stripe_payment_intent_id VARCHAR(255) UNIQUE,
+    stripe_charge_id VARCHAR(255),
+    stripe_customer_id VARCHAR(255),
+    stripe_payment_method_id VARCHAR(255),
+    
+    -- PayPal specific fields  
+    paypal_order_id VARCHAR(255),
+    paypal_capture_id VARCHAR(255),
+    
+    -- VNPay specific fields
+    vnpay_txn_ref VARCHAR(255),
+    vnpay_transaction_no VARCHAR(255),
+    
+    -- Card details (last 4 digits only)
+    card_brand VARCHAR(20),           -- visa, mastercard, amex
+    card_last4 VARCHAR(4),
+    card_exp_month INT,
+    card_exp_year INT,
+    
+    -- Additional info
+    mo_ta TEXT,
+    ghi_chu_noi_bo TEXT,              -- Internal notes
+    ip_address VARCHAR(45),            -- IP của người thanh toán
+    user_agent TEXT,                   -- Browser info
+    
+    -- Timestamps
+    ngay_thanh_toan TIMESTAMP,         -- Khi payment completed
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW(),
+    
+    -- Metadata (JSON for flexibility)
+    metadata JSONB
+);
+
+-- Payment history/logs (audit trail)
+CREATE TABLE lich_su_thanh_toan (
+    id SERIAL PRIMARY KEY,
+    thanh_toan_id UUID NOT NULL REFERENCES thanh_toan(id) ON DELETE CASCADE,
+    trang_thai_cu trang_thai_thanh_toan,
+    trang_thai_moi trang_thai_thanh_toan NOT NULL,
+    ghi_chu TEXT,
+    nguoi_thuc_hien_id UUID REFERENCES nguoi_dung(id),
+    ngay_tao TIMESTAMP DEFAULT NOW()
+);
+
+-- Refunds table
+CREATE TABLE hoan_tien (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    thanh_toan_id UUID NOT NULL REFERENCES thanh_toan(id) ON DELETE CASCADE,
+    so_tien DECIMAL(12,2) NOT NULL CHECK (so_tien > 0),
+    don_vi_tien_te VARCHAR(3) NOT NULL,
+    
+    -- Stripe refund ID
+    stripe_refund_id VARCHAR(255) UNIQUE,
+    
+    -- Refund reason
+    ly_do TEXT,
+    trang_thai trang_thai_thanh_toan DEFAULT 'pending',
+    
+    -- Who requested
+    nguoi_yeu_cau_id UUID REFERENCES nguoi_dung(id),
+    
+    -- Timestamps
+    ngay_hoan_tien TIMESTAMP,
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW()
+);
+
+-- Stripe webhooks log (for debugging)
+CREATE TABLE stripe_webhook_log (
+    id SERIAL PRIMARY KEY,
+    event_id VARCHAR(255) UNIQUE NOT NULL,  -- Stripe event ID
+    event_type VARCHAR(100) NOT NULL,        -- payment_intent.succeeded, etc.
+    payload JSONB NOT NULL,                  -- Full webhook payload
+    processed BOOLEAN DEFAULT FALSE,
+    error_message TEXT,
+    ngay_nhan TIMESTAMP DEFAULT NOW(),
+    ngay_xu_ly TIMESTAMP
+);
+
+-- Payment configurations (for admin)
+CREATE TABLE cau_hinh_thanh_toan (
+    id SERIAL PRIMARY KEY,
+    phuong_thuc loai_thanh_toan NOT NULL UNIQUE,
+    dang_hoat_dong BOOLEAN DEFAULT TRUE,
+    
+    -- Fee configuration
+    phi_phan_tram DECIMAL(5,2),        -- % fee
+    phi_co_dinh DECIMAL(10,2),         -- Fixed fee
+    
+    -- API keys (encrypted)
+    api_key_public TEXT,
+    api_key_secret TEXT,               -- Should be encrypted in production
+    webhook_secret TEXT,
+    
+    -- Display info
+    ten_hien_thi VARCHAR(100),
+    mo_ta TEXT,
+    logo_url TEXT,
+    thu_tu_hien_thi INT DEFAULT 0,
+    
+    -- Limits
+    so_tien_toi_thieu DECIMAL(10,2),
+    so_tien_toi_da DECIMAL(12,2),
+    
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW()
+);
+
+-- ===========================================
+-- INDEXES
+-- ===========================================
+
+-- Payments indexes
+CREATE INDEX idx_thanh_toan_dat_cho_id ON thanh_toan(dat_cho_id);
+CREATE INDEX idx_thanh_toan_nguoi_dung_id ON thanh_toan(nguoi_dung_id);
+CREATE INDEX idx_thanh_toan_trang_thai ON thanh_toan(trang_thai);
+CREATE INDEX idx_thanh_toan_phuong_thuc ON thanh_toan(phuong_thuc);
+CREATE INDEX idx_thanh_toan_stripe_payment_intent_id ON thanh_toan(stripe_payment_intent_id);
+CREATE INDEX idx_thanh_toan_ngay_tao ON thanh_toan(ngay_tao);
+
+-- Refunds indexes
+CREATE INDEX idx_hoan_tien_thanh_toan_id ON hoan_tien(thanh_toan_id);
+CREATE INDEX idx_hoan_tien_trang_thai ON hoan_tien(trang_thai);
+
+-- Webhook log indexes
+CREATE INDEX idx_stripe_webhook_log_event_type ON stripe_webhook_log(event_type);
+CREATE INDEX idx_stripe_webhook_log_processed ON stripe_webhook_log(processed);
+CREATE INDEX idx_stripe_webhook_log_ngay_nhan ON stripe_webhook_log(ngay_nhan);
+
+-- Payment history indexes
+CREATE INDEX idx_lich_su_thanh_toan_thanh_toan_id ON lich_su_thanh_toan(thanh_toan_id);
+CREATE INDEX idx_lich_su_thanh_toan_ngay_tao ON lich_su_thanh_toan(ngay_tao);
+
+-- ===========================================
+-- TRIGGERS
+-- ===========================================
+
+-- Auto-update ngay_cap_nhat
+CREATE OR REPLACE FUNCTION update_thanh_toan_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.ngay_cap_nhat = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_thanh_toan_timestamp
+    BEFORE UPDATE ON thanh_toan
+    FOR EACH ROW
+    EXECUTE FUNCTION update_thanh_toan_timestamp();
+
+-- Log payment status changes
+CREATE OR REPLACE FUNCTION log_payment_status_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.trang_thai IS DISTINCT FROM NEW.trang_thai THEN
+        INSERT INTO lich_su_thanh_toan (
+            thanh_toan_id,
+            trang_thai_cu,
+            trang_thai_moi,
+            ghi_chu
+        ) VALUES (
+            NEW.id,
+            OLD.trang_thai,
+            NEW.trang_thai,
+            'Status changed automatically'
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_log_payment_status
+    AFTER UPDATE ON thanh_toan
+    FOR EACH ROW
+    EXECUTE FUNCTION log_payment_status_change();
+
+-- ===========================================
+-- INITIAL DATA
+-- ===========================================
+
+-- Insert Stripe configuration
+INSERT INTO cau_hinh_thanh_toan (
+    phuong_thuc,
+    dang_hoat_dong,
+    phi_phan_tram,
+    phi_co_dinh,
+    ten_hien_thi,
+    mo_ta,
+    thu_tu_hien_thi,
+    so_tien_toi_thieu,
+    so_tien_toi_da
+) VALUES (
+    'stripe_card',
+    TRUE,
+    3.90,
+    0.30,
+    'Credit/Debit Card',
+    'Pay securely with Visa, Mastercard, or American Express',
+    1,
+    1.00,
+    999999.99
+);
+
+-- Insert PayPal configuration
+INSERT INTO cau_hinh_thanh_toan (
+    phuong_thuc,
+    dang_hoat_dong,
+    phi_phan_tram,
+    phi_co_dinh,
+    ten_hien_thi,
+    mo_ta,
+    thu_tu_hien_thi,
+    so_tien_toi_thieu
+) VALUES (
+    'paypal',
+    FALSE,  -- Disabled by default
+    4.40,
+    0.30,
+    'PayPal',
+    'Pay with PayPal account or credit card',
+    2,
+    1.00
+);
+
+-- Comments for documentation
+COMMENT ON TABLE thanh_toan IS 'Stores all payment transactions for tour bookings';
+COMMENT ON TABLE lich_su_thanh_toan IS 'Audit trail for payment status changes';
+COMMENT ON TABLE hoan_tien IS 'Refund records for payments';
+COMMENT ON TABLE stripe_webhook_log IS 'Logs all Stripe webhook events for debugging';
+COMMENT ON TABLE cau_hinh_thanh_toan IS 'Payment method configurations';
+
+COMMENT ON COLUMN thanh_toan.stripe_payment_intent_id IS 'Stripe PaymentIntent ID - primary reference for Stripe payments';
+COMMENT ON COLUMN thanh_toan.metadata IS 'Flexible JSONB field for storing additional payment metadata';
+

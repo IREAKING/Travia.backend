@@ -1,0 +1,144 @@
+### Stripe Payment API Testing Examples
+### Base URL
+@baseUrl = http://localhost:8080/api
+
+### Test Token (replace with real token)
+@authToken = Bearer your_jwt_token_here
+
+### ===================================
+### 1. Get Stripe Public Configuration
+### ===================================
+GET {{baseUrl}}/payment/config
+Content-Type: application/json
+
+###
+
+### ===================================
+### 2. Create Payment Intent
+### ===================================
+POST {{baseUrl}}/payment/create-intent
+Content-Type: application/json
+Authorization: {{authToken}}
+
+{
+  "booking_id": 1,
+  "amount": 500.00,
+  "currency": "usd"
+}
+
+###
+
+### ===================================
+### 3. Create Payment Intent (VND)
+### ===================================
+POST {{baseUrl}}/payment/create-intent
+Content-Type: application/json
+Authorization: {{authToken}}
+
+{
+  "booking_id": 2,
+  "amount": 12500000,
+  "currency": "vnd"
+}
+
+###
+
+### ===================================
+### 4. Get Payment Status
+### ===================================
+GET {{baseUrl}}/payment/status/pi_xxxxxxxxxxxxx
+Authorization: {{authToken}}
+
+###
+
+### ===================================
+### 5. Confirm Payment
+### ===================================
+POST {{baseUrl}}/payment/confirm/pi_xxxxxxxxxxxxx
+Authorization: {{authToken}}
+
+###
+
+### ===================================
+### 6. Create Full Refund (Admin)
+### ===================================
+POST {{baseUrl}}/payment/refund
+Content-Type: application/json
+Authorization: {{authToken}}
+
+{
+  "payment_id": "pi_xxxxxxxxxxxxx",
+  "reason": "Customer requested cancellation within 24h"
+}
+
+###
+
+### ===================================
+### 7. Create Partial Refund (Admin)
+### ===================================
+POST {{baseUrl}}/payment/refund
+Content-Type: application/json
+Authorization: {{authToken}}
+
+{
+  "payment_id": "pi_xxxxxxxxxxxxx",
+  "amount": 250.00,
+  "reason": "Partial refund for service downgrade"
+}
+
+###
+
+### ===================================
+### 8. Webhook Testing (Stripe CLI)
+### ===================================
+### Run in terminal:
+### stripe listen --forward-to localhost:8080/api/payment/webhook
+### stripe trigger payment_intent.succeeded
+
+POST {{baseUrl}}/payment/webhook
+Content-Type: application/json
+Stripe-Signature: t=xxxxx,v1=xxxxx
+
+{
+  "id": "evt_test_webhook",
+  "object": "event",
+  "api_version": "2023-10-16",
+  "created": 1677858242,
+  "data": {
+    "object": {
+      "id": "pi_xxxxxxxxxxxxx",
+      "object": "payment_intent",
+      "amount": 50000,
+      "currency": "usd",
+      "status": "succeeded"
+    }
+  },
+  "type": "payment_intent.succeeded"
+}
+
+###
+
+### ===================================
+### Production Testing (after deployment)
+### ===================================
+### @prodUrl = https://travia-363518914287.europe-west1.run.app/api
+
+### Production: Get Stripe Config
+# GET {{prodUrl}}/payment/config
+# Content-Type: application/json
+
+###
+
+### Production: Create Payment Intent
+# POST {{prodUrl}}/payment/create-intent
+# Content-Type: application/json
+# Authorization: {{authToken}}
+# 
+# {
+#   "booking_id": 1,
+#   "amount": 500.00,
+#   "currency": "usd"
+# }
+
+###
+
