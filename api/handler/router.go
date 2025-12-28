@@ -405,6 +405,8 @@ func (s *Server) SetupRoutes() {
 			)
 			// Return URL callback (public - VNPay redirects here)
 			vnpay.GET("/return", s.VNPayCallback)
+			// Verify callback (public - Frontend calls this with VNPay params)
+			vnpay.GET("/verify", s.VNPayVerifyCallback)
 			// IPN callback (public - VNPay server calls this)
 			vnpay.POST("/ipn", s.VNPayIPN)
 		}
@@ -502,7 +504,7 @@ func (s *Server) SetupRoutes() {
 	}
 	// ========== FAVORITE ROUTES (Favorite management) ==========
 	favorite := api.Group("/favorite")
-		{
+	{
 		favorite.POST("/", middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret), s.CreateFavoriteTour)
 		favorite.DELETE("/", middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret), s.DeleteFavoriteTour)
 		favorite.GET("/", middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret), s.GetFavoriteTours)

@@ -136,10 +136,31 @@ func (s *Server) CreateVNPayPaymentURL(c *gin.Context) {
 		return
 	}
 
+	// Validate TongTien
+	if !booking.TongTien.Valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Booking không có số tiền hợp lệ"})
+		return
+	}
+
 	// Lưu vào DB (Giữ nguyên logic CreateTransaction cũ của bạn)
 	congThanhToanID := "vnpay"
 	noiDungChuyenKhoan := fmt.Sprintf("Thanh toan don dat cho #%d qua VNPay", booking.ID)
 	bookingID := booking.ID
+
+	// Log thông tin để debug
+	fmt.Printf("=== Creating Transaction ===\n")
+	fmt.Printf("Booking ID: %d\n", bookingID)
+	fmt.Printf("User ID: %s\n", booking.NguoiDungID.String())
+	fmt.Printf("Transaction Code: %s\n", transactionCode)
+	fmt.Printf("Payment Gateway ID: %s\n", congThanhToanID)
+	fmt.Printf("TongTien Valid: %v\n", booking.TongTien.Valid)
+	if booking.TongTien.Valid {
+		floatVal, _ := booking.TongTien.Float64Value()
+		if floatVal.Valid {
+			fmt.Printf("TongTien Value: %.2f\n", floatVal.Float64)
+		}
+	}
+	fmt.Printf("===========================\n")
 
 	_, err = s.z.CreateTransaction(c.Request.Context(), db.CreateTransactionParams{
 		DatChoID:           &bookingID,
@@ -151,7 +172,11 @@ func (s *Server) CreateVNPayPaymentURL(c *gin.Context) {
 	})
 	if err != nil {
 		fmt.Printf("ERROR: Failed to create transaction: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo giao dịch thanh toán"})
+		fmt.Printf("ERROR Details - Booking ID: %d, Gateway ID: %s, Transaction Code: %s\n", bookingID, congThanhToanID, transactionCode)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Không thể tạo giao dịch thanh toán",
+			"details": err.Error(),
+		})
 		return
 	}
 
@@ -310,6 +335,188 @@ func (s *Server) VNPayCallback(c *gin.Context) {
 	returnURL := s.config.VNPayConfig.ReturnURL
 	fmt.Printf("Redirecting to frontend: %s?status=failed&booking_id=%d&transaction_code=%s&error_code=%s\n", returnURL, bookingID, txnRef, responseCode)
 	c.Redirect(http.StatusFound, fmt.Sprintf("%s?status=failed&booking_id=%d&transaction_code=%s&error_code=%s", returnURL, bookingID, txnRef, responseCode))
+}
+
+// VNPayVerifyCallback xử lý callback từ frontend (khi VNPay redirect về frontend)
+// Frontend sẽ gọi endpoint này với VNPay params để verify và xử lý
+// @Summary VNPay Verify Callback
+// @Description Frontend gọi endpoint này với VNPay params để verify và xử lý transaction
+// @Tags Payment
+// @Accept json
+// @Produce json
+// @Param vnp_Amount query string true "Amount"
+// @Param vnp_BankCode query string false "Bank Code"
+// @Param vnp_BankTranNo query string false "Bank Transaction No"
+// @Param vnp_CardType query string false "Card Type"
+// @Param vnp_OrderInfo query string true "Order Info"
+// @Param vnp_PayDate query string true "Pay Date"
+// @Param vnp_ResponseCode query string true "Response Code"
+// @Param vnp_TmnCode query string true "TMN Code"
+// @Param vnp_TransactionNo query string true "Transaction No"
+// @Param vnp_TransactionStatus query string true "Transaction Status"
+// @Param vnp_TxnRef query string true "Transaction Ref"
+// @Param vnp_SecureHash query string true "Secure Hash"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Router /payment/vnpay/verify [get]
+func (s *Server) VNPayVerifyCallback(c *gin.Context) {
+	// Log để debug
+	fmt.Printf("=== VNPay Verify Callback (from Frontend) ===\n")
+	fmt.Printf("Request URL: %s\n", c.Request.URL.String())
+	fmt.Printf("Query Params: %v\n", c.Request.URL.Query())
+	fmt.Printf("==========================================\n")
+
+	// Lấy tất cả query parameters
+	queryParams := c.Request.URL.Query()
+
+	// Verify signature
+	if !s.verifyVNPaySignature(queryParams) {
+		fmt.Printf("ERROR: Invalid signature in Verify Callback\n")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"error":   "Invalid signature",
+			"message": "Chữ ký không hợp lệ",
+		})
+		return
+	}
+	fmt.Printf("Signature verified successfully\n")
+
+	// Parse response code
+	responseCode := queryParams.Get("vnp_ResponseCode")
+	transactionStatus := queryParams.Get("vnp_TransactionStatus")
+	txnRef := queryParams.Get("vnp_TxnRef")
+	transactionNo := queryParams.Get("vnp_TransactionNo")
+
+	// Tìm transaction trong database
+	transaction, err := s.z.GetTransactionByCode(c.Request.Context(), txnRef)
+	if err != nil {
+		fmt.Printf("ERROR: Transaction not found: %v\n", err)
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  "failed",
+			"error":   "Transaction not found",
+			"message": "Không tìm thấy giao dịch",
+		})
+		return
+	}
+
+	if transaction.DatChoID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"error":   "Invalid transaction",
+			"message": "Giao dịch không hợp lệ",
+		})
+		return
+	}
+	bookingID := int(*transaction.DatChoID)
+
+	// Kiểm tra booking tồn tại và ở trạng thái hợp lệ
+	booking, err := s.z.GetBookingById(c.Request.Context(), int32(bookingID))
+	if err != nil {
+		fmt.Printf("ERROR: Booking not found: %v\n", err)
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  "failed",
+			"error":   "Booking not found",
+			"message": "Không tìm thấy đơn đặt chỗ",
+		})
+		return
+	}
+
+	// Kiểm tra booking status hợp lệ
+	if !booking.TrangThai.Valid || (booking.TrangThai.TrangThaiDatCho != "cho_xac_nhan" && booking.TrangThai.TrangThaiDatCho != "da_xac_nhan") {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":           "failed",
+			"error":            "invalid_booking_status",
+			"message":          "Đơn đặt chỗ không ở trạng thái hợp lệ để thanh toán",
+			"booking_id":       bookingID,
+			"transaction_code": txnRef,
+		})
+		return
+	}
+
+	// Kiểm tra response code
+	if responseCode == "00" && transactionStatus == "00" {
+		fmt.Printf("Payment SUCCESS - ResponseCode: %s, TransactionStatus: %s\n", responseCode, transactionStatus)
+
+		// Cập nhật transaction
+		transaction, err = s.z.GetTransactionByCode(c.Request.Context(), txnRef)
+		if err == nil {
+			trangThai := db.NullTrangThaiThanhToan{
+				TrangThaiThanhToan: "thanh_cong",
+				Valid:              true,
+			}
+			_, err = s.z.UpdateTransactionStatus(c.Request.Context(), db.UpdateTransactionStatusParams{
+				ID:          transaction.ID,
+				TrangThai:   trangThai,
+				MaThamChieu: &transactionNo,
+			})
+			if err != nil {
+				fmt.Printf("ERROR: Failed to update transaction status: %v\n", err)
+			} else {
+				fmt.Printf("Transaction status updated successfully - ID: %d\n", transaction.ID)
+			}
+		}
+
+		// Cập nhật booking status
+		phuongThuc := "vnpay"
+		updatedBooking, err := s.z.UpdateBookingPaymentStatus(c.Request.Context(), db.UpdateBookingPaymentStatusParams{
+			ID:                  int32(bookingID),
+			PhuongThucThanhToan: &phuongThuc,
+		})
+		if err != nil {
+			fmt.Printf("ERROR: Failed to update booking payment status: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":           "failed",
+				"error":            "update_failed",
+				"message":          "Không thể cập nhật trạng thái đơn đặt chỗ",
+				"booking_id":       bookingID,
+				"transaction_code": txnRef,
+			})
+			return
+		}
+		fmt.Printf("Booking payment status updated successfully - Booking ID: %d\n", bookingID)
+
+		// Kiểm tra xem booking đã được cập nhật thành công chưa
+		if !updatedBooking.TrangThai.Valid || updatedBooking.TrangThai.TrangThaiDatCho != "da_thanh_toan" {
+			fmt.Printf("WARNING: Booking status not updated correctly. Booking ID: %d, Status: %v\n", bookingID, updatedBooking.TrangThai)
+		}
+
+		// Trả về success
+		c.JSON(http.StatusOK, gin.H{
+			"status":           "success",
+			"message":          "Thanh toán thành công",
+			"booking_id":       bookingID,
+			"transaction_code": txnRef,
+		})
+		return
+	}
+
+	// Thanh toán thất bại
+	fmt.Printf("Payment FAILED - ResponseCode: %s, TransactionStatus: %s\n", responseCode, transactionStatus)
+	transaction, err = s.z.GetTransactionByCode(c.Request.Context(), txnRef)
+	if err == nil {
+		trangThai := db.NullTrangThaiThanhToan{
+			TrangThaiThanhToan: "that_bai",
+			Valid:              true,
+		}
+		_, err = s.z.UpdateTransactionStatus(c.Request.Context(), db.UpdateTransactionStatusParams{
+			ID:        transaction.ID,
+			TrangThai: trangThai,
+		})
+		if err != nil {
+			fmt.Printf("ERROR: Failed to update transaction status to failed: %v\n", err)
+		} else {
+			fmt.Printf("Transaction status updated to failed - ID: %d\n", transaction.ID)
+		}
+	}
+
+	// Trả về failed với error code
+	c.JSON(http.StatusOK, gin.H{
+		"status":           "failed",
+		"message":          "Thanh toán thất bại",
+		"error_code":       responseCode,
+		"booking_id":       bookingID,
+		"transaction_code": txnRef,
+	})
 }
 
 // VNPayIPN xử lý IPN (Instant Payment Notification) từ VNPay
