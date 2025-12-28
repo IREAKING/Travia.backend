@@ -137,7 +137,7 @@ func (s *Server) CreateVNPayPaymentURL(c *gin.Context) {
 	}
 
 	// Lưu vào DB (Giữ nguyên logic CreateTransaction cũ của bạn)
-	congThanhToanID := "VNPAY"
+	congThanhToanID := "vnpay"
 	noiDungChuyenKhoan := fmt.Sprintf("Thanh toan don dat cho #%d qua VNPay", booking.ID)
 	bookingID := booking.ID
 

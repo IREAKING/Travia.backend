@@ -522,8 +522,8 @@ func (s *Server) SetupSwagger() {
 	docs.SwaggerInfo.Title = "Travia API"
 	docs.SwaggerInfo.Description = "Travia Travel Management API with Google OAuth"
 	docs.SwaggerInfo.Version = "1.0"
-	//docs.SwaggerInfo.Host = fmt.Sprintf("%s:%s", "localhost", s.config.ServerConfig.Port)
-	docs.SwaggerInfo.Host = "travia-backend-363518914287.asia-southeast1.run.app"
+	docs.SwaggerInfo.Host = fmt.Sprintf("%s:%s", "localhost", s.config.ServerConfig.Port)
+	//docs.SwaggerInfo.Host = "travia-backend-363518914287.asia-southeast1.run.app"
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 	docs.SwaggerInfo.BasePath = "/api"
 

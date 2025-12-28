@@ -15,6 +15,10 @@
 \echo 'Bắt đầu insert dữ liệu mẫu...'
 \echo '=========================================='
 
+-- 0. CỔNG THANH TOÁN (không phụ thuộc bảng nào, cần thiết cho lich_su_giao_dich)
+\echo 'Đang insert cong_thanh_toan...'
+\i congthanhtoan.sql
+
 -- 1. NGƯỜI DÙNG (bắt buộc cho các bảng khác)
 \echo 'Đang insert nguoi_dung...'
 \i nguoidung.sql
@@ -72,7 +76,9 @@
 \echo 'Thống kê dữ liệu:'
 \echo '----------------------------------------'
 
-SELECT 'nguoi_dung' as bang, COUNT(*) as so_luong FROM nguoi_dung
+SELECT 'cong_thanh_toan' as bang, COUNT(*) as so_luong FROM cong_thanh_toan
+UNION ALL
+SELECT 'nguoi_dung', COUNT(*) FROM nguoi_dung
 UNION ALL
 SELECT 'danh_muc_tour', COUNT(*) FROM danh_muc_tour
 UNION ALL
