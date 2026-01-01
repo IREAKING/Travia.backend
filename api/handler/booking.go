@@ -345,7 +345,9 @@ func (s *Server) AddPassengers(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
-// @ApiKeyAuth ApiKeyAuth
+// @Param trang_thai_dat_cho query string false "Trạng thái đặt chỗ"
+// @Param trang_thai_khoi_hanh query string false "Trạng thái khởi hành"
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -353,6 +355,19 @@ func (s *Server) AddPassengers(c *gin.Context) {
 func (s *Server) GetMyBookings(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
+
+	var trangThaiDatCho *string
+	var trangThaiKhoiHanh *string
+
+	if c.Query("trang_thai_dat_cho") != "" {
+		status := c.Query("trang_thai_dat_cho")
+		trangThaiDatCho = &status
+	}
+	if c.Query("trang_thai_khoi_hanh") != "" {
+		status := c.Query("trang_thai_khoi_hanh")
+		// Nếu có dấu phẩy, đó là nhiều giá trị - giữ nguyên để SQL xử lý
+		trangThaiKhoiHanh = &status
+	}
 
 	claims, exists := c.Get("claims")
 	if !exists {
@@ -377,18 +392,34 @@ func (s *Server) GetMyBookings(c *gin.Context) {
 	}
 
 	// Get bookings with pagination
-	bookings, err := s.z.GetBookingsByUser(ctx, db.GetBookingsByUserParams{
+	params := db.GetBookingsByUserParams{
 		NguoiDungID: userUUID,
 		Limit:       int32(limit),
 		Offset:      int32(offset),
-	})
+	}
+	if trangThaiDatCho != nil {
+		params.Column4 = *trangThaiDatCho
+	}
+	if trangThaiKhoiHanh != nil {
+		params.Column5 = *trangThaiKhoiHanh
+	}
+	bookings, err := s.z.GetBookingsByUser(ctx, params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get bookings"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get bookings", "message": err.Error()})
 		return
 	}
 
-	// Get total count
-	totalCount, err := s.z.CountBookingsByUser(ctx, userUUID)
+	// Get total count with same filters
+	countParams := db.CountBookingsByUserParams{
+		NguoiDungID: userUUID,
+	}
+	if trangThaiDatCho != nil {
+		countParams.Column2 = *trangThaiDatCho
+	}
+	if trangThaiKhoiHanh != nil {
+		countParams.Column3 = *trangThaiKhoiHanh
+	}
+	totalCount, err := s.z.CountBookingsByUser(ctx, countParams)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count bookings"})
 		return

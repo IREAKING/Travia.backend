@@ -421,10 +421,9 @@ func (s *Server) SetupRoutes() {
 		{
 			bookingAuth.POST("/create", s.CreateBooking)
 			bookingAuth.POST("/add-passengers", s.AddPassengers)
-			fmt.Println("✅ Route registered: POST /api/booking/add-passengers")
 			bookingAuth.GET("/:id", s.GetBookingById)
-			fmt.Println("✅ Route registered: GET /api/booking/:id")
 			bookingAuth.GET("/my-bookings",
+				middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
 				middleware.RequireRoles("khach_hang"),
 				s.GetMyBookings)
 		}
@@ -488,6 +487,10 @@ func (s *Server) SetupRoutes() {
 			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
 			middleware.InvalidateCacheMiddleware(s.redis, "cache:http:*review*"),
 		)
+		{
+			reviewAuth.POST("/create", s.CreateReview)
+			reviewAuth.GET("/check/:dat_cho_id", s.CheckReviewStatus)
+		}
 
 	}
 
@@ -508,6 +511,13 @@ func (s *Server) SetupRoutes() {
 		favorite.POST("/", middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret), s.CreateFavoriteTour)
 		favorite.DELETE("/", middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret), s.DeleteFavoriteTour)
 		favorite.GET("/", middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret), s.GetFavoriteTours)
+	}
+	ticket := api.Group("/ticket")
+	{
+		ticket.GET("/:dat_cho_id",
+			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
+			s.PrintTicket,
+		)
 	}
 }
 

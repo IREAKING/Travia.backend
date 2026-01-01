@@ -620,6 +620,31 @@ definitions:
       tour_id:
         type: integer
     type: object
+  models.CreateReviewRequest:
+    properties:
+      dat_cho_id:
+        description: ID của booking đã hoàn thành
+        type: integer
+      diem_danh_gia:
+        description: Điểm đánh giá từ 1-5
+        maximum: 5
+        minimum: 1
+        type: integer
+      hinh_anh_dinh_kem:
+        description: Mảng URL ảnh đính kèm (optional)
+        items:
+          type: string
+        type: array
+      noi_dung:
+        description: Nội dung đánh giá (optional)
+        type: string
+      tieu_de:
+        description: Tiêu đề đánh giá (optional)
+        type: string
+    required:
+    - dat_cho_id
+    - diem_danh_gia
+    type: object
   models.CreateSupplierRequest:
     properties:
       thong_tin_dang_nhap:
@@ -1870,6 +1895,14 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Trạng thái đặt chỗ
+        in: query
+        name: trang_thai_dat_cho
+        type: string
+      - description: Trạng thái khởi hành
+        in: query
+        name: trang_thai_khoi_hanh
+        type: string
       produces:
       - application/json
       responses:
@@ -1885,6 +1918,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
       summary: Get my bookings
       tags:
       - Booking
@@ -2605,6 +2640,161 @@ paths:
       summary: VNPay Return Callback
       tags:
       - Payment
+  /payment/vnpay/verify:
+    get:
+      consumes:
+      - application/json
+      description: Frontend gọi endpoint này với VNPay params để verify và xử lý transaction
+      parameters:
+      - description: Amount
+        in: query
+        name: vnp_Amount
+        required: true
+        type: string
+      - description: Bank Code
+        in: query
+        name: vnp_BankCode
+        type: string
+      - description: Bank Transaction No
+        in: query
+        name: vnp_BankTranNo
+        type: string
+      - description: Card Type
+        in: query
+        name: vnp_CardType
+        type: string
+      - description: Order Info
+        in: query
+        name: vnp_OrderInfo
+        required: true
+        type: string
+      - description: Pay Date
+        in: query
+        name: vnp_PayDate
+        required: true
+        type: string
+      - description: Response Code
+        in: query
+        name: vnp_ResponseCode
+        required: true
+        type: string
+      - description: TMN Code
+        in: query
+        name: vnp_TmnCode
+        required: true
+        type: string
+      - description: Transaction No
+        in: query
+        name: vnp_TransactionNo
+        required: true
+        type: string
+      - description: Transaction Status
+        in: query
+        name: vnp_TransactionStatus
+        required: true
+        type: string
+      - description: Transaction Ref
+        in: query
+        name: vnp_TxnRef
+        required: true
+        type: string
+      - description: Secure Hash
+        in: query
+        name: vnp_SecureHash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: VNPay Verify Callback
+      tags:
+      - Payment
+  /review/create:
+    post:
+      consumes:
+      - application/json
+      description: Tạo đánh giá tour khi đã hoàn thành tour (booking có trạng thái
+        hoan_thanh)
+      parameters:
+      - description: Thông tin đánh giá
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Tạo đánh giá tour
+      tags:
+      - Review
+  /review/tour/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Lấy đánh giá tour theo ID tour
+      parameters:
+      - description: ID tour
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy đánh giá tour
+      tags:
+      - Review
   /storage/list:
     post:
       consumes:

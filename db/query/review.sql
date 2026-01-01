@@ -1,18 +1,18 @@
-
--- name: GetReviewByTourId :many
+-- name: GetReviewByTourId :one
 WITH tour_reviews_data AS (
-    -- 1. Lấy dữ liệu đánh giá và người dùng, chỉ tập trung vào tour cần tìm
     SELECT
         dg.tour_id,
-        dg.diem_danh_gia, -- Giữ lại cột điểm đánh giá để tính toán
+        dg.diem_danh_gia,
         json_build_object(
             'id', dg.id,
             'tieu_de', dg.tieu_de,
             'diem_danh_gia', dg.diem_danh_gia,
             'noi_dung', dg.noi_dung,
-            'hinh_anh_dinh_kem', dg.hinh_anh_dinh_kem,
-            'ngay_tao', dg.ngay_tao,
-            'ho_ten', nd.ho_ten -- Tên người dùng
+            -- Ép kiểu TEXT[] sang JSONB để mảng hình ảnh hiển thị đúng dạng [] trong JSON
+            'hinh_anh_dinh_kem', to_jsonb(dg.hinh_anh_dinh_kem), 
+            -- Ép kiểu sang TIMESTAMPTZ để Go parse được (ISO 8601)
+            'ngay_tao', dg.ngay_tao::timestamptz,
+            'ho_ten', nd.ho_ten
         ) AS review_detail
     FROM danh_gia dg
     LEFT JOIN nguoi_dung nd ON dg.nguoi_dung_id = nd.id
@@ -20,34 +20,70 @@ WITH tour_reviews_data AS (
     AND dg.dang_hoat_dong = TRUE
 ),
 tour_reviews AS (
-    -- 2. Tổng hợp dữ liệu, tính toán thống kê và điểm sao
     SELECT
         trd.tour_id,
-        -- Tổng hợp mảng JSON (Giữ nguyên)
         json_agg(trd.review_detail ORDER BY (trd.review_detail->>'ngay_tao') DESC) AS thong_tin_danh_gia,
-        
-        -- Thống kê tổng quan
         COUNT(trd.tour_id) AS tong_so_danh_gia,
-        COALESCE(AVG(trd.diem_danh_gia), 0) AS diem_trung_binh,
-        
-        -- THỐNG KÊ ĐIỂM SAO CHI TIẾT
+        COALESCE(AVG(trd.diem_danh_gia), 0)::float AS diem_trung_binh,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 5) AS so_luong_5_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 4) AS so_luong_4_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 3) AS so_luong_3_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 2) AS so_luong_2_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 1) AS so_luong_1_sao
-        
     FROM tour_reviews_data trd
     GROUP BY trd.tour_id
 )
--- SỬ DỤNG TRONG CÂU SELECT CUỐI CÙNG (CỦA TOÀN BỘ ENDPOINT)
+SELECT * FROM tour_reviews;
+
+-- name: CheckBookingCompletedAndNotReviewed :one
+-- Kiểm tra booking có thể đánh giá: trang_thai_dat_cho = 'da_thanh_toan' VÀ trang_thai_khoi_hanh = 'hoan_thanh'
 SELECT 
-    tr.thong_tin_danh_gia,
-    tr.tong_so_danh_gia,
-    tr.diem_trung_binh,
-    tr.so_luong_5_sao,
-    tr.so_luong_4_sao,
-    tr.so_luong_3_sao,
-    tr.so_luong_2_sao,
-    tr.so_luong_1_sao
-FROM tour_reviews tr;
+    dc.id AS dat_cho_id,
+    dc.nguoi_dung_id,
+    dc.khoi_hanh_id,
+    kh.tour_id,
+    CASE WHEN dg.id IS NULL THEN FALSE ELSE TRUE END AS da_co_review
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+LEFT JOIN danh_gia dg ON dg.dat_cho_id = dc.id AND dg.dang_hoat_dong = TRUE
+WHERE dc.id = $1
+    AND dc.nguoi_dung_id = $2
+    AND dc.trang_thai = 'da_thanh_toan'
+    AND kh.trang_thai = 'hoan_thanh';
+
+-- name: CheckReviewExists :one
+-- Kiểm tra đã có review cho booking này chưa
+SELECT EXISTS(
+    SELECT 1 
+    FROM danh_gia 
+    WHERE dat_cho_id = $1 
+        AND nguoi_dung_id = $2
+        AND dang_hoat_dong = TRUE
+) AS exists;
+
+-- name: CreateReview :one
+-- Tạo đánh giá tour mới (chỉ khi booking đã hoàn thành)
+INSERT INTO danh_gia (
+    tour_id,
+    nguoi_dung_id,
+    dat_cho_id,
+    diem_danh_gia,
+    tieu_de,
+    noi_dung,
+    hinh_anh_dinh_kem,
+    dang_hoat_dong,
+    ngay_tao,
+    ngay_cap_nhat
+) VALUES (
+    $1, -- tour_id
+    $2, -- nguoi_dung_id
+    $3, -- dat_cho_id
+    $4, -- diem_danh_gia
+    $5, -- tieu_de
+    $6, -- noi_dung
+    $7, -- hinh_anh_dinh_kem
+    TRUE,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+RETURNING *;

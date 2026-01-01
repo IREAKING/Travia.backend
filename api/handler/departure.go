@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -71,8 +72,10 @@ func (s *Server) CreateDeparture(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo lịch khởi hành"})
+		fmt.Println("error", err)
 		return
 	}
+	
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Tạo lịch khởi hành thành công",

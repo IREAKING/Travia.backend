@@ -260,20 +260,55 @@ SELECT
     dc.*,
     kh.ngay_khoi_hanh,
     kh.ngay_ket_thuc,
+    kh.trang_thai AS trang_thai_khoi_hanh, -- Trạng thái thực tế của chuyến đi
     t.tieu_de AS ten_tour,
+    -- Giả sử bảng anh_tour tồn tại như trong subquery của bạn
     (SELECT duong_dan FROM anh_tour WHERE tour_id = t.id AND la_anh_chinh = TRUE LIMIT 1) AS anh_tour
 FROM dat_cho dc
 JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
 JOIN tour t ON t.id = kh.tour_id
-WHERE dc.nguoi_dung_id = $1
+WHERE 
+    dc.nguoi_dung_id = $1
+    -- Lọc theo trạng thái đặt chỗ (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    AND CASE 
+        WHEN COALESCE($4::text, '') = '' THEN TRUE
+        ELSE dc.trang_thai = ($4::text)::trang_thai_dat_cho
+    END
+    -- Lọc theo trạng thái khởi hành (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    -- Hỗ trợ nhiều giá trị phân cách bằng dấu phẩy
+    AND CASE 
+        WHEN COALESCE($5::text, '') = '' THEN TRUE
+        WHEN $5::text LIKE '%,%' THEN 
+            kh.trang_thai IN (
+                SELECT unnest(string_to_array($5::text, ','))::trang_thai_khoi_hanh
+            )
+        ELSE kh.trang_thai = ($5::text)::trang_thai_khoi_hanh
+    END
 ORDER BY dc.ngay_dat DESC
 LIMIT $2 OFFSET $3;
 
 -- name: CountBookingsByUser :one
--- Đếm tổng số đặt chỗ của người dùng
+-- Đếm tổng số đặt chỗ của người dùng (có filter)
 SELECT COUNT(*)::int AS total_count
 FROM dat_cho dc
-WHERE dc.nguoi_dung_id = $1;
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+WHERE 
+    dc.nguoi_dung_id = $1
+    -- Lọc theo trạng thái đặt chỗ (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    AND CASE 
+        WHEN COALESCE($2::text, '') = '' THEN TRUE
+        ELSE dc.trang_thai = ($2::text)::trang_thai_dat_cho
+    END
+    -- Lọc theo trạng thái khởi hành (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    -- Hỗ trợ nhiều giá trị phân cách bằng dấu phẩy
+    AND CASE 
+        WHEN COALESCE($3::text, '') = '' THEN TRUE
+        WHEN $3::text LIKE '%,%' THEN 
+            kh.trang_thai IN (
+                SELECT unnest(string_to_array($3::text, ','))::trang_thai_khoi_hanh
+            )
+        ELSE kh.trang_thai = ($3::text)::trang_thai_khoi_hanh
+    END;
 
 -- ===========================================
 -- BƯỚC 3: NHẬP THÔNG TIN HÀNH KHÁCH

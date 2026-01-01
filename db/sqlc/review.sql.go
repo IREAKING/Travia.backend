@@ -7,22 +7,156 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getReviewByTourId = `-- name: GetReviewByTourId :many
+const checkBookingCompletedAndNotReviewed = `-- name: CheckBookingCompletedAndNotReviewed :one
+SELECT 
+    dc.id AS dat_cho_id,
+    dc.nguoi_dung_id,
+    dc.khoi_hanh_id,
+    kh.tour_id,
+    CASE WHEN dg.id IS NULL THEN FALSE ELSE TRUE END AS da_co_review
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+LEFT JOIN danh_gia dg ON dg.dat_cho_id = dc.id AND dg.dang_hoat_dong = TRUE
+WHERE dc.id = $1
+    AND dc.nguoi_dung_id = $2
+    AND dc.trang_thai = 'da_thanh_toan'
+    AND kh.trang_thai = 'hoan_thanh'
+`
+
+type CheckBookingCompletedAndNotReviewedParams struct {
+	ID          int32       `json:"id"`
+	NguoiDungID pgtype.UUID `json:"nguoi_dung_id"`
+}
+
+type CheckBookingCompletedAndNotReviewedRow struct {
+	DatChoID    int32       `json:"dat_cho_id"`
+	NguoiDungID pgtype.UUID `json:"nguoi_dung_id"`
+	KhoiHanhID  int32       `json:"khoi_hanh_id"`
+	TourID      int32       `json:"tour_id"`
+	DaCoReview  bool        `json:"da_co_review"`
+}
+
+// Kiểm tra booking có thể đánh giá: trang_thai_dat_cho = 'da_thanh_toan' VÀ trang_thai_khoi_hanh = 'hoan_thanh'
+func (q *Queries) CheckBookingCompletedAndNotReviewed(ctx context.Context, arg CheckBookingCompletedAndNotReviewedParams) (CheckBookingCompletedAndNotReviewedRow, error) {
+	row := q.db.QueryRow(ctx, checkBookingCompletedAndNotReviewed, arg.ID, arg.NguoiDungID)
+	var i CheckBookingCompletedAndNotReviewedRow
+	err := row.Scan(
+		&i.DatChoID,
+		&i.NguoiDungID,
+		&i.KhoiHanhID,
+		&i.TourID,
+		&i.DaCoReview,
+	)
+	return i, err
+}
+
+const checkReviewExists = `-- name: CheckReviewExists :one
+SELECT EXISTS(
+    SELECT 1 
+    FROM danh_gia 
+    WHERE dat_cho_id = $1 
+        AND nguoi_dung_id = $2
+        AND dang_hoat_dong = TRUE
+) AS exists
+`
+
+type CheckReviewExistsParams struct {
+	DatChoID    int32       `json:"dat_cho_id"`
+	NguoiDungID pgtype.UUID `json:"nguoi_dung_id"`
+}
+
+// Kiểm tra đã có review cho booking này chưa
+func (q *Queries) CheckReviewExists(ctx context.Context, arg CheckReviewExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, checkReviewExists, arg.DatChoID, arg.NguoiDungID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const createReview = `-- name: CreateReview :one
+INSERT INTO danh_gia (
+    tour_id,
+    nguoi_dung_id,
+    dat_cho_id,
+    diem_danh_gia,
+    tieu_de,
+    noi_dung,
+    hinh_anh_dinh_kem,
+    dang_hoat_dong,
+    ngay_tao,
+    ngay_cap_nhat
+) VALUES (
+    $1, -- tour_id
+    $2, -- nguoi_dung_id
+    $3, -- dat_cho_id
+    $4, -- diem_danh_gia
+    $5, -- tieu_de
+    $6, -- noi_dung
+    $7, -- hinh_anh_dinh_kem
+    TRUE,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+RETURNING id, tour_id, nguoi_dung_id, dat_cho_id, diem_danh_gia, tieu_de, noi_dung, hinh_anh_dinh_kem, dang_hoat_dong, ngay_tao, ngay_cap_nhat
+`
+
+type CreateReviewParams struct {
+	TourID         int32       `json:"tour_id"`
+	NguoiDungID    pgtype.UUID `json:"nguoi_dung_id"`
+	DatChoID       int32       `json:"dat_cho_id"`
+	DiemDanhGia    int32       `json:"diem_danh_gia"`
+	TieuDe         *string     `json:"tieu_de"`
+	NoiDung        *string     `json:"noi_dung"`
+	HinhAnhDinhKem []string    `json:"hinh_anh_dinh_kem"`
+}
+
+// Tạo đánh giá tour mới (chỉ khi booking đã hoàn thành)
+func (q *Queries) CreateReview(ctx context.Context, arg CreateReviewParams) (DanhGium, error) {
+	row := q.db.QueryRow(ctx, createReview,
+		arg.TourID,
+		arg.NguoiDungID,
+		arg.DatChoID,
+		arg.DiemDanhGia,
+		arg.TieuDe,
+		arg.NoiDung,
+		arg.HinhAnhDinhKem,
+	)
+	var i DanhGium
+	err := row.Scan(
+		&i.ID,
+		&i.TourID,
+		&i.NguoiDungID,
+		&i.DatChoID,
+		&i.DiemDanhGia,
+		&i.TieuDe,
+		&i.NoiDung,
+		&i.HinhAnhDinhKem,
+		&i.DangHoatDong,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const getReviewByTourId = `-- name: GetReviewByTourId :one
 WITH tour_reviews_data AS (
-    -- 1. Lấy dữ liệu đánh giá và người dùng, chỉ tập trung vào tour cần tìm
     SELECT
         dg.tour_id,
-        dg.diem_danh_gia, -- Giữ lại cột điểm đánh giá để tính toán
+        dg.diem_danh_gia,
         json_build_object(
             'id', dg.id,
             'tieu_de', dg.tieu_de,
             'diem_danh_gia', dg.diem_danh_gia,
             'noi_dung', dg.noi_dung,
-            'hinh_anh_dinh_kem', dg.hinh_anh_dinh_kem,
-            'ngay_tao', dg.ngay_tao,
-            'ho_ten', nd.ho_ten -- Tên người dùng
+            -- Ép kiểu TEXT[] sang JSONB để mảng hình ảnh hiển thị đúng dạng [] trong JSON
+            'hinh_anh_dinh_kem', to_jsonb(dg.hinh_anh_dinh_kem), 
+            -- Ép kiểu sang TIMESTAMPTZ để Go parse được (ISO 8601)
+            'ngay_tao', dg.ngay_tao::timestamptz,
+            'ho_ten', nd.ho_ten
         ) AS review_detail
     FROM danh_gia dg
     LEFT JOIN nguoi_dung nd ON dg.nguoi_dung_id = nd.id
@@ -30,75 +164,47 @@ WITH tour_reviews_data AS (
     AND dg.dang_hoat_dong = TRUE
 ),
 tour_reviews AS (
-    -- 2. Tổng hợp dữ liệu, tính toán thống kê và điểm sao
     SELECT
         trd.tour_id,
-        -- Tổng hợp mảng JSON (Giữ nguyên)
         json_agg(trd.review_detail ORDER BY (trd.review_detail->>'ngay_tao') DESC) AS thong_tin_danh_gia,
-        
-        -- Thống kê tổng quan
         COUNT(trd.tour_id) AS tong_so_danh_gia,
-        COALESCE(AVG(trd.diem_danh_gia), 0) AS diem_trung_binh,
-        
-        -- THỐNG KÊ ĐIỂM SAO CHI TIẾT
+        COALESCE(AVG(trd.diem_danh_gia), 0)::float AS diem_trung_binh,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 5) AS so_luong_5_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 4) AS so_luong_4_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 3) AS so_luong_3_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 2) AS so_luong_2_sao,
         COUNT(trd.diem_danh_gia) FILTER (WHERE trd.diem_danh_gia = 1) AS so_luong_1_sao
-        
     FROM tour_reviews_data trd
     GROUP BY trd.tour_id
 )
-SELECT 
-    tr.thong_tin_danh_gia,
-    tr.tong_so_danh_gia,
-    tr.diem_trung_binh,
-    tr.so_luong_5_sao,
-    tr.so_luong_4_sao,
-    tr.so_luong_3_sao,
-    tr.so_luong_2_sao,
-    tr.so_luong_1_sao
-FROM tour_reviews tr
+SELECT tour_id, thong_tin_danh_gia, tong_so_danh_gia, diem_trung_binh, so_luong_5_sao, so_luong_4_sao, so_luong_3_sao, so_luong_2_sao, so_luong_1_sao FROM tour_reviews
 `
 
 type GetReviewByTourIdRow struct {
-	ThongTinDanhGia []byte      `json:"thong_tin_danh_gia"`
-	TongSoDanhGia   int64       `json:"tong_so_danh_gia"`
-	DiemTrungBinh   interface{} `json:"diem_trung_binh"`
-	SoLuong5Sao     int64       `json:"so_luong_5_sao"`
-	SoLuong4Sao     int64       `json:"so_luong_4_sao"`
-	SoLuong3Sao     int64       `json:"so_luong_3_sao"`
-	SoLuong2Sao     int64       `json:"so_luong_2_sao"`
-	SoLuong1Sao     int64       `json:"so_luong_1_sao"`
+	TourID          int32   `json:"tour_id"`
+	ThongTinDanhGia []byte  `json:"thong_tin_danh_gia"`
+	TongSoDanhGia   int64   `json:"tong_so_danh_gia"`
+	DiemTrungBinh   float64 `json:"diem_trung_binh"`
+	SoLuong5Sao     int64   `json:"so_luong_5_sao"`
+	SoLuong4Sao     int64   `json:"so_luong_4_sao"`
+	SoLuong3Sao     int64   `json:"so_luong_3_sao"`
+	SoLuong2Sao     int64   `json:"so_luong_2_sao"`
+	SoLuong1Sao     int64   `json:"so_luong_1_sao"`
 }
 
-// SỬ DỤNG TRONG CÂU SELECT CUỐI CÙNG (CỦA TOÀN BỘ ENDPOINT)
-func (q *Queries) GetReviewByTourId(ctx context.Context, tourID int32) ([]GetReviewByTourIdRow, error) {
-	rows, err := q.db.Query(ctx, getReviewByTourId, tourID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetReviewByTourIdRow
-	for rows.Next() {
-		var i GetReviewByTourIdRow
-		if err := rows.Scan(
-			&i.ThongTinDanhGia,
-			&i.TongSoDanhGia,
-			&i.DiemTrungBinh,
-			&i.SoLuong5Sao,
-			&i.SoLuong4Sao,
-			&i.SoLuong3Sao,
-			&i.SoLuong2Sao,
-			&i.SoLuong1Sao,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetReviewByTourId(ctx context.Context, tourID int32) (GetReviewByTourIdRow, error) {
+	row := q.db.QueryRow(ctx, getReviewByTourId, tourID)
+	var i GetReviewByTourIdRow
+	err := row.Scan(
+		&i.TourID,
+		&i.ThongTinDanhGia,
+		&i.TongSoDanhGia,
+		&i.DiemTrungBinh,
+		&i.SoLuong5Sao,
+		&i.SoLuong4Sao,
+		&i.SoLuong3Sao,
+		&i.SoLuong2Sao,
+		&i.SoLuong1Sao,
+	)
+	return i, err
 }

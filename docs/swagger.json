@@ -1392,6 +1392,11 @@
         },
         "/booking/my-bookings": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get my bookings with pagination",
                 "consumes": [
                     "application/json"
@@ -1416,6 +1421,18 @@
                         "default": 0,
                         "description": "Offset",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trạng thái đặt chỗ",
+                        "name": "trang_thai_dat_cho",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trạng thái khởi hành",
+                        "name": "trang_thai_khoi_hanh",
                         "in": "query"
                     }
                 ],
@@ -2576,6 +2593,237 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/vnpay/verify": {
+            "get": {
+                "description": "Frontend gọi endpoint này với VNPay params để verify và xử lý transaction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payment"
+                ],
+                "summary": "VNPay Verify Callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Amount",
+                        "name": "vnp_Amount",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bank Code",
+                        "name": "vnp_BankCode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bank Transaction No",
+                        "name": "vnp_BankTranNo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Card Type",
+                        "name": "vnp_CardType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order Info",
+                        "name": "vnp_OrderInfo",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pay Date",
+                        "name": "vnp_PayDate",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Response Code",
+                        "name": "vnp_ResponseCode",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "TMN Code",
+                        "name": "vnp_TmnCode",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Transaction No",
+                        "name": "vnp_TransactionNo",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Transaction Status",
+                        "name": "vnp_TransactionStatus",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Transaction Ref",
+                        "name": "vnp_TxnRef",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Secure Hash",
+                        "name": "vnp_SecureHash",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/review/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Tạo đánh giá tour khi đã hoàn thành tour (booking có trạng thái hoan_thanh)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Tạo đánh giá tour",
+                "parameters": [
+                    {
+                        "description": "Thông tin đánh giá",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateReviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/review/tour/{id}": {
+            "get": {
+                "description": "Lấy đánh giá tour theo ID tour",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Lấy đánh giá tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID tour",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
                         }
@@ -5767,6 +6015,40 @@
                 },
                 "tour_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.CreateReviewRequest": {
+            "type": "object",
+            "required": [
+                "dat_cho_id",
+                "diem_danh_gia"
+            ],
+            "properties": {
+                "dat_cho_id": {
+                    "description": "ID của booking đã hoàn thành",
+                    "type": "integer"
+                },
+                "diem_danh_gia": {
+                    "description": "Điểm đánh giá từ 1-5",
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 1
+                },
+                "hinh_anh_dinh_kem": {
+                    "description": "Mảng URL ảnh đính kèm (optional)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "noi_dung": {
+                    "description": "Nội dung đánh giá (optional)",
+                    "type": "string"
+                },
+                "tieu_de": {
+                    "description": "Tiêu đề đánh giá (optional)",
+                    "type": "string"
                 }
             }
         },

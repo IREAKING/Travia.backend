@@ -226,12 +226,35 @@ func (q *Queries) ConfirmBooking(ctx context.Context, id int32) (DatCho, error) 
 const countBookingsByUser = `-- name: CountBookingsByUser :one
 SELECT COUNT(*)::int AS total_count
 FROM dat_cho dc
-WHERE dc.nguoi_dung_id = $1
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+WHERE 
+    dc.nguoi_dung_id = $1
+    -- Lọc theo trạng thái đặt chỗ (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    AND CASE 
+        WHEN COALESCE($2::text, '') = '' THEN TRUE
+        ELSE dc.trang_thai = ($2::text)::trang_thai_dat_cho
+    END
+    -- Lọc theo trạng thái khởi hành (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    -- Hỗ trợ nhiều giá trị phân cách bằng dấu phẩy
+    AND CASE 
+        WHEN COALESCE($3::text, '') = '' THEN TRUE
+        WHEN $3::text LIKE '%,%' THEN 
+            kh.trang_thai IN (
+                SELECT unnest(string_to_array($3::text, ','))::trang_thai_khoi_hanh
+            )
+        ELSE kh.trang_thai = ($3::text)::trang_thai_khoi_hanh
+    END
 `
 
-// Đếm tổng số đặt chỗ của người dùng
-func (q *Queries) CountBookingsByUser(ctx context.Context, nguoiDungID pgtype.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, countBookingsByUser, nguoiDungID)
+type CountBookingsByUserParams struct {
+	NguoiDungID pgtype.UUID `json:"nguoi_dung_id"`
+	Column2     string      `json:"column_2"`
+	Column3     string      `json:"column_3"`
+}
+
+// Đếm tổng số đặt chỗ của người dùng (có filter)
+func (q *Queries) CountBookingsByUser(ctx context.Context, arg CountBookingsByUserParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countBookingsByUser, arg.NguoiDungID, arg.Column2, arg.Column3)
 	var total_count int32
 	err := row.Scan(&total_count)
 	return total_count, err
@@ -611,12 +634,30 @@ SELECT
     dc.id, dc.nguoi_dung_id, dc.khoi_hanh_id, dc.so_nguoi_lon, dc.so_tre_em, dc.tong_tien, dc.don_vi_tien_te, dc.trang_thai, dc.phuong_thuc_thanh_toan, dc.ngay_dat, dc.ngay_cap_nhat,
     kh.ngay_khoi_hanh,
     kh.ngay_ket_thuc,
+    kh.trang_thai AS trang_thai_khoi_hanh, -- Trạng thái thực tế của chuyến đi
     t.tieu_de AS ten_tour,
+    -- Giả sử bảng anh_tour tồn tại như trong subquery của bạn
     (SELECT duong_dan FROM anh_tour WHERE tour_id = t.id AND la_anh_chinh = TRUE LIMIT 1) AS anh_tour
 FROM dat_cho dc
 JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
 JOIN tour t ON t.id = kh.tour_id
-WHERE dc.nguoi_dung_id = $1
+WHERE 
+    dc.nguoi_dung_id = $1
+    -- Lọc theo trạng thái đặt chỗ (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    AND CASE 
+        WHEN COALESCE($4::text, '') = '' THEN TRUE
+        ELSE dc.trang_thai = ($4::text)::trang_thai_dat_cho
+    END
+    -- Lọc theo trạng thái khởi hành (truyền NULL hoặc empty string nếu muốn lấy tất cả)
+    -- Hỗ trợ nhiều giá trị phân cách bằng dấu phẩy
+    AND CASE 
+        WHEN COALESCE($5::text, '') = '' THEN TRUE
+        WHEN $5::text LIKE '%,%' THEN 
+            kh.trang_thai IN (
+                SELECT unnest(string_to_array($5::text, ','))::trang_thai_khoi_hanh
+            )
+        ELSE kh.trang_thai = ($5::text)::trang_thai_khoi_hanh
+    END
 ORDER BY dc.ngay_dat DESC
 LIMIT $2 OFFSET $3
 `
@@ -625,29 +666,38 @@ type GetBookingsByUserParams struct {
 	NguoiDungID pgtype.UUID `json:"nguoi_dung_id"`
 	Limit       int32       `json:"limit"`
 	Offset      int32       `json:"offset"`
+	Column4     string      `json:"column_4"`
+	Column5     string      `json:"column_5"`
 }
 
 type GetBookingsByUserRow struct {
-	ID                  int32               `json:"id"`
-	NguoiDungID         pgtype.UUID         `json:"nguoi_dung_id"`
-	KhoiHanhID          int32               `json:"khoi_hanh_id"`
-	SoNguoiLon          *int32              `json:"so_nguoi_lon"`
-	SoTreEm             *int32              `json:"so_tre_em"`
-	TongTien            pgtype.Numeric      `json:"tong_tien"`
-	DonViTienTe         *string             `json:"don_vi_tien_te"`
-	TrangThai           NullTrangThaiDatCho `json:"trang_thai"`
-	PhuongThucThanhToan *string             `json:"phuong_thuc_thanh_toan"`
-	NgayDat             pgtype.Timestamp    `json:"ngay_dat"`
-	NgayCapNhat         pgtype.Timestamp    `json:"ngay_cap_nhat"`
-	NgayKhoiHanh        pgtype.Date         `json:"ngay_khoi_hanh"`
-	NgayKetThuc         pgtype.Date         `json:"ngay_ket_thuc"`
-	TenTour             string              `json:"ten_tour"`
-	AnhTour             string              `json:"anh_tour"`
+	ID                  int32                 `json:"id"`
+	NguoiDungID         pgtype.UUID           `json:"nguoi_dung_id"`
+	KhoiHanhID          int32                 `json:"khoi_hanh_id"`
+	SoNguoiLon          *int32                `json:"so_nguoi_lon"`
+	SoTreEm             *int32                `json:"so_tre_em"`
+	TongTien            pgtype.Numeric        `json:"tong_tien"`
+	DonViTienTe         *string               `json:"don_vi_tien_te"`
+	TrangThai           NullTrangThaiDatCho   `json:"trang_thai"`
+	PhuongThucThanhToan *string               `json:"phuong_thuc_thanh_toan"`
+	NgayDat             pgtype.Timestamp      `json:"ngay_dat"`
+	NgayCapNhat         pgtype.Timestamp      `json:"ngay_cap_nhat"`
+	NgayKhoiHanh        pgtype.Date           `json:"ngay_khoi_hanh"`
+	NgayKetThuc         pgtype.Date           `json:"ngay_ket_thuc"`
+	TrangThaiKhoiHanh   NullTrangThaiKhoiHanh `json:"trang_thai_khoi_hanh"`
+	TenTour             string                `json:"ten_tour"`
+	AnhTour             string                `json:"anh_tour"`
 }
 
 // Lấy danh sách đặt chỗ của người dùng
 func (q *Queries) GetBookingsByUser(ctx context.Context, arg GetBookingsByUserParams) ([]GetBookingsByUserRow, error) {
-	rows, err := q.db.Query(ctx, getBookingsByUser, arg.NguoiDungID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getBookingsByUser,
+		arg.NguoiDungID,
+		arg.Limit,
+		arg.Offset,
+		arg.Column4,
+		arg.Column5,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -669,6 +719,7 @@ func (q *Queries) GetBookingsByUser(ctx context.Context, arg GetBookingsByUserPa
 			&i.NgayCapNhat,
 			&i.NgayKhoiHanh,
 			&i.NgayKetThuc,
+			&i.TrangThaiKhoiHanh,
 			&i.TenTour,
 			&i.AnhTour,
 		); err != nil {
