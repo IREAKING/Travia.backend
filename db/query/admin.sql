@@ -5,57 +5,99 @@
 -- =====================
 -- 1. DASHBOARD OVERVIEW
 -- =====================
+-- name: SupplierOptions :many
+select nha_cung_cap.id, nha_cung_cap.ten from nha_cung_cap
+join nguoi_dung on nguoi_dung.id = nha_cung_cap.id
+where dang_hoat_dong = true
+and nguoi_dung.vai_tro = 'nha_cung_cap'
+order by nguoi_dung.ngay_tao desc;
 
 -- name: GetDashboardOverview :one
 -- Tổng quan dashboard: tổng số người dùng, tour, booking, doanh thu
-SELECT 
-    (SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE) AS tong_nguoi_dung,
-    (SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE AND vai_tro = 'khach_hang') AS tong_khach_hang,
-    (SELECT COUNT(*) FROM nha_cung_cap) AS tong_nha_cung_cap,
-    (SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE) AS tong_tour,
-    (SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE AND trang_thai = 'cong_bo') AS tour_dang_hoat_dong,
-    (SELECT COUNT(*) FROM dat_cho) AS tong_dat_cho,
-    (SELECT COUNT(*) FROM dat_cho WHERE trang_thai = 'da_thanh_toan') AS dat_cho_da_thanh_toan,
-    (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')) AS tong_doanh_thu,
-    (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho 
-     WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh') 
-     AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS doanh_thu_thang_nay,
-    (SELECT COUNT(*) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS tong_danh_gia,
-    (SELECT COALESCE(AVG(diem_danh_gia), 0) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS diem_danh_gia_trung_binh;
+SELECT
+(SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE) AS tong_nguoi_dung,
+(SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE AND vai_tro = 'khach_hang') AS tong_khach_hang,
+(SELECT COUNT(*) FROM nha_cung_cap) AS tong_nha_cung_cap,
+(SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE) AS tong_tour,
+(SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE AND trang_thai = 'cong_bo') AS tour_dang_hoat_dong,
+(SELECT COUNT(*) FROM dat_cho) AS tong_dat_cho,
+(SELECT COUNT(*) FROM dat_cho WHERE trang_thai = 'da_thanh_toan') AS dat_cho_da_thanh_toan,
+(SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')) AS tong_doanh_thu,
+(SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho
+WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS doanh_thu_thang_nay,
+(SELECT COUNT(*) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS tong_danh_gia,
+(SELECT COALESCE(AVG(diem_danh_gia), 0) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS diem_danh_gia_trung_binh;
 
--- name: GetDashboardOverviewWithComparison :one
--- Tổng quan dashboard với so sánh tháng trước
+-- name: GetDashboardOverviewByMonthAndYear :one
+-- Tổng quan dashboard: tổng số người dùng, tour, booking, doanh thu
 SELECT 
-    -- Tổng số
-    (SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE) AS tong_nguoi_dung,
-    (SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE AND trang_thai = 'cong_bo') AS tong_tour,
-    (SELECT COUNT(*) FROM dat_cho WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')) AS tong_dat_cho_thanh_cong,
-    
-    -- Doanh thu tháng này
+    -- 1. ĐẶT CHỖ
+    (SELECT COUNT(*) FROM dat_cho 
+     WHERE (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = sqlc.arg('thang')::int)
+       AND (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = sqlc.arg('nam')::int)
+    ) AS tong_dat_cho,
+
+    (SELECT COUNT(*) FROM dat_cho 
+     WHERE trang_thai = 'da_huy'
+       AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = sqlc.arg('thang')::int)
+       AND (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = sqlc.arg('nam')::int)
+    ) AS so_don_da_huy,
+
+    -- 2. DOANH THU (Chỉ tính đơn thành công)
     (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho 
      WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh') 
-     AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS doanh_thu_thang_nay,
+       AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = sqlc.arg('thang')::int)
+       AND (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = sqlc.arg('nam')::int)
+    ) AS doanh_thu,
+
+    -- 3. VẬN HÀNH
+    (SELECT COUNT(*) FROM khoi_hanh_tour 
+     WHERE (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_khoi_hanh)::int = sqlc.arg('thang')::int)
+       AND (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_khoi_hanh)::int = sqlc.arg('nam')::int)
+    ) AS so_chuyen_khoi_hanh,
+
+    -- 4. KHÁCH HÀNG
+    (SELECT COALESCE(SUM(so_nguoi_lon + so_tre_em), 0) FROM dat_cho 
+     WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+       AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = sqlc.arg('thang')::int)
+       AND (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = sqlc.arg('nam')::int)
+    ) AS tong_luong_khach,
+
+    -- 5. ĐÁNH GIÁ
+    (SELECT COUNT(*) FROM danh_gia 
+     WHERE (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_tao)::int = sqlc.arg('thang')::int)
+       AND (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_tao)::int = sqlc.arg('nam')::int)
+    ) AS so_danh_gia_moi,
+
+    (SELECT COALESCE(AVG(diem_danh_gia), 0) FROM danh_gia 
+     WHERE (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_tao)::int = sqlc.arg('thang')::int)
+       AND (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_tao)::int = sqlc.arg('nam')::int)
+    ) AS diem_trung_binh;
+
+-- name: GetRevenueByDay :many
+-- Doanh thu theo năm và tháng
+SELECT 
+    DATE(dc.ngay_dat) AS ngay,
+    COUNT(dc.id) AS so_booking,
+    COALESCE(SUM(dc.tong_tien), 0) AS doanh_thu
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
+JOIN tour t ON kh.tour_id = t.id
+WHERE 
+    -- 1. Lọc Năm: Nếu tham số 'nam' truyền vào là 0, bỏ qua bộ lọc này
+    (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM dc.ngay_dat)::INT = sqlc.arg('nam')::int)
     
-    -- Doanh thu tháng trước
-    (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho 
-     WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh') 
-     AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) AS doanh_thu_thang_truoc,
+    -- 2. Lọc Tháng: Nếu tham số 'thang' truyền vào là 0, bỏ qua bộ lọc này
+    AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM dc.ngay_dat)::INT = sqlc.arg('thang')::int)
     
-    -- Người dùng mới tháng này
-    (SELECT COUNT(*) FROM nguoi_dung 
-     WHERE DATE_TRUNC('month', ngay_tao) = DATE_TRUNC('month', CURRENT_DATE)) AS nguoi_dung_moi_thang_nay,
+    -- 3. Lọc Nhà cung cấp: Nếu truyền vào NULL (narg), lấy tất cả
+    AND (sqlc.narg('nha_cung_cap_id')::uuid IS NULL OR t.nha_cung_cap_id = sqlc.narg('nha_cung_cap_id'))
     
-    -- Người dùng mới tháng trước
-    (SELECT COUNT(*) FROM nguoi_dung 
-     WHERE DATE_TRUNC('month', ngay_tao) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) AS nguoi_dung_moi_thang_truoc,
-    
-    -- Booking tháng này
-    (SELECT COUNT(*) FROM dat_cho 
-     WHERE DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS booking_thang_nay,
-    
-    -- Booking tháng trước
-    (SELECT COUNT(*) FROM dat_cho 
-     WHERE DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) AS booking_thang_truoc;
+    -- 4. Trạng thái bắt buộc
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY DATE(dc.ngay_dat)
+ORDER BY ngay ASC;
 
 -- =====================
 -- 2. USER STATISTICS
@@ -70,80 +112,6 @@ SELECT
     COUNT(*) FILTER (WHERE xac_thuc = TRUE) AS da_xac_thuc
 FROM nguoi_dung
 GROUP BY vai_tro
-ORDER BY so_luong DESC;
-
--- name: GetUserGrowthByMonth :many
--- Tăng trưởng người dùng theo tháng (12 tháng gần nhất)
-SELECT 
-    DATE_TRUNC('month', ngay_tao) AS thang,
-    COUNT(*) AS tong_dang_ky,
-    COUNT(*) FILTER (WHERE vai_tro = 'khach_hang') AS khach_hang_moi,
-    COUNT(*) FILTER (WHERE vai_tro = 'nha_cung_cap') AS nha_cung_cap_moi
-FROM nguoi_dung
-WHERE ngay_tao >= NOW() - INTERVAL '12 months'
-GROUP BY DATE_TRUNC('month', ngay_tao)
-ORDER BY thang ASC;
-
--- name: GetUserGrowthByDay :many
--- Tăng trưởng người dùng theo ngày (30 ngày gần nhất)
-SELECT 
-    DATE(ngay_tao) AS ngay,
-    COUNT(*) AS so_luong
-FROM nguoi_dung
-WHERE ngay_tao >= NOW() - INTERVAL '30 days'
-GROUP BY DATE(ngay_tao)
-ORDER BY ngay ASC;
-
--- name: GetNewUsersToday :one
--- Số người dùng mới hôm nay
-SELECT 
-    COUNT(*) AS nguoi_dung_moi_hom_nay,
-    COUNT(*) FILTER (WHERE vai_tro = 'khach_hang') AS khach_hang_moi,
-    COUNT(*) FILTER (WHERE vai_tro = 'nha_cung_cap') AS nha_cung_cap_moi
-FROM nguoi_dung
-WHERE DATE(ngay_tao) = CURRENT_DATE;
-
--- name: GetTopActiveUsers :many
--- Top người dùng hoạt động nhiều nhất (theo số booking)
-SELECT 
-    nd.id,
-    nd.ho_ten,
-    nd.email,
-    COUNT(dc.id) AS so_booking,
-    COALESCE(SUM(dc.tong_tien), 0) AS tong_chi_tieu
-FROM nguoi_dung nd
-LEFT JOIN dat_cho dc ON nd.id = dc.nguoi_dung_id
-WHERE nd.vai_tro = 'khach_hang' AND nd.dang_hoat_dong = TRUE
-GROUP BY nd.id, nd.ho_ten, nd.email
-ORDER BY so_booking DESC
-LIMIT 10;
-
--- =====================
--- 3. TOUR STATISTICS
--- =====================
-
--- name: GetTourStatsByCategory :many
--- Thống kê tour theo danh mục
-SELECT 
-    dmt.id AS danh_muc_id,
-    dmt.ten AS ten_danh_muc,
-    COUNT(t.id) AS tong_tour,
-    COUNT(t.id) FILTER (WHERE t.trang_thai = 'cong_bo') AS tour_cong_bo,
-    COUNT(t.id) FILTER (WHERE t.noi_bat = TRUE) AS tour_noi_bat,
-    COALESCE(AVG(t.gia_nguoi_lon), 0) AS gia_trung_binh
-FROM danh_muc_tour dmt
-LEFT JOIN tour t ON dmt.id = t.danh_muc_id AND t.dang_hoat_dong = TRUE
-GROUP BY dmt.id, dmt.ten
-ORDER BY tong_tour DESC;
-
--- name: GetTourStatsByStatus :many
--- Thống kê tour theo trạng thái
-SELECT 
-    trang_thai,
-    COUNT(*) AS so_luong
-FROM tour
-WHERE dang_hoat_dong = TRUE
-GROUP BY trang_thai
 ORDER BY so_luong DESC;
 
 -- name: GetTopBookedTours :many
@@ -168,16 +136,6 @@ GROUP BY t.id, t.tieu_de, t.gia_nguoi_lon, ncc.ten, dmt.ten
 ORDER BY so_booking DESC
 LIMIT $1;
 
--- name: GetToursCreatedByMonth :many
--- Số tour mới theo tháng
-SELECT 
-    DATE_TRUNC('month', ngay_tao) AS thang,
-    COUNT(*) AS so_luong
-FROM tour
-WHERE ngay_tao >= NOW() - INTERVAL '12 months'
-GROUP BY DATE_TRUNC('month', ngay_tao)
-ORDER BY thang ASC;
-
 -- name: GetTourPriceDistribution :many
 -- Phân bố giá tour
 SELECT 
@@ -200,56 +158,6 @@ ORDER BY
         WHEN '5-10 triệu' THEN 4
         ELSE 5
     END;
-
--- =====================
--- 4. BOOKING STATISTICS
--- =====================
-
--- name: GetBookingStatsByStatus :many
--- Thống kê booking theo trạng thái
-SELECT 
-    trang_thai,
-    COUNT(*) AS so_luong,
-    COALESCE(SUM(tong_tien), 0) AS tong_tien
-FROM dat_cho
-GROUP BY trang_thai
-ORDER BY so_luong DESC;
-
--- name: GetRevenueByDay :many
--- Doanh thu theo ngày (30 ngày gần nhất)
-SELECT 
-    DATE(ngay_dat) AS ngay,
-    COUNT(*) AS so_booking,
-    COALESCE(SUM(tong_tien), 0) AS doanh_thu
-FROM dat_cho
-WHERE ngay_dat >= NOW() - INTERVAL '30 days'
-  AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY DATE(ngay_dat)
-ORDER BY ngay ASC;
-
--- name: GetRevenueByMonth :many
--- Doanh thu theo tháng (12 tháng gần nhất)
-SELECT 
-    DATE_TRUNC('month', ngay_dat) AS thang,
-    COUNT(*) AS so_booking,
-    COALESCE(SUM(tong_tien), 0) AS doanh_thu,
-    COALESCE(AVG(tong_tien), 0) AS trung_binh_booking
-FROM dat_cho
-WHERE ngay_dat >= NOW() - INTERVAL '12 months'
-  AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY DATE_TRUNC('month', ngay_dat)
-ORDER BY thang ASC;
-
--- name: GetRevenueByYear :many
--- Doanh thu theo năm
-SELECT 
-    EXTRACT(YEAR FROM ngay_dat) AS nam,
-    COUNT(*) AS so_booking,
-    COALESCE(SUM(tong_tien), 0) AS doanh_thu
-FROM dat_cho
-WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY EXTRACT(YEAR FROM ngay_dat)
-ORDER BY nam ASC;
 
 -- name: GetBookingsByDayOfWeek :many
 -- Thống kê booking theo ngày trong tuần
@@ -290,78 +198,6 @@ JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
 JOIN tour t ON kh.tour_id = t.id
 ORDER BY dc.ngay_dat DESC
 LIMIT $1;
-
--- name: GetBookingConversionRate :one
--- Tỷ lệ chuyển đổi booking
-SELECT 
-    COUNT(*) AS tong_booking,
-    COUNT(*) FILTER (WHERE trang_thai = 'cho_xac_nhan') AS dang_cho,
-    COUNT(*) FILTER (WHERE trang_thai = 'da_xac_nhan') AS da_xac_nhan,
-    COUNT(*) FILTER (WHERE trang_thai = 'da_thanh_toan') AS da_thanh_toan,
-    COUNT(*) FILTER (WHERE trang_thai = 'hoan_thanh') AS hoan_thanh,
-    COUNT(*) FILTER (WHERE trang_thai = 'da_huy') AS da_huy,
-    ROUND(
-        COUNT(*) FILTER (WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::DECIMAL / 
-        NULLIF(COUNT(*), 0) * 100, 2
-    ) AS ty_le_thanh_cong
-FROM dat_cho;
-
--- =====================
--- 5. PAYMENT STATISTICS
--- =====================
-
--- name: GetPaymentStatsByMethod :many
--- Thống kê thanh toán theo phương thức
-SELECT 
-    phuong_thuc_thanh_toan,
-    COUNT(*) AS so_giao_dich,
-    COALESCE(SUM(tong_tien), 0) AS tong_tien
-FROM dat_cho
-WHERE phuong_thuc_thanh_toan IS NOT NULL
-  AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY phuong_thuc_thanh_toan
-ORDER BY tong_tien DESC;
-
--- name: GetTransactionStatsByStatus :many
--- Thống kê giao dịch theo trạng thái
-SELECT 
-    trang_thai,
-    COUNT(*) AS so_giao_dich,
-    COALESCE(SUM(so_tien), 0) AS tong_tien
-FROM lich_su_giao_dich
-GROUP BY trang_thai
-ORDER BY so_giao_dich DESC;
-
--- name: GetTransactionsByDay :many
--- Giao dịch theo ngày (30 ngày gần nhất)
-SELECT 
-    DATE(ngay_tao) AS ngay,
-    COUNT(*) AS so_giao_dich,
-    COALESCE(SUM(so_tien), 0) AS tong_tien,
-    COUNT(*) FILTER (WHERE trang_thai = 'thanh_cong') AS thanh_cong,
-    COUNT(*) FILTER (WHERE trang_thai = 'that_bai') AS that_bai
-FROM lich_su_giao_dich
-WHERE ngay_tao >= NOW() - INTERVAL '30 days'
-GROUP BY DATE(ngay_tao)
-ORDER BY ngay ASC;
-
--- name: GetPaymentGatewayStats :many
--- Thống kê theo cổng thanh toán
-SELECT 
-    ctt.id AS cong_id,
-    ctt.ten_hien_thi,
-    COUNT(lsg.id) AS so_giao_dich,
-    COALESCE(SUM(lsg.so_tien), 0) AS tong_tien,
-    COUNT(*) FILTER (WHERE lsg.trang_thai = 'thanh_cong') AS thanh_cong,
-    COUNT(*) FILTER (WHERE lsg.trang_thai = 'that_bai') AS that_bai
-FROM cong_thanh_toan ctt
-LEFT JOIN lich_su_giao_dich lsg ON ctt.id = lsg.cong_thanh_toan_id
-GROUP BY ctt.id, ctt.ten_hien_thi
-ORDER BY so_giao_dich DESC;
-
--- =====================
--- 6. SUPPLIER STATISTICS
--- =====================
 
 -- name: GetSupplierStats :one
 -- Tổng quan nhà cung cấp
@@ -419,85 +255,6 @@ WHERE nd.ngay_tao >= NOW() - INTERVAL '12 months'
 GROUP BY DATE_TRUNC('month', nd.ngay_tao)
 ORDER BY thang ASC;
 
--- =====================
--- 7. REVIEW STATISTICS
--- =====================
-
--- name: GetReviewStats :one
--- Thống kê đánh giá tổng quan
-SELECT 
-    COUNT(*) AS tong_danh_gia,
-    COALESCE(AVG(diem_danh_gia), 0) AS diem_trung_binh,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 5) AS so_5_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 4) AS so_4_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 3) AS so_3_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 2) AS so_2_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 1) AS so_1_sao
-FROM danh_gia
-WHERE dang_hoat_dong = TRUE;
-
--- name: GetReviewDistribution :many
--- Phân bố đánh giá
-SELECT 
-    diem_danh_gia,
-    COUNT(*) AS so_luong,
-    ROUND(COUNT(*)::DECIMAL / NULLIF((SELECT COUNT(*) FROM danh_gia WHERE dang_hoat_dong = TRUE), 0) * 100, 2) AS phan_tram
-FROM danh_gia
-WHERE dang_hoat_dong = TRUE
-GROUP BY diem_danh_gia
-ORDER BY diem_danh_gia DESC;
-
--- name: GetReviewsByMonth :many
--- Đánh giá theo tháng
-SELECT 
-    DATE_TRUNC('month', ngay_tao) AS thang,
-    COUNT(*) AS so_luong,
-    COALESCE(AVG(diem_danh_gia), 0) AS diem_trung_binh
-FROM danh_gia
-WHERE ngay_tao >= NOW() - INTERVAL '12 months'
-  AND dang_hoat_dong = TRUE
-GROUP BY DATE_TRUNC('month', ngay_tao)
-ORDER BY thang ASC;
-
--- name: GetRecentReviews :many
--- Đánh giá gần đây
-SELECT 
-    dg.id,
-    dg.diem_danh_gia,
-    dg.tieu_de,
-    dg.noi_dung,
-    dg.ngay_tao,
-    nd.ho_ten AS ten_nguoi_danh_gia,
-    nd.email AS email_nguoi_danh_gia,
-    t.tieu_de AS ten_tour
-FROM danh_gia dg
-JOIN nguoi_dung nd ON dg.nguoi_dung_id = nd.id
-JOIN tour t ON dg.tour_id = t.id
-WHERE dg.dang_hoat_dong = TRUE
-ORDER BY dg.ngay_tao DESC
-LIMIT $1;
-
--- name: GetToursWithLowestRating :many
--- Tours có điểm đánh giá thấp nhất (cần cải thiện)
-SELECT 
-    t.id,
-    t.tieu_de,
-    ncc.ten AS ten_nha_cung_cap,
-    COUNT(dg.id) AS so_danh_gia,
-    COALESCE(AVG(dg.diem_danh_gia), 0) AS diem_trung_binh
-FROM tour t
-LEFT JOIN danh_gia dg ON t.id = dg.tour_id AND dg.dang_hoat_dong = TRUE
-LEFT JOIN nha_cung_cap ncc ON t.nha_cung_cap_id = ncc.id
-WHERE t.dang_hoat_dong = TRUE
-GROUP BY t.id, t.tieu_de, ncc.ten
-HAVING COUNT(dg.id) > 0
-ORDER BY diem_trung_binh ASC
-LIMIT $1;
-
--- =====================
--- 8. DESTINATION STATISTICS
--- =====================
-
 -- name: GetTopDestinations :many
 -- Top điểm đến phổ biến
 SELECT 
@@ -542,83 +299,6 @@ WHERE kh.ngay_khoi_hanh >= CURRENT_DATE
   AND kh.trang_thai IN ('len_lich', 'xac_nhan', 'con_cho')
 ORDER BY kh.ngay_khoi_hanh ASC
 LIMIT $1;
-
--- name: GetDepartureCapacityStats :one
--- Thống kê công suất khởi hành
-SELECT 
-    COUNT(*) AS tong_khoi_hanh,
-    SUM(suc_chua) AS tong_suc_chua,
-    SUM(so_cho_da_dat) AS tong_da_dat,
-    ROUND(
-        SUM(so_cho_da_dat)::DECIMAL / NULLIF(SUM(suc_chua), 0) * 100, 2
-    ) AS ty_le_lap_day
-FROM khoi_hanh_tour
-WHERE ngay_khoi_hanh >= CURRENT_DATE
-  AND trang_thai IN ('len_lich', 'xac_nhan');
-
--- name: GetDeparturesByMonth :many
--- Khởi hành theo tháng
-SELECT 
-    DATE_TRUNC('month', ngay_khoi_hanh) AS thang,
-    COUNT(*) AS so_khoi_hanh,
-    SUM(suc_chua) AS tong_suc_chua,
-    SUM(so_cho_da_dat) AS tong_da_dat
-FROM khoi_hanh_tour
-WHERE ngay_khoi_hanh >= NOW() - INTERVAL '6 months'
-  AND ngay_khoi_hanh <= NOW() + INTERVAL '6 months'
-GROUP BY DATE_TRUNC('month', ngay_khoi_hanh)
-ORDER BY thang ASC;
-
--- =====================
--- 10. NOTIFICATION & ACTIVITY
--- =====================
-
--- name: GetUnreadNotificationCount :one
--- Số thông báo chưa đọc (cho admin xem tổng quan)
-SELECT 
-    COUNT(*) AS tong_thong_bao_chua_doc
-FROM thong_bao
-WHERE da_doc = FALSE;
-
--- name: GetSystemActivity :many
--- Hoạt động hệ thống gần đây
-SELECT 
-    'booking' AS loai,
-    dc.id AS id_doi_tuong,
-    dc.ngay_dat AS thoi_gian,
-    CONCAT('Booking mới #', dc.id, ' - ', t.tieu_de) AS mo_ta
-FROM dat_cho dc
-JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
-JOIN tour t ON kh.tour_id = t.id
-WHERE dc.ngay_dat >= NOW() - INTERVAL '24 hours'
-
-UNION ALL
-
-SELECT 
-    'user' AS loai,
-    NULL AS id_doi_tuong,
-    ngay_tao AS thoi_gian,
-    CONCAT('Người dùng mới: ', ho_ten) AS mo_ta
-FROM nguoi_dung
-WHERE ngay_tao >= NOW() - INTERVAL '24 hours'
-
-UNION ALL
-
-SELECT 
-    'review' AS loai,
-    dg.id AS id_doi_tuong,
-    dg.ngay_tao AS thoi_gian,
-    CONCAT('Đánh giá mới ', dg.diem_danh_gia, ' sao cho tour: ', t.tieu_de) AS mo_ta
-FROM danh_gia dg
-JOIN tour t ON dg.tour_id = t.id
-WHERE dg.ngay_tao >= NOW() - INTERVAL '24 hours'
-
-ORDER BY thoi_gian DESC
-LIMIT 50;
-
--- =====================
--- 11. FAVORITES STATISTICS
--- =====================
 
 -- name: GetMostFavoritedTours :many
 -- Tours được yêu thích nhiều nhất
@@ -690,3 +370,161 @@ WHERE ngay_dat >= NOW() - INTERVAL '2 years'
 GROUP BY EXTRACT(YEAR FROM ngay_dat), EXTRACT(QUARTER FROM ngay_dat)
 ORDER BY nam ASC, quy ASC;
 
+
+
+
+-- name: AdminChartRevenueTrend :many
+-- Xu hướng Doanh thu & Đặt chỗ
+SELECT 
+    DATE(ngay_dat) AS ngay,
+    COUNT(id) AS tong_so_don,
+    COALESCE(SUM(tong_tien), 0) AS doanh_thu_ngay,
+    COALESCE(SUM(so_nguoi_lon + so_tre_em), 0) AS tong_khach_ngay
+FROM dat_cho
+WHERE 
+    (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = sqlc.arg('nam')::int)
+    AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = sqlc.arg('thang')::int)
+    AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY DATE(ngay_dat)
+ORDER BY ngay ASC;
+-- name: AdminChartCategoryDistribution :many
+--Cơ cấu Doanh thu theo Danh mục
+SELECT 
+    dm.ten AS ten_danh_muc,
+    COUNT(dc.id) AS so_luong_dat,
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS tong_doanh_thu
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
+JOIN tour t ON kh.tour_id = t.id
+JOIN danh_muc_tour dm ON t.danh_muc_id = dm.id
+WHERE 
+    (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM dc.ngay_dat)::int = sqlc.arg('nam')::int)
+    AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM dc.ngay_dat)::int = sqlc.arg('thang')::int)
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY dm.id, dm.ten
+ORDER BY tong_doanh_thu DESC;
+-- name: AdminChartTopSuppliers :many
+--Top 5 Nhà cung cấp xuất sắc
+SELECT 
+    ncc.ten AS ten_nha_cung_cap,
+    COUNT(dc.id) AS so_don_hang,
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS doanh_thu_dat_duoc
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
+JOIN tour t ON kh.tour_id = t.id
+JOIN nha_cung_cap ncc ON t.nha_cung_cap_id = ncc.id
+WHERE 
+    (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM dc.ngay_dat)::int = sqlc.arg('nam')::int)
+    AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM dc.ngay_dat)::int = sqlc.arg('thang')::int)
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY ncc.id, ncc.ten
+ORDER BY doanh_thu_dat_duoc DESC
+LIMIT 5;
+-- name: AdminChartBookingStatusStats :many
+--Trạng thái Đặt chỗ
+SELECT 
+    trang_thai,
+    COUNT(*) AS so_luong,
+    SUM(tong_tien)::numeric AS gia_tri_uoc_tinh
+FROM dat_cho
+WHERE 
+    (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = sqlc.arg('nam')::int)
+    AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = sqlc.arg('thang')::int)
+GROUP BY trang_thai;
+
+--=====================================Nhà cung cấp=====================================
+-- name: GetAllSuppliers :many
+SELECT ncc.*, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.ngay_tao, nd.xac_thuc, nd.dang_hoat_dong
+FROM nha_cung_cap ncc
+JOIN nguoi_dung nd ON nd.id = ncc.id
+WHERE 
+  (sqlc.narg('xac_thuc')::boolean IS NULL OR nd.xac_thuc = sqlc.narg('xac_thuc'))
+  AND (sqlc.narg('dang_hoat_dong')::boolean IS NULL OR nd.dang_hoat_dong = sqlc.narg('dang_hoat_dong'))
+ORDER BY nd.ngay_tao DESC;
+-- name: SoftDeleteSupplier :exec
+UPDATE nguoi_dung
+SET
+    dang_hoat_dong = FALSE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 AND vai_tro = 'nha_cung_cap';
+-- name: RestoreSupplier :one
+UPDATE nguoi_dung
+SET
+    dang_hoat_dong = TRUE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 AND vai_tro = 'nha_cung_cap'
+RETURNING *;
+
+-- name: DeleteSupplier :exec
+DELETE FROM nha_cung_cap
+WHERE id = $1 AND nha_cung_cap.dang_hoat_dong = TRUE;
+-- name: RejectSupplier :one
+-- từ chối nhà cung cấp
+UPDATE nguoi_dung
+SET 
+    dang_hoat_dong = FALSE,
+    xac_thuc = FALSE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 
+    AND vai_tro = 'nha_cung_cap'
+RETURNING *;
+-- name: ApproveSupplier :one
+-- phê duyệt nhà cung cấp
+UPDATE nguoi_dung
+SET 
+    dang_hoat_dong = TRUE,
+    xac_thuc = TRUE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 
+    AND vai_tro = 'nha_cung_cap'
+    AND dang_hoat_dong = TRUE
+RETURNING *;
+
+-- name: GetAdminSupplierByID :one
+-- Lấy nhà cung cấp theo ID (admin)
+SELECT ncc.*, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.ngay_tao, nd.ngay_cap_nhat, nd.dang_hoat_dong, nd.xac_thuc
+FROM nha_cung_cap ncc
+JOIN nguoi_dung nd ON nd.id = ncc.id
+WHERE ncc.id = $1;
+
+--=====================================Khách hàng=====================================
+-- name: GetTopActiveUsers :many
+-- Top người dùng hoạt động nhiều nhất (theo số booking)
+SELECT 
+    nd.id,
+    nd.ho_ten,
+    nd.email,
+    COUNT(dc.id) AS so_booking,
+    COALESCE(SUM(dc.tong_tien), 0) AS tong_chi_tieu
+FROM nguoi_dung nd
+LEFT JOIN dat_cho dc ON nd.id = dc.nguoi_dung_id
+WHERE nd.vai_tro = 'khach_hang' AND nd.dang_hoat_dong = TRUE
+GROUP BY nd.id, nd.ho_ten, nd.email
+ORDER BY so_booking DESC
+LIMIT $1;
+-- name: AdminCustomerGrowthMonthlyReport :many
+WITH MonthlyStats AS (
+    SELECT 
+        EXTRACT(YEAR FROM ngay_tao)::int AS nam,
+        EXTRACT(MONTH FROM ngay_tao)::int AS thang,
+        COUNT(id) AS so_luong
+    FROM nguoi_dung
+    WHERE vai_tro = 'khach_hang' 
+      AND dang_hoat_dong = TRUE
+    GROUP BY 1, 2
+)
+SELECT 
+    nam,
+    thang,
+    so_luong AS khach_moi_thang_nay,
+    COALESCE(LAG(so_luong) OVER (ORDER BY nam, thang), 0) AS khach_moi_thang_truoc,
+    -- Tính % tăng trưởng
+    ROUND(
+        CASE 
+            WHEN LAG(so_luong) OVER (ORDER BY nam, thang) IS NULL OR LAG(so_luong) OVER (ORDER BY nam, thang) = 0 THEN 100
+            ELSE ((so_luong - LAG(so_luong) OVER (ORDER BY nam, thang))::float / LAG(so_luong) OVER (ORDER BY nam, thang) * 100)
+        END::numeric, 2
+    ) AS phan_tram_tang_truong
+FROM MonthlyStats
+WHERE (sqlc.arg('nam')::int = 0 OR nam = sqlc.arg('nam')::int)
+ORDER BY nam DESC, thang DESC;

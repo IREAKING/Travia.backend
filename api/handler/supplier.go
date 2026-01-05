@@ -2,8 +2,6 @@ package handler
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -45,7 +43,7 @@ func (s *Server) CreateSupplier(c *gin.Context) {
 			MatKhauMaHoa: hashedPassword,
 			SoDienThoai:  req.ThongTinDangNhap.SoDienThoai,
 			VaiTro:       db.NullVaiTroNguoiDung{VaiTroNguoiDung: db.VaiTroNguoiDung(db.VaiTroNguoiDungNhaCungCap), Valid: true},
-			DangHoatDong: helpers.NewBool(false),
+			DangHoatDong: helpers.NewBool(true),
 			XacThuc:      helpers.NewBool(false),
 			NgayTao:      pgtype.Timestamp{Time: time.Now(), Valid: true},
 			NgayCapNhat:  pgtype.Timestamp{Time: time.Now(), Valid: true},
@@ -152,77 +150,6 @@ func (s *Server) UpdateSupplier(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Supplier updated successfully", "data": result})
 }
 
-// Phê duyệt đối tác
-// @Summary Phê duyệt đối tác
-// @Description Phê duyệt đối tác
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} gin.H
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier/approve/{id} [put]
-func (s *Server) ApproveSupplier(c *gin.Context) {
-	_id := c.Param("id")
-	var id pgtype.UUID
-	if err := id.Scan(_id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID"})
-		return
-	}
-	result, err := s.z.ApproveSupplier(context.Background(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Supplier approved successfully", "data": result})
-}
-
-// Từ chối đối tác
-// @Summary Từ chối đối tác
-// @Description Từ chối đối tác
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} gin.H
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier/reject/{id} [put]
-func (s *Server) RejectSupplier(c *gin.Context) {
-	_id := c.Param("id")
-	var id pgtype.UUID
-	if err := id.Scan(_id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID"})
-		return
-	}
-	result, err := s.z.RejectSupplier(context.Background(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Supplier rejected successfully", "data": result})
-}
-
-// lấy danh sách nhà cung cấp chờ phê duyệt
-// @Summary lấy danh sách nhà cung cấp chờ phê duyệt
-// @Description lấy danh sách nhà cung cấp chờ phê duyệt
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Success 200 {object} gin.H
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier/pending [get]
-func (s *Server) GetPendingSuppliers(c *gin.Context) {
-	data, err := s.z.GetPendingSuppliers(context.Background())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Pending suppliers fetched successfully", "data": data})
-}
-
 // lấy danh sách tour của nhà cung cấp
 
 // @Summary lấy danh sách tour của nhà cung cấp
@@ -233,7 +160,7 @@ func (s *Server) GetPendingSuppliers(c *gin.Context) {
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
 // @Param trang_thai query string false "Trạng thái" default("")
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -349,46 +276,13 @@ func (s *Server) UpdateTourStatus(c *gin.Context) {
 	}
 }
 
-// Lấy nhà cung cấp theo ID
-// @Summary Lấy nhà cung cấp theo ID
-// @Description Lấy nhà cung cấp theo ID
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} db.NhaCungCap
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier/{id} [get]
-func (s *Server) GetSupplierByID(c *gin.Context) {
-	_id := c.Param("id")
-	var id pgtype.UUID
-	if err := id.Scan(_id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID"})
-		return
-	}
-	data, err := s.z.GetSupplierByID(context.Background(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error":   "Không tìm thấy nhà cung cấp với ID: " + _id,
-				"message": err.Error(),
-			})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Supplier fetched successfully", "data": data})
-}
-
 // Lấy thông tin nhà cung cấp
 // @Summary Lấy thông tin nhà cung cấp
 // @Description Lấy thông tin nhà cung cấp
 // @Tags Supplier
 // @Accept json
 // @Produce json
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -414,25 +308,6 @@ func (s *Server) GetInfoSupplier(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Supplier fetched successfully", "data": data})
-}
-
-// Lấy tất cả nhà cung cấp
-// @Summary Lấy tất cả nhà cung cấp
-// @Description Lấy tất cả nhà cung cấp
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Success 200 {object} db.NhaCungCap
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier [get]
-func (s *Server) GetAllSuppliers(c *gin.Context) {
-	data, err := s.z.GetAllSuppliers(context.Background())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Suppliers fetched successfully", "data": data})
 }
 
 // Lấy tất cả nhà cung cấp bao gồm cả nhà cung cấp đã xóa
@@ -471,58 +346,6 @@ func (s *Server) GetActiveSuppliers(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Suppliers fetched successfully", "data": data})
-}
-
-// Xóa nhà cung cấp
-// @Summary Xóa nhà cung cấp
-// @Description Xóa nhà cung cấp
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} gin.H
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier/soft-delete/{id} [delete]
-func (s *Server) SoftDeleteSupplier(c *gin.Context) {
-	_id := c.Param("id")
-	var id pgtype.UUID
-	if err := id.Scan(_id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID"})
-		return
-	}
-	err := s.z.SoftDeleteSupplier(context.Background(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Supplier soft deleted successfully"})
-}
-
-// Khôi phục nhà cung cấp
-// @Summary Khôi phục nhà cung cấp
-// @Description Khôi phục nhà cung cấp
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} db.NhaCungCap
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier/restore/{id} [put]
-func (s *Server) RestoreSupplier(c *gin.Context) {
-	_id := c.Param("id")
-	var id pgtype.UUID
-	if err := id.Scan(_id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID"})
-		return
-	}
-	data, err := s.z.RestoreSupplier(context.Background(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Supplier restored successfully", "data": data})
 }
 
 // Xóa nhà cung cấp
@@ -641,7 +464,7 @@ func (s *Server) CountSuppliersByStatus(c *gin.Context) {
 // @Tags Supplier
 // @Accept json
 // @Produce json
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -678,7 +501,7 @@ func (s *Server) GetSupplierDashboardOverview(c *gin.Context) {
 // @Param period query string true "Period (day, week, month)" default(day)
 // @Param start_date query string false "Start date (YYYY-MM-DD)"
 // @Param end_date query string false "End date (YYYY-MM-DD)"
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -709,12 +532,12 @@ func (s *Server) GetSupplierRevenueByTimeRange(c *gin.Context) {
 	}
 	var startDate, endDate *time.Time
 	if startDateStr := c.Query("start_date"); startDateStr != "" {
-		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+		if t, err := time.Parse(time.DateOnly, startDateStr); err == nil {
 			startDate = &t
 		}
 	}
 	if endDateStr := c.Query("end_date"); endDateStr != "" {
-		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+		if t, err := time.Parse(time.DateOnly, endDateStr); err == nil {
 			endDate = &t
 		}
 	}
@@ -732,7 +555,7 @@ func (s *Server) GetSupplierRevenueByTimeRange(c *gin.Context) {
 		Column4: endDatePg,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error(), "error": "loiccc"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Revenue by time range fetched successfully", "data": data})
@@ -748,7 +571,7 @@ func (s *Server) GetSupplierRevenueByTimeRange(c *gin.Context) {
 // @Param limit query int false "Limit" default(10)
 // @Param start_date query string false "Start date (YYYY-MM-DD)"
 // @Param end_date query string false "End date (YYYY-MM-DD)"
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -814,9 +637,10 @@ func (s *Server) GetSupplierTopTours(c *gin.Context) {
 // @Tags Supplier
 // @Accept json
 // @Produce json
+// @Param period query string true "Period (day, week, month)" default(day)
 // @Param start_date query string false "Start date (YYYY-MM-DD)"
 // @Param end_date query string false "End date (YYYY-MM-DD)"
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -855,9 +679,10 @@ func (s *Server) GetSupplierBookingStatsByStatus(c *gin.Context) {
 		endDatePg = pgtype.Timestamp{Time: *endDate, Valid: true}
 	}
 	data, err := s.z.GetSupplierBookingStatsByStatus(context.Background(), db.GetSupplierBookingStatsByStatusParams{
-		ID:      claimsMap.Id,
-		Column2: startDatePg,
-		Column3: endDatePg,
+		ID:        claimsMap.Id,
+		Column2:   "day",
+		NgayDat:   startDatePg,
+		NgayDat_2: endDatePg,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -872,7 +697,7 @@ func (s *Server) GetSupplierBookingStatsByStatus(c *gin.Context) {
 // @Tags Supplier
 // @Accept json
 // @Produce json
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -909,7 +734,7 @@ func (s *Server) GetSupplierTourStatsByStatus(c *gin.Context) {
 // @Param period query string true "Period (day, week, month)" default(day)
 // @Param start_date query string false "Start date (YYYY-MM-DD)"
 // @Param end_date query string false "End date (YYYY-MM-DD)"
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -969,6 +794,42 @@ func (s *Server) GetSupplierRevenueChart(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Revenue chart data fetched successfully", "data": data})
 }
 
+// Lấy thống kê tour theo danh mục
+// @Summary Lấy thống kê tour theo danh mục
+// @Description Lấy thống kê số lượng tour theo từng danh mục của supplier
+// @Tags Supplier
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 403 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /supplier/dashboard/tour-stats-by-category [get]
+func (s *Server) GetSupplierTourStatsByCategory(c *gin.Context) {
+	claims, ok := c.Get("claims")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	claimsMap, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	if claimsMap.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
+		return
+	}
+
+	data, err := s.z.GetSupplierTourStatsByCategory(context.Background(), claimsMap.Id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Tour stats by category fetched successfully", "data": data})
+}
+
 // Lấy thống kê khách hàng
 // @Summary Lấy thống kê khách hàng
 // @Description Lấy top khách hàng theo số lần đặt hoặc tổng tiền
@@ -979,7 +840,7 @@ func (s *Server) GetSupplierRevenueChart(c *gin.Context) {
 // @Param limit query int false "Limit" default(10)
 // @Param start_date query string false "Start date (YYYY-MM-DD)"
 // @Param end_date query string false "End date (YYYY-MM-DD)"
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -1047,7 +908,7 @@ func (s *Server) GetSupplierCustomerStats(c *gin.Context) {
 // @Produce json
 // @Param start_date query string false "Start date (YYYY-MM-DD)"
 // @Param end_date query string false "End date (YYYY-MM-DD)"
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -1103,7 +964,7 @@ func (s *Server) GetSupplierCancellationAnalysis(c *gin.Context) {
 // @Tags Supplier
 // @Accept json
 // @Produce json
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -1138,7 +999,7 @@ func (s *Server) GetSupplierRatingAnalysis(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param limit query int false "Limit" default(10)
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -1180,7 +1041,7 @@ func (s *Server) GetSupplierUpcomingDepartures(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param limit query int false "Limit" default(10)
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -1221,7 +1082,7 @@ func (s *Server) GetSupplierRecentBookings(c *gin.Context) {
 // @Tags Supplier
 // @Accept json
 // @Produce json
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -1268,7 +1129,7 @@ func (s *Server) GetSupplierMonthlyComparison(c *gin.Context) {
 // @Param sort_by query string false "Sắp xếp (ngay_dat_asc, ngay_dat_desc, tong_tien_asc, tong_tien_desc, ngay_khoi_hanh_asc, ngay_khoi_hanh_desc)" default(ngay_dat_desc)
 // @Param limit query int false "Limit" default(20)
 // @Param offset query int false "Offset" default(0)
-// @ApiKeyAuth ApiKeyAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
@@ -1444,4 +1305,162 @@ func (s *Server) GetSupplierBookingsByStatusAdvanced(c *gin.Context) {
 		"offset":   offset,
 		"has_more": (offset + limit) < int(totalCount),
 	})
+}
+
+// Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp
+// @Summary Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp
+// @Description Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp
+// @Tags Supplier
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param tour_id query int false "Tour ID" default(0)
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /supplier/dashboard/review-statistics [get]
+func (s *Server) GetSupplierReviewStatistics(c *gin.Context) {
+	tourID, _ := strconv.Atoi(c.Query("tour_id"))
+	claims, ok := c.Get("claims")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	claimsMap, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	if claimsMap.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
+		return
+	}
+	data, err := s.z.GetSupplierReviewStatistics(context.Background(), db.GetSupplierReviewStatisticsParams{
+		ID:      claimsMap.Id,
+		Column2: int32(tourID),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Review fetched successfully", "data": data})
+}
+
+// Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour
+// @Summary Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour
+// @Description Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour
+// @Tags Supplier
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param rating query int false "Rating" default(0)
+// @Param tour_id query int false "Tour ID" default(0)
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /supplier/dashboard/reviews [get]
+func (s *Server) GetDetailedSupplierReviews(c *gin.Context) {
+	rating, _ := strconv.Atoi(c.Query("rating"))
+	tourID, _ := strconv.Atoi(c.Query("tour_id"))
+	claims, ok := c.Get("claims")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	claimsMap, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	if claimsMap.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
+		return
+	}
+	data, err := s.z.GetDetailedSupplierReviews(context.Background(), db.GetDetailedSupplierReviewsParams{
+		NhaCungCapID: claimsMap.Id,
+		Column2:      int32(rating),
+		Column3:      int32(tourID),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Reviews fetched successfully", "data": data})
+}
+
+// Lấy danh sách tour của nhà cung cấp
+// @Summary Lấy danh sách tour của nhà cung cấp
+// @Description Lấy danh sách tour của nhà cung cấp
+// @Tags Supplier
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /supplier/dashboard/options-tour [get]
+func (s *Server) GetOptionTour(c *gin.Context) {
+	claims, ok := c.Get("claims")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	claimsMap, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	if claimsMap.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
+		return
+	}
+	data, err := s.z.OptionTour(context.Background(), pgtype.UUID(claimsMap.Id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Tours fetched successfully", "data": data})
+
+}
+
+// Phản hồi đánh giá
+// @Summary Phản hồi đánh giá
+// @Description Phản hồi đánh giá
+// @Tags Supplier
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param danh_gia_id path int true "Danh gia ID"
+// @Param noi_dung body string true "Noi dung phan hoi"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /supplier/dashboard/feedback-review/{danh_gia_id} [post]
+func (s *Server) FeedbackReview(c *gin.Context) {
+	danhGiaID, _ := strconv.Atoi(c.Param("danh_gia_id"))
+	noiDung := c.PostForm("noi_dung")
+	claims, ok := c.Get("claims")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	claimsMap, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	if claimsMap.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
+		return
+	}
+	id, err := s.z.FeedbackReview(context.Background(), db.FeedbackReviewParams{
+		DanhGiaID:   int32(danhGiaID),
+		NguoiDungID: claimsMap.Id,
+		NoiDung:     noiDung,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Feedback review created successfully", "data": id})
 }

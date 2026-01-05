@@ -465,6 +465,15 @@ type NhaCungCap struct {
 	GiayToKinhDoanh *string     `json:"giay_to_kinh_doanh"`
 }
 
+type PhanHoiDanhGium struct {
+	ID          int32            `json:"id"`
+	DanhGiaID   int32            `json:"danh_gia_id"`
+	NguoiDungID pgtype.UUID      `json:"nguoi_dung_id"`
+	NoiDung     string           `json:"noi_dung"`
+	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
+}
+
 type PhienDangNhap struct {
 	ID              int32            `json:"id"`
 	NguoiDungID     pgtype.UUID      `json:"nguoi_dung_id"`

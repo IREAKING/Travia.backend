@@ -8,14 +8,6 @@ SELECT nha_cung_cap.*, nguoi_dung.ho_ten, nguoi_dung.email, nguoi_dung.so_dien_t
 JOIN nguoi_dung ON nguoi_dung.id = nha_cung_cap.id
 WHERE nha_cung_cap.id = $1 AND nguoi_dung.dang_hoat_dong = TRUE;
 
-
--- name: GetAllSuppliers :many
-SELECT * FROM nha_cung_cap
-JOIN nguoi_dung ON nguoi_dung.id = nha_cung_cap.id
-WHERE nguoi_dung.dang_hoat_dong = TRUE
-ORDER BY nguoi_dung.ngay_tao DESC;
-
-
 -- name: GetAllSuppliersIncludingDeleted :many
 SELECT * FROM nha_cung_cap
 JOIN nguoi_dung ON nguoi_dung.id = nha_cung_cap.id
@@ -83,25 +75,6 @@ SET
 WHERE id = $1 AND nha_cung_cap.dang_hoat_dong = TRUE
 RETURNING *;
 
--- name: SoftDeleteSupplier :exec
-UPDATE nha_cung_cap
-SET
-    nha_cung_cap.dang_hoat_dong = FALSE,
-    nha_cung_cap.ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1;
-
--- name: RestoreSupplier :one
-UPDATE nha_cung_cap
-SET
-    nha_cung_cap.dang_hoat_dong = TRUE,
-    nha_cung_cap.ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1
-RETURNING *;
-
--- name: DeleteSupplier :exec
-DELETE FROM nha_cung_cap
-WHERE id = $1 AND nha_cung_cap.dang_hoat_dong = TRUE;
-
 -- name: GetSupplierWithTourCount :many
 SELECT
     ncc.*,
@@ -147,46 +120,6 @@ UPDATE nha_cung_cap
 SET
     ngay_cap_nhat = CURRENT_TIMESTAMP
 WHERE id = ANY($1::int[]) AND nguoi_dung.dang_hoat_dong = TRUE;
-
--- name: ApproveSupplier :one
--- phê duyệt nhà cung cấp
-UPDATE nguoi_dung
-SET 
-    dang_hoat_dong = TRUE,
-    xac_thuc = TRUE,
-    ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1 
-    AND vai_tro = 'nha_cung_cap'
-    AND dang_hoat_dong = FALSE
-RETURNING *;
-
--- name: GetPendingSuppliers :many
--- lấy danh sách nhà cung cấp chờ phê duyệt
-SELECT 
-    nha_cung_cap.*,
-    nguoi_dung.ho_ten,
-    nguoi_dung.email,
-    nguoi_dung.so_dien_thoai,
-    nguoi_dung.ngay_tao,
-    nguoi_dung.ngay_cap_nhat,
-    nguoi_dung.dang_hoat_dong,
-    nguoi_dung.xac_thuc
-FROM nha_cung_cap
-JOIN nguoi_dung ON nguoi_dung.id = nha_cung_cap.id
-WHERE nguoi_dung.vai_tro = 'nha_cung_cap'
-    AND (nguoi_dung.dang_hoat_dong = FALSE OR nguoi_dung.xac_thuc = FALSE)
-ORDER BY nguoi_dung.ngay_tao DESC;
-
--- name: RejectSupplier :one
--- từ chối nhà cung cấp
-UPDATE nguoi_dung
-SET 
-    dang_hoat_dong = FALSE,
-    xac_thuc = FALSE,
-    ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1 
-    AND vai_tro = 'nha_cung_cap'
-RETURNING *;
 
 -- lấy danh sách tour của nhà cung cấp
 -- name: GetMyTours :many
@@ -256,22 +189,28 @@ LEFT JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
 LEFT JOIN danh_gia dg ON dg.tour_id = t.id AND dg.dang_hoat_dong = TRUE
 WHERE ncc.id = $1;
 
+
+
+
 -- name: GetSupplierRevenueByTimeRange :many
 -- Doanh thu theo khoảng thời gian (ngày, tuần, tháng)
+-- name: GetSupplierRevenueChart :many
+-- name: GetSupplierRevenueChart :many
 SELECT 
-    DATE_TRUNC($2::text, dc.ngay_dat)::timestamp AS period,
-    COUNT(DISTINCT dc.id)::int AS booking_count,
+    -- Đổi 'date' thành 'period' và ép kiểu 2 lần để sqlc không thể nhận nhầm
+    (DATE_TRUNC($2::text, dc.ngay_dat::timestamp))::timestamp AS period,
     COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS revenue,
-    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS total_passengers
+    COUNT(DISTINCT dc.id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS booking_count,
+    COUNT(DISTINCT dc.nguoi_dung_id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS customer_count
 FROM nha_cung_cap ncc
 JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
 JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
 WHERE ncc.id = $1
-    AND dc.ngay_dat >= COALESCE($3::timestamp, CURRENT_DATE - INTERVAL '30 days')
-    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_DATE)
-    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh', 'cho_xac_nhan', 'da_xac_nhan')
-GROUP BY DATE_TRUNC($2::text, dc.ngay_dat)
+    AND dc.ngay_dat >= COALESCE($3::timestamp, (CURRENT_TIMESTAMP - INTERVAL '30 days')::timestamp)
+    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_TIMESTAMP::timestamp)
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY 1
 ORDER BY period ASC;
 
 -- name: GetSupplierTopTours :many
@@ -312,22 +251,24 @@ LIMIT $5;
 
 -- name: GetSupplierBookingStatsByStatus :many
 -- Thống kê booking theo trạng thái và thời gian
+-- name: GetSupplierBookingStatsByStatusAndTime :many
+-- Thống kê booking theo trạng thái phân bổ qua thời gian
 SELECT 
+    DATE_TRUNC($2::text, dc.ngay_dat)::timestamp AS ngay_trong_thang,
     dc.trang_thai,
-    COUNT(DISTINCT dc.id)::int AS booking_count,
-    COALESCE(SUM(dc.tong_tien), 0)::numeric AS total_amount,
-    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em), 0)::int AS total_passengers,
-    MIN(dc.ngay_dat)::timestamp AS first_booking_date,
-    MAX(dc.ngay_dat)::timestamp AS last_booking_date
+    COUNT(dc.id)::int AS so_dat_cho,
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS tong_tien,
+    -- Tính tổng số khách cho từng nhóm trạng thái trong mỗi kỳ
+    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em), 0)::int AS tong_khach
 FROM nha_cung_cap ncc
 JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
 JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
 WHERE ncc.id = $1
-    AND ($2::timestamp IS NULL OR dc.ngay_dat >= $2)
-    AND ($3::timestamp IS NULL OR dc.ngay_dat <= $3)
-GROUP BY dc.trang_thai
-ORDER BY booking_count DESC;
+    AND (dc.ngay_dat >= $3 OR $3::timestamp IS NULL)
+    AND (dc.ngay_dat <= $4 OR $4::timestamp IS NULL)
+GROUP BY ngay_trong_thang, dc.trang_thai
+ORDER BY ngay_trong_thang ASC, so_dat_cho DESC;
 
 -- name: GetSupplierTourStatsByStatus :many
 -- Thống kê tour theo trạng thái
@@ -348,7 +289,7 @@ ORDER BY tour_count DESC;
 -- name: GetSupplierRevenueChart :many
 -- Biểu đồ doanh thu theo thời gian (cho chart)
 SELECT 
-    DATE_TRUNC($2::text, dc.ngay_dat) AS date,
+    (DATE_TRUNC($2::text, dc.ngay_dat::timestamp))::timestamptz AS period,
     COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS revenue,
     COUNT(DISTINCT dc.id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS booking_count,
     COUNT(DISTINCT dc.nguoi_dung_id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS customer_count
@@ -357,23 +298,23 @@ JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
 JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
 WHERE ncc.id = $1
-    AND dc.ngay_dat >= COALESCE($3::timestamp, CURRENT_DATE - INTERVAL '30 days')
-    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_DATE)
+    AND dc.ngay_dat >= COALESCE($3::timestamp, (CURRENT_TIMESTAMP - INTERVAL '30 days')::timestamp)
+    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_TIMESTAMP::timestamp)
     AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY DATE_TRUNC($2::text, dc.ngay_dat)
-ORDER BY date ASC;
+GROUP BY DATE_TRUNC($2::text, dc.ngay_dat::timestamp)
+ORDER BY period ASC;
 
 -- name: GetSupplierCustomerStats :many
 -- Thống kê khách hàng: top khách hàng, số lần đặt, tổng tiền
 SELECT 
-    nd.id AS customer_id,
-    nd.ho_ten AS customer_name,
-    nd.email AS customer_email,
-    COUNT(DISTINCT dc.id)::int AS total_bookings,
-    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS total_spent,
-    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS total_passengers,
-    MIN(dc.ngay_dat)::timestamp AS first_booking_date,
-    MAX(dc.ngay_dat)::timestamp AS last_booking_date
+    nd.id AS khach_hang_id,
+    nd.ho_ten AS ten_khach_hang,
+    nd.email AS email_khach_hang,
+    COUNT(DISTINCT dc.id)::int AS so_dat_cho,
+    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS tong_tien,
+    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS so_nguoi_lon_va_tre_em,
+    MIN(dc.ngay_dat)::timestamp AS ngay_dat_dau_tien,
+    MAX(dc.ngay_dat)::timestamp AS ngay_dat_cuoi_cung
 FROM nha_cung_cap ncc
 JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
@@ -386,8 +327,25 @@ GROUP BY nd.id, nd.ho_ten, nd.email
 ORDER BY 
     CASE WHEN $4::text = 'spent' THEN COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0) END DESC,
     CASE WHEN $4::text = 'bookings' THEN COUNT(DISTINCT dc.id) END DESC,
-    total_spent DESC
+    tong_tien DESC
 LIMIT $5;
+
+-- name: GetSupplierTourStatsByCategory :many
+-- Thống kê tour theo danh mục của supplier
+SELECT 
+    dmt.id AS danh_muc_id,
+    dmt.ten AS ten_danh_muc,
+    COUNT(t.id)::int AS tong_tour,
+    COUNT(t.id) FILTER (WHERE t.trang_thai = 'cong_bo')::int AS tour_cong_bo,
+    COUNT(t.id) FILTER (WHERE t.noi_bat = TRUE)::int AS tour_noi_bat,
+    COALESCE(AVG(t.gia_nguoi_lon), 0)::numeric AS gia_trung_binh
+FROM nha_cung_cap ncc
+JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
+LEFT JOIN danh_muc_tour dmt ON dmt.id = t.danh_muc_id
+WHERE ncc.id = $1
+GROUP BY dmt.id, dmt.ten
+HAVING COUNT(t.id) > 0
+ORDER BY tong_tour DESC;
 
 -- name: GetSupplierCancellationAnalysis :one
 -- Phân tích tỷ lệ hủy booking
@@ -664,5 +622,68 @@ WHERE ncc.id = $1
     AND (sqlc.narg('max_amount')::numeric IS NULL OR dc.tong_tien <= sqlc.narg('max_amount')::numeric);
 
 
+-- name: GetSupplierReviewStatistics :one
+-- Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp
+-- name: GetSupplierReviewStats :one
+-- Thống kê đánh giá của nhà cung cấp, có thể lọc theo từng tour cụ thể
+SELECT 
+    COUNT(DISTINCT dg.id)::int AS so_luong_danh_gia,
+    COALESCE(AVG(dg.diem_danh_gia), 0)::float AS diem_trung_binh,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 5 THEN dg.id END)::int AS so_luong_5_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 4 THEN dg.id END)::int AS so_luong_4_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 3 THEN dg.id END)::int AS so_luong_3_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 2 THEN dg.id END)::int AS so_luong_2_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 1 THEN dg.id END)::int AS so_luong_1_sao
+    -- COUNT(DISTINCT t.id)::int AS tong_tour_co_danh_gia
+FROM nha_cung_cap ncc
+JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
+LEFT JOIN danh_gia dg ON dg.tour_id = t.id AND dg.dang_hoat_dong = TRUE
+WHERE 
+    ncc.id = $1
+    -- Nếu $2 (tour_id) > 0 thì lọc theo tour đó, nếu bằng 0 thì lấy tất cả
+    AND ($2::int = 0 OR t.id = $2);
 
+-- name: GetDetailedSupplierReviews :many
+-- Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour
+SELECT 
+    dg.id AS danh_gia_id,
+    dg.tieu_de,
+    dg.noi_dung,
+    dg.diem_danh_gia,
+    dg.hinh_anh_dinh_kem, -- Trả về dạng slice/array trong code
+    dg.ngay_tao,
+    nd.ho_ten AS nguoi_dung_ten,
+    nd.email AS nguoi_dung_email,
+    t.id AS tour_id,
+    t.tieu_de AS tour_tieu_de
+FROM danh_gia dg
+JOIN tour t ON t.id = dg.tour_id
+JOIN nguoi_dung nd ON nd.id = dg.nguoi_dung_id
+WHERE 
+    t.nha_cung_cap_id = $1
+    -- Lọc theo số sao: truyền 0 nếu muốn lấy tất cả
+    AND ($2::int = 0 OR dg.diem_danh_gia = $2)
+    -- Lọc theo tour: truyền 0 nếu muốn lấy tất cả tour của NCC này
+    AND ($3::int = 0 OR t.id = $3)
+    AND dg.dang_hoat_dong = TRUE
+ORDER BY dg.ngay_tao DESC;
+-- name: OptionTour :many
+-- Lấy danh sách tour của nhà cung cấp
+SELECT 
+    t.id,
+    t.tieu_de
+FROM tour t
+WHERE t.nha_cung_cap_id = $1
+    AND t.dang_hoat_dong = TRUE
+ORDER BY t.ngay_tao DESC;
 
+-- name: FeedbackReview :one
+-- Phản hồi đánh giá
+INSERT INTO phan_hoi_danh_gia (danh_gia_id, nguoi_dung_id, noi_dung)
+VALUES ($1, $2, $3)
+RETURNING id;
+-- name: GetFeedbackReview :many
+-- Lấy danh sách phản hồi đánh giá
+SELECT * FROM phan_hoi_danh_gia
+WHERE danh_gia_id = $1
+ORDER BY ngay_cap_nhat DESC;

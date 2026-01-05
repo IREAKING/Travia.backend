@@ -11,78 +11,428 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getBookingConversionRate = `-- name: GetBookingConversionRate :one
-SELECT 
-    COUNT(*) AS tong_booking,
-    COUNT(*) FILTER (WHERE trang_thai = 'cho_xac_nhan') AS dang_cho,
-    COUNT(*) FILTER (WHERE trang_thai = 'da_xac_nhan') AS da_xac_nhan,
-    COUNT(*) FILTER (WHERE trang_thai = 'da_thanh_toan') AS da_thanh_toan,
-    COUNT(*) FILTER (WHERE trang_thai = 'hoan_thanh') AS hoan_thanh,
-    COUNT(*) FILTER (WHERE trang_thai = 'da_huy') AS da_huy,
-    ROUND(
-        COUNT(*) FILTER (WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::DECIMAL / 
-        NULLIF(COUNT(*), 0) * 100, 2
-    ) AS ty_le_thanh_cong
-FROM dat_cho
-`
-
-type GetBookingConversionRateRow struct {
-	TongBooking   int64          `json:"tong_booking"`
-	DangCho       int64          `json:"dang_cho"`
-	DaXacNhan     int64          `json:"da_xac_nhan"`
-	DaThanhToan   int64          `json:"da_thanh_toan"`
-	HoanThanh     int64          `json:"hoan_thanh"`
-	DaHuy         int64          `json:"da_huy"`
-	TyLeThanhCong pgtype.Numeric `json:"ty_le_thanh_cong"`
-}
-
-// Tỷ lệ chuyển đổi booking
-func (q *Queries) GetBookingConversionRate(ctx context.Context) (GetBookingConversionRateRow, error) {
-	row := q.db.QueryRow(ctx, getBookingConversionRate)
-	var i GetBookingConversionRateRow
-	err := row.Scan(
-		&i.TongBooking,
-		&i.DangCho,
-		&i.DaXacNhan,
-		&i.DaThanhToan,
-		&i.HoanThanh,
-		&i.DaHuy,
-		&i.TyLeThanhCong,
-	)
-	return i, err
-}
-
-const getBookingStatsByStatus = `-- name: GetBookingStatsByStatus :many
-
+const adminChartBookingStatusStats = `-- name: AdminChartBookingStatusStats :many
 SELECT 
     trang_thai,
     COUNT(*) AS so_luong,
-    COALESCE(SUM(tong_tien), 0) AS tong_tien
+    SUM(tong_tien)::numeric AS gia_tri_uoc_tinh
 FROM dat_cho
+WHERE 
+    ($1::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = $1::int)
+    AND ($2::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = $2::int)
 GROUP BY trang_thai
-ORDER BY so_luong DESC
 `
 
-type GetBookingStatsByStatusRow struct {
-	TrangThai NullTrangThaiDatCho `json:"trang_thai"`
-	SoLuong   int64               `json:"so_luong"`
-	TongTien  interface{}         `json:"tong_tien"`
+type AdminChartBookingStatusStatsParams struct {
+	Nam   int32 `json:"nam"`
+	Thang int32 `json:"thang"`
 }
 
-// =====================
-// 4. BOOKING STATISTICS
-// =====================
-// Thống kê booking theo trạng thái
-func (q *Queries) GetBookingStatsByStatus(ctx context.Context) ([]GetBookingStatsByStatusRow, error) {
-	rows, err := q.db.Query(ctx, getBookingStatsByStatus)
+type AdminChartBookingStatusStatsRow struct {
+	TrangThai     NullTrangThaiDatCho `json:"trang_thai"`
+	SoLuong       int64               `json:"so_luong"`
+	GiaTriUocTinh pgtype.Numeric      `json:"gia_tri_uoc_tinh"`
+}
+
+// Trạng thái Đặt chỗ
+func (q *Queries) AdminChartBookingStatusStats(ctx context.Context, arg AdminChartBookingStatusStatsParams) ([]AdminChartBookingStatusStatsRow, error) {
+	rows, err := q.db.Query(ctx, adminChartBookingStatusStats, arg.Nam, arg.Thang)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetBookingStatsByStatusRow
+	var items []AdminChartBookingStatusStatsRow
 	for rows.Next() {
-		var i GetBookingStatsByStatusRow
-		if err := rows.Scan(&i.TrangThai, &i.SoLuong, &i.TongTien); err != nil {
+		var i AdminChartBookingStatusStatsRow
+		if err := rows.Scan(&i.TrangThai, &i.SoLuong, &i.GiaTriUocTinh); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const adminChartCategoryDistribution = `-- name: AdminChartCategoryDistribution :many
+SELECT 
+    dm.ten AS ten_danh_muc,
+    COUNT(dc.id) AS so_luong_dat,
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS tong_doanh_thu
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
+JOIN tour t ON kh.tour_id = t.id
+JOIN danh_muc_tour dm ON t.danh_muc_id = dm.id
+WHERE 
+    ($1::int = 0 OR EXTRACT(YEAR FROM dc.ngay_dat)::int = $1::int)
+    AND ($2::int = 0 OR EXTRACT(MONTH FROM dc.ngay_dat)::int = $2::int)
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY dm.id, dm.ten
+ORDER BY tong_doanh_thu DESC
+`
+
+type AdminChartCategoryDistributionParams struct {
+	Nam   int32 `json:"nam"`
+	Thang int32 `json:"thang"`
+}
+
+type AdminChartCategoryDistributionRow struct {
+	TenDanhMuc   string         `json:"ten_danh_muc"`
+	SoLuongDat   int64          `json:"so_luong_dat"`
+	TongDoanhThu pgtype.Numeric `json:"tong_doanh_thu"`
+}
+
+// Cơ cấu Doanh thu theo Danh mục
+func (q *Queries) AdminChartCategoryDistribution(ctx context.Context, arg AdminChartCategoryDistributionParams) ([]AdminChartCategoryDistributionRow, error) {
+	rows, err := q.db.Query(ctx, adminChartCategoryDistribution, arg.Nam, arg.Thang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminChartCategoryDistributionRow
+	for rows.Next() {
+		var i AdminChartCategoryDistributionRow
+		if err := rows.Scan(&i.TenDanhMuc, &i.SoLuongDat, &i.TongDoanhThu); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const adminChartRevenueTrend = `-- name: AdminChartRevenueTrend :many
+SELECT 
+    DATE(ngay_dat) AS ngay,
+    COUNT(id) AS tong_so_don,
+    COALESCE(SUM(tong_tien), 0) AS doanh_thu_ngay,
+    COALESCE(SUM(so_nguoi_lon + so_tre_em), 0) AS tong_khach_ngay
+FROM dat_cho
+WHERE 
+    ($1::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = $1::int)
+    AND ($2::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = $2::int)
+    AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY DATE(ngay_dat)
+ORDER BY ngay ASC
+`
+
+type AdminChartRevenueTrendParams struct {
+	Nam   int32 `json:"nam"`
+	Thang int32 `json:"thang"`
+}
+
+type AdminChartRevenueTrendRow struct {
+	Ngay          pgtype.Date `json:"ngay"`
+	TongSoDon     int64       `json:"tong_so_don"`
+	DoanhThuNgay  interface{} `json:"doanh_thu_ngay"`
+	TongKhachNgay interface{} `json:"tong_khach_ngay"`
+}
+
+// Xu hướng Doanh thu & Đặt chỗ
+func (q *Queries) AdminChartRevenueTrend(ctx context.Context, arg AdminChartRevenueTrendParams) ([]AdminChartRevenueTrendRow, error) {
+	rows, err := q.db.Query(ctx, adminChartRevenueTrend, arg.Nam, arg.Thang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminChartRevenueTrendRow
+	for rows.Next() {
+		var i AdminChartRevenueTrendRow
+		if err := rows.Scan(
+			&i.Ngay,
+			&i.TongSoDon,
+			&i.DoanhThuNgay,
+			&i.TongKhachNgay,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const adminChartTopSuppliers = `-- name: AdminChartTopSuppliers :many
+SELECT 
+    ncc.ten AS ten_nha_cung_cap,
+    COUNT(dc.id) AS so_don_hang,
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS doanh_thu_dat_duoc
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
+JOIN tour t ON kh.tour_id = t.id
+JOIN nha_cung_cap ncc ON t.nha_cung_cap_id = ncc.id
+WHERE 
+    ($1::int = 0 OR EXTRACT(YEAR FROM dc.ngay_dat)::int = $1::int)
+    AND ($2::int = 0 OR EXTRACT(MONTH FROM dc.ngay_dat)::int = $2::int)
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY ncc.id, ncc.ten
+ORDER BY doanh_thu_dat_duoc DESC
+LIMIT 5
+`
+
+type AdminChartTopSuppliersParams struct {
+	Nam   int32 `json:"nam"`
+	Thang int32 `json:"thang"`
+}
+
+type AdminChartTopSuppliersRow struct {
+	TenNhaCungCap   string         `json:"ten_nha_cung_cap"`
+	SoDonHang       int64          `json:"so_don_hang"`
+	DoanhThuDatDuoc pgtype.Numeric `json:"doanh_thu_dat_duoc"`
+}
+
+// Top 5 Nhà cung cấp xuất sắc
+func (q *Queries) AdminChartTopSuppliers(ctx context.Context, arg AdminChartTopSuppliersParams) ([]AdminChartTopSuppliersRow, error) {
+	rows, err := q.db.Query(ctx, adminChartTopSuppliers, arg.Nam, arg.Thang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminChartTopSuppliersRow
+	for rows.Next() {
+		var i AdminChartTopSuppliersRow
+		if err := rows.Scan(&i.TenNhaCungCap, &i.SoDonHang, &i.DoanhThuDatDuoc); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const adminCustomerGrowthMonthlyReport = `-- name: AdminCustomerGrowthMonthlyReport :many
+WITH MonthlyStats AS (
+    SELECT 
+        EXTRACT(YEAR FROM ngay_tao)::int AS nam,
+        EXTRACT(MONTH FROM ngay_tao)::int AS thang,
+        COUNT(id) AS so_luong
+    FROM nguoi_dung
+    WHERE vai_tro = 'khach_hang' 
+      AND dang_hoat_dong = TRUE
+    GROUP BY 1, 2
+)
+SELECT 
+    nam,
+    thang,
+    so_luong AS khach_moi_thang_nay,
+    COALESCE(LAG(so_luong) OVER (ORDER BY nam, thang), 0) AS khach_moi_thang_truoc,
+    -- Tính % tăng trưởng
+    ROUND(
+        CASE 
+            WHEN LAG(so_luong) OVER (ORDER BY nam, thang) IS NULL OR LAG(so_luong) OVER (ORDER BY nam, thang) = 0 THEN 100
+            ELSE ((so_luong - LAG(so_luong) OVER (ORDER BY nam, thang))::float / LAG(so_luong) OVER (ORDER BY nam, thang) * 100)
+        END::numeric, 2
+    ) AS phan_tram_tang_truong
+FROM MonthlyStats
+WHERE ($1::int = 0 OR nam = $1::int)
+ORDER BY nam DESC, thang DESC
+`
+
+type AdminCustomerGrowthMonthlyReportRow struct {
+	Nam                int32          `json:"nam"`
+	Thang              int32          `json:"thang"`
+	KhachMoiThangNay   int64          `json:"khach_moi_thang_nay"`
+	KhachMoiThangTruoc interface{}    `json:"khach_moi_thang_truoc"`
+	PhanTramTangTruong pgtype.Numeric `json:"phan_tram_tang_truong"`
+}
+
+func (q *Queries) AdminCustomerGrowthMonthlyReport(ctx context.Context, nam int32) ([]AdminCustomerGrowthMonthlyReportRow, error) {
+	rows, err := q.db.Query(ctx, adminCustomerGrowthMonthlyReport, nam)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminCustomerGrowthMonthlyReportRow
+	for rows.Next() {
+		var i AdminCustomerGrowthMonthlyReportRow
+		if err := rows.Scan(
+			&i.Nam,
+			&i.Thang,
+			&i.KhachMoiThangNay,
+			&i.KhachMoiThangTruoc,
+			&i.PhanTramTangTruong,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const approveSupplier = `-- name: ApproveSupplier :one
+UPDATE nguoi_dung
+SET 
+    dang_hoat_dong = TRUE,
+    xac_thuc = TRUE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 
+    AND vai_tro = 'nha_cung_cap'
+    AND dang_hoat_dong = TRUE
+RETURNING id, ho_ten, email, mat_khau_ma_hoa, so_dien_thoai, vai_tro, dang_hoat_dong, xac_thuc, ngay_tao, ngay_cap_nhat
+`
+
+// phê duyệt nhà cung cấp
+func (q *Queries) ApproveSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error) {
+	row := q.db.QueryRow(ctx, approveSupplier, id)
+	var i NguoiDung
+	err := row.Scan(
+		&i.ID,
+		&i.HoTen,
+		&i.Email,
+		&i.MatKhauMaHoa,
+		&i.SoDienThoai,
+		&i.VaiTro,
+		&i.DangHoatDong,
+		&i.XacThuc,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const deleteSupplier = `-- name: DeleteSupplier :exec
+DELETE FROM nha_cung_cap
+WHERE id = $1 AND nha_cung_cap.dang_hoat_dong = TRUE
+`
+
+func (q *Queries) DeleteSupplier(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSupplier, id)
+	return err
+}
+
+const getAdminSupplierByID = `-- name: GetAdminSupplierByID :one
+SELECT ncc.id, ncc.ten, ncc.dia_chi, ncc.website, ncc.mo_ta, ncc.logo, ncc.nam_thanh_lap, ncc.thanh_pho, ncc.quoc_gia, ncc.ma_so_thue, ncc.so_nhan_vien, ncc.giay_to_kinh_doanh, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.ngay_tao, nd.ngay_cap_nhat, nd.dang_hoat_dong, nd.xac_thuc
+FROM nha_cung_cap ncc
+JOIN nguoi_dung nd ON nd.id = ncc.id
+WHERE ncc.id = $1
+`
+
+type GetAdminSupplierByIDRow struct {
+	ID              pgtype.UUID      `json:"id"`
+	Ten             string           `json:"ten"`
+	DiaChi          *string          `json:"dia_chi"`
+	Website         *string          `json:"website"`
+	MoTa            *string          `json:"mo_ta"`
+	Logo            *string          `json:"logo"`
+	NamThanhLap     pgtype.Date      `json:"nam_thanh_lap"`
+	ThanhPho        *string          `json:"thanh_pho"`
+	QuocGia         *string          `json:"quoc_gia"`
+	MaSoThue        *string          `json:"ma_so_thue"`
+	SoNhanVien      *string          `json:"so_nhan_vien"`
+	GiayToKinhDoanh *string          `json:"giay_to_kinh_doanh"`
+	HoTen           string           `json:"ho_ten"`
+	Email           string           `json:"email"`
+	SoDienThoai     *string          `json:"so_dien_thoai"`
+	NgayTao         pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat     pgtype.Timestamp `json:"ngay_cap_nhat"`
+	DangHoatDong    *bool            `json:"dang_hoat_dong"`
+	XacThuc         *bool            `json:"xac_thuc"`
+}
+
+// Lấy nhà cung cấp theo ID (admin)
+func (q *Queries) GetAdminSupplierByID(ctx context.Context, id pgtype.UUID) (GetAdminSupplierByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAdminSupplierByID, id)
+	var i GetAdminSupplierByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Ten,
+		&i.DiaChi,
+		&i.Website,
+		&i.MoTa,
+		&i.Logo,
+		&i.NamThanhLap,
+		&i.ThanhPho,
+		&i.QuocGia,
+		&i.MaSoThue,
+		&i.SoNhanVien,
+		&i.GiayToKinhDoanh,
+		&i.HoTen,
+		&i.Email,
+		&i.SoDienThoai,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+		&i.DangHoatDong,
+		&i.XacThuc,
+	)
+	return i, err
+}
+
+const getAllSuppliers = `-- name: GetAllSuppliers :many
+SELECT ncc.id, ncc.ten, ncc.dia_chi, ncc.website, ncc.mo_ta, ncc.logo, ncc.nam_thanh_lap, ncc.thanh_pho, ncc.quoc_gia, ncc.ma_so_thue, ncc.so_nhan_vien, ncc.giay_to_kinh_doanh, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.ngay_tao, nd.xac_thuc, nd.dang_hoat_dong
+FROM nha_cung_cap ncc
+JOIN nguoi_dung nd ON nd.id = ncc.id
+WHERE 
+  ($1::boolean IS NULL OR nd.xac_thuc = $1)
+  AND ($2::boolean IS NULL OR nd.dang_hoat_dong = $2)
+ORDER BY nd.ngay_tao DESC
+`
+
+type GetAllSuppliersParams struct {
+	XacThuc      *bool `json:"xac_thuc"`
+	DangHoatDong *bool `json:"dang_hoat_dong"`
+}
+
+type GetAllSuppliersRow struct {
+	ID              pgtype.UUID      `json:"id"`
+	Ten             string           `json:"ten"`
+	DiaChi          *string          `json:"dia_chi"`
+	Website         *string          `json:"website"`
+	MoTa            *string          `json:"mo_ta"`
+	Logo            *string          `json:"logo"`
+	NamThanhLap     pgtype.Date      `json:"nam_thanh_lap"`
+	ThanhPho        *string          `json:"thanh_pho"`
+	QuocGia         *string          `json:"quoc_gia"`
+	MaSoThue        *string          `json:"ma_so_thue"`
+	SoNhanVien      *string          `json:"so_nhan_vien"`
+	GiayToKinhDoanh *string          `json:"giay_to_kinh_doanh"`
+	HoTen           string           `json:"ho_ten"`
+	Email           string           `json:"email"`
+	SoDienThoai     *string          `json:"so_dien_thoai"`
+	NgayTao         pgtype.Timestamp `json:"ngay_tao"`
+	XacThuc         *bool            `json:"xac_thuc"`
+	DangHoatDong    *bool            `json:"dang_hoat_dong"`
+}
+
+// =====================================Nhà cung cấp=====================================
+func (q *Queries) GetAllSuppliers(ctx context.Context, arg GetAllSuppliersParams) ([]GetAllSuppliersRow, error) {
+	rows, err := q.db.Query(ctx, getAllSuppliers, arg.XacThuc, arg.DangHoatDong)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllSuppliersRow
+	for rows.Next() {
+		var i GetAllSuppliersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ten,
+			&i.DiaChi,
+			&i.Website,
+			&i.MoTa,
+			&i.Logo,
+			&i.NamThanhLap,
+			&i.ThanhPho,
+			&i.QuocGia,
+			&i.MaSoThue,
+			&i.SoNhanVien,
+			&i.GiayToKinhDoanh,
+			&i.HoTen,
+			&i.Email,
+			&i.SoDienThoai,
+			&i.NgayTao,
+			&i.XacThuc,
+			&i.DangHoatDong,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -147,22 +497,20 @@ func (q *Queries) GetBookingsByDayOfWeek(ctx context.Context) ([]GetBookingsByDa
 }
 
 const getDashboardOverview = `-- name: GetDashboardOverview :one
-
-
-SELECT 
-    (SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE) AS tong_nguoi_dung,
-    (SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE AND vai_tro = 'khach_hang') AS tong_khach_hang,
-    (SELECT COUNT(*) FROM nha_cung_cap) AS tong_nha_cung_cap,
-    (SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE) AS tong_tour,
-    (SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE AND trang_thai = 'cong_bo') AS tour_dang_hoat_dong,
-    (SELECT COUNT(*) FROM dat_cho) AS tong_dat_cho,
-    (SELECT COUNT(*) FROM dat_cho WHERE trang_thai = 'da_thanh_toan') AS dat_cho_da_thanh_toan,
-    (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')) AS tong_doanh_thu,
-    (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho 
-     WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh') 
-     AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS doanh_thu_thang_nay,
-    (SELECT COUNT(*) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS tong_danh_gia,
-    (SELECT COALESCE(AVG(diem_danh_gia), 0) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS diem_danh_gia_trung_binh
+SELECT
+(SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE) AS tong_nguoi_dung,
+(SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE AND vai_tro = 'khach_hang') AS tong_khach_hang,
+(SELECT COUNT(*) FROM nha_cung_cap) AS tong_nha_cung_cap,
+(SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE) AS tong_tour,
+(SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE AND trang_thai = 'cong_bo') AS tour_dang_hoat_dong,
+(SELECT COUNT(*) FROM dat_cho) AS tong_dat_cho,
+(SELECT COUNT(*) FROM dat_cho WHERE trang_thai = 'da_thanh_toan') AS dat_cho_da_thanh_toan,
+(SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')) AS tong_doanh_thu,
+(SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho
+WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS doanh_thu_thang_nay,
+(SELECT COUNT(*) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS tong_danh_gia,
+(SELECT COALESCE(AVG(diem_danh_gia), 0) FROM danh_gia WHERE dang_hoat_dong = TRUE) AS diem_danh_gia_trung_binh
 `
 
 type GetDashboardOverviewRow struct {
@@ -179,12 +527,6 @@ type GetDashboardOverviewRow struct {
 	DiemDanhGiaTrungBinh interface{} `json:"diem_danh_gia_trung_binh"`
 }
 
-// ===========================================
-// ADMIN STATISTICS QUERIES
-// ===========================================
-// =====================
-// 1. DASHBOARD OVERVIEW
-// =====================
 // Tổng quan dashboard: tổng số người dùng, tour, booking, doanh thu
 func (q *Queries) GetDashboardOverview(ctx context.Context) (GetDashboardOverviewRow, error) {
 	row := q.db.QueryRow(ctx, getDashboardOverview)
@@ -205,147 +547,81 @@ func (q *Queries) GetDashboardOverview(ctx context.Context) (GetDashboardOvervie
 	return i, err
 }
 
-const getDashboardOverviewWithComparison = `-- name: GetDashboardOverviewWithComparison :one
+const getDashboardOverviewByMonthAndYear = `-- name: GetDashboardOverviewByMonthAndYear :one
 SELECT 
-    -- Tổng số
-    (SELECT COUNT(*) FROM nguoi_dung WHERE dang_hoat_dong = TRUE) AS tong_nguoi_dung,
-    (SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE AND trang_thai = 'cong_bo') AS tong_tour,
-    (SELECT COUNT(*) FROM dat_cho WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')) AS tong_dat_cho_thanh_cong,
-    
-    -- Doanh thu tháng này
+    -- 1. ĐẶT CHỖ
+    (SELECT COUNT(*) FROM dat_cho 
+     WHERE ($1::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = $1::int)
+       AND ($2::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = $2::int)
+    ) AS tong_dat_cho,
+
+    (SELECT COUNT(*) FROM dat_cho 
+     WHERE trang_thai = 'da_huy'
+       AND ($1::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = $1::int)
+       AND ($2::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = $2::int)
+    ) AS so_don_da_huy,
+
+    -- 2. DOANH THU (Chỉ tính đơn thành công)
     (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho 
      WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh') 
-     AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS doanh_thu_thang_nay,
-    
-    -- Doanh thu tháng trước
-    (SELECT COALESCE(SUM(tong_tien), 0) FROM dat_cho 
-     WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh') 
-     AND DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) AS doanh_thu_thang_truoc,
-    
-    -- Người dùng mới tháng này
-    (SELECT COUNT(*) FROM nguoi_dung 
-     WHERE DATE_TRUNC('month', ngay_tao) = DATE_TRUNC('month', CURRENT_DATE)) AS nguoi_dung_moi_thang_nay,
-    
-    -- Người dùng mới tháng trước
-    (SELECT COUNT(*) FROM nguoi_dung 
-     WHERE DATE_TRUNC('month', ngay_tao) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) AS nguoi_dung_moi_thang_truoc,
-    
-    -- Booking tháng này
-    (SELECT COUNT(*) FROM dat_cho 
-     WHERE DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)) AS booking_thang_nay,
-    
-    -- Booking tháng trước
-    (SELECT COUNT(*) FROM dat_cho 
-     WHERE DATE_TRUNC('month', ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) AS booking_thang_truoc
+       AND ($1::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = $1::int)
+       AND ($2::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = $2::int)
+    ) AS doanh_thu,
+
+    -- 3. VẬN HÀNH
+    (SELECT COUNT(*) FROM khoi_hanh_tour 
+     WHERE ($1::int = 0 OR EXTRACT(MONTH FROM ngay_khoi_hanh)::int = $1::int)
+       AND ($2::int = 0 OR EXTRACT(YEAR FROM ngay_khoi_hanh)::int = $2::int)
+    ) AS so_chuyen_khoi_hanh,
+
+    -- 4. KHÁCH HÀNG
+    (SELECT COALESCE(SUM(so_nguoi_lon + so_tre_em), 0) FROM dat_cho 
+     WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+       AND ($1::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = $1::int)
+       AND ($2::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = $2::int)
+    ) AS tong_luong_khach,
+
+    -- 5. ĐÁNH GIÁ
+    (SELECT COUNT(*) FROM danh_gia 
+     WHERE ($1::int = 0 OR EXTRACT(MONTH FROM ngay_tao)::int = $1::int)
+       AND ($2::int = 0 OR EXTRACT(YEAR FROM ngay_tao)::int = $2::int)
+    ) AS so_danh_gia_moi,
+
+    (SELECT COALESCE(AVG(diem_danh_gia), 0) FROM danh_gia 
+     WHERE ($1::int = 0 OR EXTRACT(MONTH FROM ngay_tao)::int = $1::int)
+       AND ($2::int = 0 OR EXTRACT(YEAR FROM ngay_tao)::int = $2::int)
+    ) AS diem_trung_binh
 `
 
-type GetDashboardOverviewWithComparisonRow struct {
-	TongNguoiDung          int64       `json:"tong_nguoi_dung"`
-	TongTour               int64       `json:"tong_tour"`
-	TongDatChoThanhCong    int64       `json:"tong_dat_cho_thanh_cong"`
-	DoanhThuThangNay       interface{} `json:"doanh_thu_thang_nay"`
-	DoanhThuThangTruoc     interface{} `json:"doanh_thu_thang_truoc"`
-	NguoiDungMoiThangNay   int64       `json:"nguoi_dung_moi_thang_nay"`
-	NguoiDungMoiThangTruoc int64       `json:"nguoi_dung_moi_thang_truoc"`
-	BookingThangNay        int64       `json:"booking_thang_nay"`
-	BookingThangTruoc      int64       `json:"booking_thang_truoc"`
+type GetDashboardOverviewByMonthAndYearParams struct {
+	Thang int32 `json:"thang"`
+	Nam   int32 `json:"nam"`
 }
 
-// Tổng quan dashboard với so sánh tháng trước
-func (q *Queries) GetDashboardOverviewWithComparison(ctx context.Context) (GetDashboardOverviewWithComparisonRow, error) {
-	row := q.db.QueryRow(ctx, getDashboardOverviewWithComparison)
-	var i GetDashboardOverviewWithComparisonRow
+type GetDashboardOverviewByMonthAndYearRow struct {
+	TongDatCho       int64       `json:"tong_dat_cho"`
+	SoDonDaHuy       int64       `json:"so_don_da_huy"`
+	DoanhThu         interface{} `json:"doanh_thu"`
+	SoChuyenKhoiHanh int64       `json:"so_chuyen_khoi_hanh"`
+	TongLuongKhach   interface{} `json:"tong_luong_khach"`
+	SoDanhGiaMoi     int64       `json:"so_danh_gia_moi"`
+	DiemTrungBinh    interface{} `json:"diem_trung_binh"`
+}
+
+// Tổng quan dashboard: tổng số người dùng, tour, booking, doanh thu
+func (q *Queries) GetDashboardOverviewByMonthAndYear(ctx context.Context, arg GetDashboardOverviewByMonthAndYearParams) (GetDashboardOverviewByMonthAndYearRow, error) {
+	row := q.db.QueryRow(ctx, getDashboardOverviewByMonthAndYear, arg.Thang, arg.Nam)
+	var i GetDashboardOverviewByMonthAndYearRow
 	err := row.Scan(
-		&i.TongNguoiDung,
-		&i.TongTour,
-		&i.TongDatChoThanhCong,
-		&i.DoanhThuThangNay,
-		&i.DoanhThuThangTruoc,
-		&i.NguoiDungMoiThangNay,
-		&i.NguoiDungMoiThangTruoc,
-		&i.BookingThangNay,
-		&i.BookingThangTruoc,
+		&i.TongDatCho,
+		&i.SoDonDaHuy,
+		&i.DoanhThu,
+		&i.SoChuyenKhoiHanh,
+		&i.TongLuongKhach,
+		&i.SoDanhGiaMoi,
+		&i.DiemTrungBinh,
 	)
 	return i, err
-}
-
-const getDepartureCapacityStats = `-- name: GetDepartureCapacityStats :one
-SELECT 
-    COUNT(*) AS tong_khoi_hanh,
-    SUM(suc_chua) AS tong_suc_chua,
-    SUM(so_cho_da_dat) AS tong_da_dat,
-    ROUND(
-        SUM(so_cho_da_dat)::DECIMAL / NULLIF(SUM(suc_chua), 0) * 100, 2
-    ) AS ty_le_lap_day
-FROM khoi_hanh_tour
-WHERE ngay_khoi_hanh >= CURRENT_DATE
-  AND trang_thai IN ('len_lich', 'xac_nhan')
-`
-
-type GetDepartureCapacityStatsRow struct {
-	TongKhoiHanh int64          `json:"tong_khoi_hanh"`
-	TongSucChua  int64          `json:"tong_suc_chua"`
-	TongDaDat    int64          `json:"tong_da_dat"`
-	TyLeLapDay   pgtype.Numeric `json:"ty_le_lap_day"`
-}
-
-// Thống kê công suất khởi hành
-func (q *Queries) GetDepartureCapacityStats(ctx context.Context) (GetDepartureCapacityStatsRow, error) {
-	row := q.db.QueryRow(ctx, getDepartureCapacityStats)
-	var i GetDepartureCapacityStatsRow
-	err := row.Scan(
-		&i.TongKhoiHanh,
-		&i.TongSucChua,
-		&i.TongDaDat,
-		&i.TyLeLapDay,
-	)
-	return i, err
-}
-
-const getDeparturesByMonth = `-- name: GetDeparturesByMonth :many
-SELECT 
-    DATE_TRUNC('month', ngay_khoi_hanh) AS thang,
-    COUNT(*) AS so_khoi_hanh,
-    SUM(suc_chua) AS tong_suc_chua,
-    SUM(so_cho_da_dat) AS tong_da_dat
-FROM khoi_hanh_tour
-WHERE ngay_khoi_hanh >= NOW() - INTERVAL '6 months'
-  AND ngay_khoi_hanh <= NOW() + INTERVAL '6 months'
-GROUP BY DATE_TRUNC('month', ngay_khoi_hanh)
-ORDER BY thang ASC
-`
-
-type GetDeparturesByMonthRow struct {
-	Thang       pgtype.Interval `json:"thang"`
-	SoKhoiHanh  int64           `json:"so_khoi_hanh"`
-	TongSucChua int64           `json:"tong_suc_chua"`
-	TongDaDat   int64           `json:"tong_da_dat"`
-}
-
-// Khởi hành theo tháng
-func (q *Queries) GetDeparturesByMonth(ctx context.Context) ([]GetDeparturesByMonthRow, error) {
-	rows, err := q.db.Query(ctx, getDeparturesByMonth)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetDeparturesByMonthRow
-	for rows.Next() {
-		var i GetDeparturesByMonthRow
-		if err := rows.Scan(
-			&i.Thang,
-			&i.SoKhoiHanh,
-			&i.TongSucChua,
-			&i.TongDaDat,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getMonthlyReport = `-- name: GetMonthlyReport :one
@@ -407,7 +683,6 @@ func (q *Queries) GetMonthlyReport(ctx context.Context, dollar_1 pgtype.Date) (G
 }
 
 const getMostFavoritedTours = `-- name: GetMostFavoritedTours :many
-
 SELECT 
     t.id,
     t.tieu_de,
@@ -433,9 +708,6 @@ type GetMostFavoritedToursRow struct {
 	AnhChinh      string         `json:"anh_chinh"`
 }
 
-// =====================
-// 11. FAVORITES STATISTICS
-// =====================
 // Tours được yêu thích nhiều nhất
 func (q *Queries) GetMostFavoritedTours(ctx context.Context, limit int32) ([]GetMostFavoritedToursRow, error) {
 	rows, err := q.db.Query(ctx, getMostFavoritedTours, limit)
@@ -454,123 +726,6 @@ func (q *Queries) GetMostFavoritedTours(ctx context.Context, limit int32) ([]Get
 			&i.SoYeuThich,
 			&i.AnhChinh,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getNewUsersToday = `-- name: GetNewUsersToday :one
-SELECT 
-    COUNT(*) AS nguoi_dung_moi_hom_nay,
-    COUNT(*) FILTER (WHERE vai_tro = 'khach_hang') AS khach_hang_moi,
-    COUNT(*) FILTER (WHERE vai_tro = 'nha_cung_cap') AS nha_cung_cap_moi
-FROM nguoi_dung
-WHERE DATE(ngay_tao) = CURRENT_DATE
-`
-
-type GetNewUsersTodayRow struct {
-	NguoiDungMoiHomNay int64 `json:"nguoi_dung_moi_hom_nay"`
-	KhachHangMoi       int64 `json:"khach_hang_moi"`
-	NhaCungCapMoi      int64 `json:"nha_cung_cap_moi"`
-}
-
-// Số người dùng mới hôm nay
-func (q *Queries) GetNewUsersToday(ctx context.Context) (GetNewUsersTodayRow, error) {
-	row := q.db.QueryRow(ctx, getNewUsersToday)
-	var i GetNewUsersTodayRow
-	err := row.Scan(&i.NguoiDungMoiHomNay, &i.KhachHangMoi, &i.NhaCungCapMoi)
-	return i, err
-}
-
-const getPaymentGatewayStats = `-- name: GetPaymentGatewayStats :many
-SELECT 
-    ctt.id AS cong_id,
-    ctt.ten_hien_thi,
-    COUNT(lsg.id) AS so_giao_dich,
-    COALESCE(SUM(lsg.so_tien), 0) AS tong_tien,
-    COUNT(*) FILTER (WHERE lsg.trang_thai = 'thanh_cong') AS thanh_cong,
-    COUNT(*) FILTER (WHERE lsg.trang_thai = 'that_bai') AS that_bai
-FROM cong_thanh_toan ctt
-LEFT JOIN lich_su_giao_dich lsg ON ctt.id = lsg.cong_thanh_toan_id
-GROUP BY ctt.id, ctt.ten_hien_thi
-ORDER BY so_giao_dich DESC
-`
-
-type GetPaymentGatewayStatsRow struct {
-	CongID     string      `json:"cong_id"`
-	TenHienThi string      `json:"ten_hien_thi"`
-	SoGiaoDich int64       `json:"so_giao_dich"`
-	TongTien   interface{} `json:"tong_tien"`
-	ThanhCong  int64       `json:"thanh_cong"`
-	ThatBai    int64       `json:"that_bai"`
-}
-
-// Thống kê theo cổng thanh toán
-func (q *Queries) GetPaymentGatewayStats(ctx context.Context) ([]GetPaymentGatewayStatsRow, error) {
-	rows, err := q.db.Query(ctx, getPaymentGatewayStats)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetPaymentGatewayStatsRow
-	for rows.Next() {
-		var i GetPaymentGatewayStatsRow
-		if err := rows.Scan(
-			&i.CongID,
-			&i.TenHienThi,
-			&i.SoGiaoDich,
-			&i.TongTien,
-			&i.ThanhCong,
-			&i.ThatBai,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getPaymentStatsByMethod = `-- name: GetPaymentStatsByMethod :many
-
-SELECT 
-    phuong_thuc_thanh_toan,
-    COUNT(*) AS so_giao_dich,
-    COALESCE(SUM(tong_tien), 0) AS tong_tien
-FROM dat_cho
-WHERE phuong_thuc_thanh_toan IS NOT NULL
-  AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY phuong_thuc_thanh_toan
-ORDER BY tong_tien DESC
-`
-
-type GetPaymentStatsByMethodRow struct {
-	PhuongThucThanhToan *string     `json:"phuong_thuc_thanh_toan"`
-	SoGiaoDich          int64       `json:"so_giao_dich"`
-	TongTien            interface{} `json:"tong_tien"`
-}
-
-// =====================
-// 5. PAYMENT STATISTICS
-// =====================
-// Thống kê thanh toán theo phương thức
-func (q *Queries) GetPaymentStatsByMethod(ctx context.Context) ([]GetPaymentStatsByMethodRow, error) {
-	rows, err := q.db.Query(ctx, getPaymentStatsByMethod)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetPaymentStatsByMethodRow
-	for rows.Next() {
-		var i GetPaymentStatsByMethodRow
-		if err := rows.Scan(&i.PhuongThucThanhToan, &i.SoGiaoDich, &i.TongTien); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -691,76 +846,35 @@ func (q *Queries) GetRecentBookings(ctx context.Context, limit int32) ([]GetRece
 	return items, nil
 }
 
-const getRecentReviews = `-- name: GetRecentReviews :many
-SELECT 
-    dg.id,
-    dg.diem_danh_gia,
-    dg.tieu_de,
-    dg.noi_dung,
-    dg.ngay_tao,
-    nd.ho_ten AS ten_nguoi_danh_gia,
-    nd.email AS email_nguoi_danh_gia,
-    t.tieu_de AS ten_tour
-FROM danh_gia dg
-JOIN nguoi_dung nd ON dg.nguoi_dung_id = nd.id
-JOIN tour t ON dg.tour_id = t.id
-WHERE dg.dang_hoat_dong = TRUE
-ORDER BY dg.ngay_tao DESC
-LIMIT $1
-`
-
-type GetRecentReviewsRow struct {
-	ID                int32            `json:"id"`
-	DiemDanhGia       int32            `json:"diem_danh_gia"`
-	TieuDe            *string          `json:"tieu_de"`
-	NoiDung           *string          `json:"noi_dung"`
-	NgayTao           pgtype.Timestamp `json:"ngay_tao"`
-	TenNguoiDanhGia   string           `json:"ten_nguoi_danh_gia"`
-	EmailNguoiDanhGia string           `json:"email_nguoi_danh_gia"`
-	TenTour           string           `json:"ten_tour"`
-}
-
-// Đánh giá gần đây
-func (q *Queries) GetRecentReviews(ctx context.Context, limit int32) ([]GetRecentReviewsRow, error) {
-	rows, err := q.db.Query(ctx, getRecentReviews, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetRecentReviewsRow
-	for rows.Next() {
-		var i GetRecentReviewsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.DiemDanhGia,
-			&i.TieuDe,
-			&i.NoiDung,
-			&i.NgayTao,
-			&i.TenNguoiDanhGia,
-			&i.EmailNguoiDanhGia,
-			&i.TenTour,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getRevenueByDay = `-- name: GetRevenueByDay :many
 SELECT 
-    DATE(ngay_dat) AS ngay,
-    COUNT(*) AS so_booking,
-    COALESCE(SUM(tong_tien), 0) AS doanh_thu
-FROM dat_cho
-WHERE ngay_dat >= NOW() - INTERVAL '30 days'
-  AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY DATE(ngay_dat)
+    DATE(dc.ngay_dat) AS ngay,
+    COUNT(dc.id) AS so_booking,
+    COALESCE(SUM(dc.tong_tien), 0) AS doanh_thu
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
+JOIN tour t ON kh.tour_id = t.id
+WHERE 
+    -- 1. Lọc Năm: Nếu tham số 'nam' truyền vào là 0, bỏ qua bộ lọc này
+    ($1::int = 0 OR EXTRACT(YEAR FROM dc.ngay_dat)::INT = $1::int)
+    
+    -- 2. Lọc Tháng: Nếu tham số 'thang' truyền vào là 0, bỏ qua bộ lọc này
+    AND ($2::int = 0 OR EXTRACT(MONTH FROM dc.ngay_dat)::INT = $2::int)
+    
+    -- 3. Lọc Nhà cung cấp: Nếu truyền vào NULL (narg), lấy tất cả
+    AND ($3::uuid IS NULL OR t.nha_cung_cap_id = $3)
+    
+    -- 4. Trạng thái bắt buộc
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY DATE(dc.ngay_dat)
 ORDER BY ngay ASC
 `
+
+type GetRevenueByDayParams struct {
+	Nam          int32       `json:"nam"`
+	Thang        int32       `json:"thang"`
+	NhaCungCapID pgtype.UUID `json:"nha_cung_cap_id"`
+}
 
 type GetRevenueByDayRow struct {
 	Ngay      pgtype.Date `json:"ngay"`
@@ -768,9 +882,9 @@ type GetRevenueByDayRow struct {
 	DoanhThu  interface{} `json:"doanh_thu"`
 }
 
-// Doanh thu theo ngày (30 ngày gần nhất)
-func (q *Queries) GetRevenueByDay(ctx context.Context) ([]GetRevenueByDayRow, error) {
-	rows, err := q.db.Query(ctx, getRevenueByDay)
+// Doanh thu theo năm và tháng
+func (q *Queries) GetRevenueByDay(ctx context.Context, arg GetRevenueByDayParams) ([]GetRevenueByDayRow, error) {
+	rows, err := q.db.Query(ctx, getRevenueByDay, arg.Nam, arg.Thang, arg.NhaCungCapID)
 	if err != nil {
 		return nil, err
 	}
@@ -779,210 +893,6 @@ func (q *Queries) GetRevenueByDay(ctx context.Context) ([]GetRevenueByDayRow, er
 	for rows.Next() {
 		var i GetRevenueByDayRow
 		if err := rows.Scan(&i.Ngay, &i.SoBooking, &i.DoanhThu); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getRevenueByMonth = `-- name: GetRevenueByMonth :many
-SELECT 
-    DATE_TRUNC('month', ngay_dat) AS thang,
-    COUNT(*) AS so_booking,
-    COALESCE(SUM(tong_tien), 0) AS doanh_thu,
-    COALESCE(AVG(tong_tien), 0) AS trung_binh_booking
-FROM dat_cho
-WHERE ngay_dat >= NOW() - INTERVAL '12 months'
-  AND trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY DATE_TRUNC('month', ngay_dat)
-ORDER BY thang ASC
-`
-
-type GetRevenueByMonthRow struct {
-	Thang            pgtype.Interval `json:"thang"`
-	SoBooking        int64           `json:"so_booking"`
-	DoanhThu         interface{}     `json:"doanh_thu"`
-	TrungBinhBooking interface{}     `json:"trung_binh_booking"`
-}
-
-// Doanh thu theo tháng (12 tháng gần nhất)
-func (q *Queries) GetRevenueByMonth(ctx context.Context) ([]GetRevenueByMonthRow, error) {
-	rows, err := q.db.Query(ctx, getRevenueByMonth)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetRevenueByMonthRow
-	for rows.Next() {
-		var i GetRevenueByMonthRow
-		if err := rows.Scan(
-			&i.Thang,
-			&i.SoBooking,
-			&i.DoanhThu,
-			&i.TrungBinhBooking,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getRevenueByYear = `-- name: GetRevenueByYear :many
-SELECT 
-    EXTRACT(YEAR FROM ngay_dat) AS nam,
-    COUNT(*) AS so_booking,
-    COALESCE(SUM(tong_tien), 0) AS doanh_thu
-FROM dat_cho
-WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY EXTRACT(YEAR FROM ngay_dat)
-ORDER BY nam ASC
-`
-
-type GetRevenueByYearRow struct {
-	Nam       pgtype.Numeric `json:"nam"`
-	SoBooking int64          `json:"so_booking"`
-	DoanhThu  interface{}    `json:"doanh_thu"`
-}
-
-// Doanh thu theo năm
-func (q *Queries) GetRevenueByYear(ctx context.Context) ([]GetRevenueByYearRow, error) {
-	rows, err := q.db.Query(ctx, getRevenueByYear)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetRevenueByYearRow
-	for rows.Next() {
-		var i GetRevenueByYearRow
-		if err := rows.Scan(&i.Nam, &i.SoBooking, &i.DoanhThu); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getReviewDistribution = `-- name: GetReviewDistribution :many
-SELECT 
-    diem_danh_gia,
-    COUNT(*) AS so_luong,
-    ROUND(COUNT(*)::DECIMAL / NULLIF((SELECT COUNT(*) FROM danh_gia WHERE dang_hoat_dong = TRUE), 0) * 100, 2) AS phan_tram
-FROM danh_gia
-WHERE dang_hoat_dong = TRUE
-GROUP BY diem_danh_gia
-ORDER BY diem_danh_gia DESC
-`
-
-type GetReviewDistributionRow struct {
-	DiemDanhGia int32          `json:"diem_danh_gia"`
-	SoLuong     int64          `json:"so_luong"`
-	PhanTram    pgtype.Numeric `json:"phan_tram"`
-}
-
-// Phân bố đánh giá
-func (q *Queries) GetReviewDistribution(ctx context.Context) ([]GetReviewDistributionRow, error) {
-	rows, err := q.db.Query(ctx, getReviewDistribution)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetReviewDistributionRow
-	for rows.Next() {
-		var i GetReviewDistributionRow
-		if err := rows.Scan(&i.DiemDanhGia, &i.SoLuong, &i.PhanTram); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getReviewStats = `-- name: GetReviewStats :one
-
-SELECT 
-    COUNT(*) AS tong_danh_gia,
-    COALESCE(AVG(diem_danh_gia), 0) AS diem_trung_binh,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 5) AS so_5_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 4) AS so_4_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 3) AS so_3_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 2) AS so_2_sao,
-    COUNT(*) FILTER (WHERE diem_danh_gia = 1) AS so_1_sao
-FROM danh_gia
-WHERE dang_hoat_dong = TRUE
-`
-
-type GetReviewStatsRow struct {
-	TongDanhGia   int64       `json:"tong_danh_gia"`
-	DiemTrungBinh interface{} `json:"diem_trung_binh"`
-	So5Sao        int64       `json:"so_5_sao"`
-	So4Sao        int64       `json:"so_4_sao"`
-	So3Sao        int64       `json:"so_3_sao"`
-	So2Sao        int64       `json:"so_2_sao"`
-	So1Sao        int64       `json:"so_1_sao"`
-}
-
-// =====================
-// 7. REVIEW STATISTICS
-// =====================
-// Thống kê đánh giá tổng quan
-func (q *Queries) GetReviewStats(ctx context.Context) (GetReviewStatsRow, error) {
-	row := q.db.QueryRow(ctx, getReviewStats)
-	var i GetReviewStatsRow
-	err := row.Scan(
-		&i.TongDanhGia,
-		&i.DiemTrungBinh,
-		&i.So5Sao,
-		&i.So4Sao,
-		&i.So3Sao,
-		&i.So2Sao,
-		&i.So1Sao,
-	)
-	return i, err
-}
-
-const getReviewsByMonth = `-- name: GetReviewsByMonth :many
-SELECT 
-    DATE_TRUNC('month', ngay_tao) AS thang,
-    COUNT(*) AS so_luong,
-    COALESCE(AVG(diem_danh_gia), 0) AS diem_trung_binh
-FROM danh_gia
-WHERE ngay_tao >= NOW() - INTERVAL '12 months'
-  AND dang_hoat_dong = TRUE
-GROUP BY DATE_TRUNC('month', ngay_tao)
-ORDER BY thang ASC
-`
-
-type GetReviewsByMonthRow struct {
-	Thang         pgtype.Interval `json:"thang"`
-	SoLuong       int64           `json:"so_luong"`
-	DiemTrungBinh interface{}     `json:"diem_trung_binh"`
-}
-
-// Đánh giá theo tháng
-func (q *Queries) GetReviewsByMonth(ctx context.Context) ([]GetReviewsByMonthRow, error) {
-	rows, err := q.db.Query(ctx, getReviewsByMonth)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetReviewsByMonthRow
-	for rows.Next() {
-		var i GetReviewsByMonthRow
-		if err := rows.Scan(&i.Thang, &i.SoLuong, &i.DiemTrungBinh); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1031,7 +941,6 @@ func (q *Queries) GetSupplierGrowthByMonth(ctx context.Context) ([]GetSupplierGr
 }
 
 const getSupplierStats = `-- name: GetSupplierStats :one
-
 SELECT 
     COUNT(*) AS tong_nha_cung_cap,
     (SELECT COUNT(*) FROM tour WHERE dang_hoat_dong = TRUE) AS tong_tour,
@@ -1044,84 +953,12 @@ type GetSupplierStatsRow struct {
 	TourDangCongBo int64 `json:"tour_dang_cong_bo"`
 }
 
-// =====================
-// 6. SUPPLIER STATISTICS
-// =====================
 // Tổng quan nhà cung cấp
 func (q *Queries) GetSupplierStats(ctx context.Context) (GetSupplierStatsRow, error) {
 	row := q.db.QueryRow(ctx, getSupplierStats)
 	var i GetSupplierStatsRow
 	err := row.Scan(&i.TongNhaCungCap, &i.TongTour, &i.TourDangCongBo)
 	return i, err
-}
-
-const getSystemActivity = `-- name: GetSystemActivity :many
-SELECT 
-    'booking' AS loai,
-    dc.id AS id_doi_tuong,
-    dc.ngay_dat AS thoi_gian,
-    CONCAT('Booking mới #', dc.id, ' - ', t.tieu_de) AS mo_ta
-FROM dat_cho dc
-JOIN khoi_hanh_tour kh ON dc.khoi_hanh_id = kh.id
-JOIN tour t ON kh.tour_id = t.id
-WHERE dc.ngay_dat >= NOW() - INTERVAL '24 hours'
-
-UNION ALL
-
-SELECT 
-    'user' AS loai,
-    NULL AS id_doi_tuong,
-    ngay_tao AS thoi_gian,
-    CONCAT('Người dùng mới: ', ho_ten) AS mo_ta
-FROM nguoi_dung
-WHERE ngay_tao >= NOW() - INTERVAL '24 hours'
-
-UNION ALL
-
-SELECT 
-    'review' AS loai,
-    dg.id AS id_doi_tuong,
-    dg.ngay_tao AS thoi_gian,
-    CONCAT('Đánh giá mới ', dg.diem_danh_gia, ' sao cho tour: ', t.tieu_de) AS mo_ta
-FROM danh_gia dg
-JOIN tour t ON dg.tour_id = t.id
-WHERE dg.ngay_tao >= NOW() - INTERVAL '24 hours'
-
-ORDER BY thoi_gian DESC
-LIMIT 50
-`
-
-type GetSystemActivityRow struct {
-	Loai       string           `json:"loai"`
-	IDDoiTuong int32            `json:"id_doi_tuong"`
-	ThoiGian   pgtype.Timestamp `json:"thoi_gian"`
-	MoTa       interface{}      `json:"mo_ta"`
-}
-
-// Hoạt động hệ thống gần đây
-func (q *Queries) GetSystemActivity(ctx context.Context) ([]GetSystemActivityRow, error) {
-	rows, err := q.db.Query(ctx, getSystemActivity)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetSystemActivityRow
-	for rows.Next() {
-		var i GetSystemActivityRow
-		if err := rows.Scan(
-			&i.Loai,
-			&i.IDDoiTuong,
-			&i.ThoiGian,
-			&i.MoTa,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getTopActiveUsers = `-- name: GetTopActiveUsers :many
@@ -1136,7 +973,7 @@ LEFT JOIN dat_cho dc ON nd.id = dc.nguoi_dung_id
 WHERE nd.vai_tro = 'khach_hang' AND nd.dang_hoat_dong = TRUE
 GROUP BY nd.id, nd.ho_ten, nd.email
 ORDER BY so_booking DESC
-LIMIT 10
+LIMIT $1
 `
 
 type GetTopActiveUsersRow struct {
@@ -1147,9 +984,10 @@ type GetTopActiveUsersRow struct {
 	TongChiTieu interface{} `json:"tong_chi_tieu"`
 }
 
+// =====================================Khách hàng=====================================
 // Top người dùng hoạt động nhiều nhất (theo số booking)
-func (q *Queries) GetTopActiveUsers(ctx context.Context) ([]GetTopActiveUsersRow, error) {
-	rows, err := q.db.Query(ctx, getTopActiveUsers)
+func (q *Queries) GetTopActiveUsers(ctx context.Context, limit int32) ([]GetTopActiveUsersRow, error) {
+	rows, err := q.db.Query(ctx, getTopActiveUsers, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -1240,7 +1078,6 @@ func (q *Queries) GetTopBookedTours(ctx context.Context, limit int32) ([]GetTopB
 }
 
 const getTopDestinations = `-- name: GetTopDestinations :many
-
 SELECT 
     dd.id,
     dd.ten,
@@ -1269,9 +1106,6 @@ type GetTopDestinationsRow struct {
 	TongDoanhThu interface{} `json:"tong_doanh_thu"`
 }
 
-// =====================
-// 8. DESTINATION STATISTICS
-// =====================
 // Top điểm đến phổ biến
 func (q *Queries) GetTopDestinations(ctx context.Context, limit int32) ([]GetTopDestinationsRow, error) {
 	rows, err := q.db.Query(ctx, getTopDestinations, limit)
@@ -1468,289 +1302,6 @@ func (q *Queries) GetTourPriceDistribution(ctx context.Context) ([]GetTourPriceD
 	return items, nil
 }
 
-const getTourStatsByCategory = `-- name: GetTourStatsByCategory :many
-
-SELECT 
-    dmt.id AS danh_muc_id,
-    dmt.ten AS ten_danh_muc,
-    COUNT(t.id) AS tong_tour,
-    COUNT(t.id) FILTER (WHERE t.trang_thai = 'cong_bo') AS tour_cong_bo,
-    COUNT(t.id) FILTER (WHERE t.noi_bat = TRUE) AS tour_noi_bat,
-    COALESCE(AVG(t.gia_nguoi_lon), 0) AS gia_trung_binh
-FROM danh_muc_tour dmt
-LEFT JOIN tour t ON dmt.id = t.danh_muc_id AND t.dang_hoat_dong = TRUE
-GROUP BY dmt.id, dmt.ten
-ORDER BY tong_tour DESC
-`
-
-type GetTourStatsByCategoryRow struct {
-	DanhMucID    int32       `json:"danh_muc_id"`
-	TenDanhMuc   string      `json:"ten_danh_muc"`
-	TongTour     int64       `json:"tong_tour"`
-	TourCongBo   int64       `json:"tour_cong_bo"`
-	TourNoiBat   int64       `json:"tour_noi_bat"`
-	GiaTrungBinh interface{} `json:"gia_trung_binh"`
-}
-
-// =====================
-// 3. TOUR STATISTICS
-// =====================
-// Thống kê tour theo danh mục
-func (q *Queries) GetTourStatsByCategory(ctx context.Context) ([]GetTourStatsByCategoryRow, error) {
-	rows, err := q.db.Query(ctx, getTourStatsByCategory)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetTourStatsByCategoryRow
-	for rows.Next() {
-		var i GetTourStatsByCategoryRow
-		if err := rows.Scan(
-			&i.DanhMucID,
-			&i.TenDanhMuc,
-			&i.TongTour,
-			&i.TourCongBo,
-			&i.TourNoiBat,
-			&i.GiaTrungBinh,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTourStatsByStatus = `-- name: GetTourStatsByStatus :many
-SELECT 
-    trang_thai,
-    COUNT(*) AS so_luong
-FROM tour
-WHERE dang_hoat_dong = TRUE
-GROUP BY trang_thai
-ORDER BY so_luong DESC
-`
-
-type GetTourStatsByStatusRow struct {
-	TrangThai *string `json:"trang_thai"`
-	SoLuong   int64   `json:"so_luong"`
-}
-
-// Thống kê tour theo trạng thái
-func (q *Queries) GetTourStatsByStatus(ctx context.Context) ([]GetTourStatsByStatusRow, error) {
-	rows, err := q.db.Query(ctx, getTourStatsByStatus)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetTourStatsByStatusRow
-	for rows.Next() {
-		var i GetTourStatsByStatusRow
-		if err := rows.Scan(&i.TrangThai, &i.SoLuong); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getToursCreatedByMonth = `-- name: GetToursCreatedByMonth :many
-SELECT 
-    DATE_TRUNC('month', ngay_tao) AS thang,
-    COUNT(*) AS so_luong
-FROM tour
-WHERE ngay_tao >= NOW() - INTERVAL '12 months'
-GROUP BY DATE_TRUNC('month', ngay_tao)
-ORDER BY thang ASC
-`
-
-type GetToursCreatedByMonthRow struct {
-	Thang   pgtype.Interval `json:"thang"`
-	SoLuong int64           `json:"so_luong"`
-}
-
-// Số tour mới theo tháng
-func (q *Queries) GetToursCreatedByMonth(ctx context.Context) ([]GetToursCreatedByMonthRow, error) {
-	rows, err := q.db.Query(ctx, getToursCreatedByMonth)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetToursCreatedByMonthRow
-	for rows.Next() {
-		var i GetToursCreatedByMonthRow
-		if err := rows.Scan(&i.Thang, &i.SoLuong); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getToursWithLowestRating = `-- name: GetToursWithLowestRating :many
-SELECT 
-    t.id,
-    t.tieu_de,
-    ncc.ten AS ten_nha_cung_cap,
-    COUNT(dg.id) AS so_danh_gia,
-    COALESCE(AVG(dg.diem_danh_gia), 0) AS diem_trung_binh
-FROM tour t
-LEFT JOIN danh_gia dg ON t.id = dg.tour_id AND dg.dang_hoat_dong = TRUE
-LEFT JOIN nha_cung_cap ncc ON t.nha_cung_cap_id = ncc.id
-WHERE t.dang_hoat_dong = TRUE
-GROUP BY t.id, t.tieu_de, ncc.ten
-HAVING COUNT(dg.id) > 0
-ORDER BY diem_trung_binh ASC
-LIMIT $1
-`
-
-type GetToursWithLowestRatingRow struct {
-	ID            int32       `json:"id"`
-	TieuDe        string      `json:"tieu_de"`
-	TenNhaCungCap *string     `json:"ten_nha_cung_cap"`
-	SoDanhGia     int64       `json:"so_danh_gia"`
-	DiemTrungBinh interface{} `json:"diem_trung_binh"`
-}
-
-// Tours có điểm đánh giá thấp nhất (cần cải thiện)
-func (q *Queries) GetToursWithLowestRating(ctx context.Context, limit int32) ([]GetToursWithLowestRatingRow, error) {
-	rows, err := q.db.Query(ctx, getToursWithLowestRating, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetToursWithLowestRatingRow
-	for rows.Next() {
-		var i GetToursWithLowestRatingRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TieuDe,
-			&i.TenNhaCungCap,
-			&i.SoDanhGia,
-			&i.DiemTrungBinh,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTransactionStatsByStatus = `-- name: GetTransactionStatsByStatus :many
-SELECT 
-    trang_thai,
-    COUNT(*) AS so_giao_dich,
-    COALESCE(SUM(so_tien), 0) AS tong_tien
-FROM lich_su_giao_dich
-GROUP BY trang_thai
-ORDER BY so_giao_dich DESC
-`
-
-type GetTransactionStatsByStatusRow struct {
-	TrangThai  NullTrangThaiThanhToan `json:"trang_thai"`
-	SoGiaoDich int64                  `json:"so_giao_dich"`
-	TongTien   interface{}            `json:"tong_tien"`
-}
-
-// Thống kê giao dịch theo trạng thái
-func (q *Queries) GetTransactionStatsByStatus(ctx context.Context) ([]GetTransactionStatsByStatusRow, error) {
-	rows, err := q.db.Query(ctx, getTransactionStatsByStatus)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetTransactionStatsByStatusRow
-	for rows.Next() {
-		var i GetTransactionStatsByStatusRow
-		if err := rows.Scan(&i.TrangThai, &i.SoGiaoDich, &i.TongTien); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTransactionsByDay = `-- name: GetTransactionsByDay :many
-SELECT 
-    DATE(ngay_tao) AS ngay,
-    COUNT(*) AS so_giao_dich,
-    COALESCE(SUM(so_tien), 0) AS tong_tien,
-    COUNT(*) FILTER (WHERE trang_thai = 'thanh_cong') AS thanh_cong,
-    COUNT(*) FILTER (WHERE trang_thai = 'that_bai') AS that_bai
-FROM lich_su_giao_dich
-WHERE ngay_tao >= NOW() - INTERVAL '30 days'
-GROUP BY DATE(ngay_tao)
-ORDER BY ngay ASC
-`
-
-type GetTransactionsByDayRow struct {
-	Ngay       pgtype.Date `json:"ngay"`
-	SoGiaoDich int64       `json:"so_giao_dich"`
-	TongTien   interface{} `json:"tong_tien"`
-	ThanhCong  int64       `json:"thanh_cong"`
-	ThatBai    int64       `json:"that_bai"`
-}
-
-// Giao dịch theo ngày (30 ngày gần nhất)
-func (q *Queries) GetTransactionsByDay(ctx context.Context) ([]GetTransactionsByDayRow, error) {
-	rows, err := q.db.Query(ctx, getTransactionsByDay)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetTransactionsByDayRow
-	for rows.Next() {
-		var i GetTransactionsByDayRow
-		if err := rows.Scan(
-			&i.Ngay,
-			&i.SoGiaoDich,
-			&i.TongTien,
-			&i.ThanhCong,
-			&i.ThatBai,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getUnreadNotificationCount = `-- name: GetUnreadNotificationCount :one
-
-SELECT 
-    COUNT(*) AS tong_thong_bao_chua_doc
-FROM thong_bao
-WHERE da_doc = FALSE
-`
-
-// =====================
-// 10. NOTIFICATION & ACTIVITY
-// =====================
-// Số thông báo chưa đọc (cho admin xem tổng quan)
-func (q *Queries) GetUnreadNotificationCount(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, getUnreadNotificationCount)
-	var tong_thong_bao_chua_doc int64
-	err := row.Scan(&tong_thong_bao_chua_doc)
-	return tong_thong_bao_chua_doc, err
-}
-
 const getUpcomingDepartures = `-- name: GetUpcomingDepartures :many
 
 SELECT 
@@ -1810,87 +1361,6 @@ func (q *Queries) GetUpcomingDepartures(ctx context.Context, limit int32) ([]Get
 			&i.GiaNguoiLon,
 			&i.TenNhaCungCap,
 			&i.ChoConTrong,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getUserGrowthByDay = `-- name: GetUserGrowthByDay :many
-SELECT 
-    DATE(ngay_tao) AS ngay,
-    COUNT(*) AS so_luong
-FROM nguoi_dung
-WHERE ngay_tao >= NOW() - INTERVAL '30 days'
-GROUP BY DATE(ngay_tao)
-ORDER BY ngay ASC
-`
-
-type GetUserGrowthByDayRow struct {
-	Ngay    pgtype.Date `json:"ngay"`
-	SoLuong int64       `json:"so_luong"`
-}
-
-// Tăng trưởng người dùng theo ngày (30 ngày gần nhất)
-func (q *Queries) GetUserGrowthByDay(ctx context.Context) ([]GetUserGrowthByDayRow, error) {
-	rows, err := q.db.Query(ctx, getUserGrowthByDay)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetUserGrowthByDayRow
-	for rows.Next() {
-		var i GetUserGrowthByDayRow
-		if err := rows.Scan(&i.Ngay, &i.SoLuong); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getUserGrowthByMonth = `-- name: GetUserGrowthByMonth :many
-SELECT 
-    DATE_TRUNC('month', ngay_tao) AS thang,
-    COUNT(*) AS tong_dang_ky,
-    COUNT(*) FILTER (WHERE vai_tro = 'khach_hang') AS khach_hang_moi,
-    COUNT(*) FILTER (WHERE vai_tro = 'nha_cung_cap') AS nha_cung_cap_moi
-FROM nguoi_dung
-WHERE ngay_tao >= NOW() - INTERVAL '12 months'
-GROUP BY DATE_TRUNC('month', ngay_tao)
-ORDER BY thang ASC
-`
-
-type GetUserGrowthByMonthRow struct {
-	Thang         pgtype.Interval `json:"thang"`
-	TongDangKy    int64           `json:"tong_dang_ky"`
-	KhachHangMoi  int64           `json:"khach_hang_moi"`
-	NhaCungCapMoi int64           `json:"nha_cung_cap_moi"`
-}
-
-// Tăng trưởng người dùng theo tháng (12 tháng gần nhất)
-func (q *Queries) GetUserGrowthByMonth(ctx context.Context) ([]GetUserGrowthByMonthRow, error) {
-	rows, err := q.db.Query(ctx, getUserGrowthByMonth)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetUserGrowthByMonthRow
-	for rows.Next() {
-		var i GetUserGrowthByMonthRow
-		if err := rows.Scan(
-			&i.Thang,
-			&i.TongDangKy,
-			&i.KhachHangMoi,
-			&i.NhaCungCapMoi,
 		); err != nil {
 			return nil, err
 		}
@@ -1984,6 +1454,116 @@ func (q *Queries) GetYearlyComparisonReport(ctx context.Context) ([]GetYearlyCom
 			&i.DoanhThu,
 			&i.GiaTriTrungBinh,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const rejectSupplier = `-- name: RejectSupplier :one
+UPDATE nguoi_dung
+SET 
+    dang_hoat_dong = FALSE,
+    xac_thuc = FALSE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 
+    AND vai_tro = 'nha_cung_cap'
+RETURNING id, ho_ten, email, mat_khau_ma_hoa, so_dien_thoai, vai_tro, dang_hoat_dong, xac_thuc, ngay_tao, ngay_cap_nhat
+`
+
+// từ chối nhà cung cấp
+func (q *Queries) RejectSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error) {
+	row := q.db.QueryRow(ctx, rejectSupplier, id)
+	var i NguoiDung
+	err := row.Scan(
+		&i.ID,
+		&i.HoTen,
+		&i.Email,
+		&i.MatKhauMaHoa,
+		&i.SoDienThoai,
+		&i.VaiTro,
+		&i.DangHoatDong,
+		&i.XacThuc,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const restoreSupplier = `-- name: RestoreSupplier :one
+UPDATE nguoi_dung
+SET
+    dang_hoat_dong = TRUE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 AND vai_tro = 'nha_cung_cap'
+RETURNING id, ho_ten, email, mat_khau_ma_hoa, so_dien_thoai, vai_tro, dang_hoat_dong, xac_thuc, ngay_tao, ngay_cap_nhat
+`
+
+func (q *Queries) RestoreSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error) {
+	row := q.db.QueryRow(ctx, restoreSupplier, id)
+	var i NguoiDung
+	err := row.Scan(
+		&i.ID,
+		&i.HoTen,
+		&i.Email,
+		&i.MatKhauMaHoa,
+		&i.SoDienThoai,
+		&i.VaiTro,
+		&i.DangHoatDong,
+		&i.XacThuc,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const softDeleteSupplier = `-- name: SoftDeleteSupplier :exec
+UPDATE nguoi_dung
+SET
+    dang_hoat_dong = FALSE,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1 AND vai_tro = 'nha_cung_cap'
+`
+
+func (q *Queries) SoftDeleteSupplier(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteSupplier, id)
+	return err
+}
+
+const supplierOptions = `-- name: SupplierOptions :many
+
+select nha_cung_cap.id, nha_cung_cap.ten from nha_cung_cap
+join nguoi_dung on nguoi_dung.id = nha_cung_cap.id
+where dang_hoat_dong = true
+and nguoi_dung.vai_tro = 'nha_cung_cap'
+order by nguoi_dung.ngay_tao desc
+`
+
+type SupplierOptionsRow struct {
+	ID  pgtype.UUID `json:"id"`
+	Ten string      `json:"ten"`
+}
+
+// ===========================================
+// ADMIN STATISTICS QUERIES
+// ===========================================
+// =====================
+// 1. DASHBOARD OVERVIEW
+// =====================
+func (q *Queries) SupplierOptions(ctx context.Context) ([]SupplierOptionsRow, error) {
+	rows, err := q.db.Query(ctx, supplierOptions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SupplierOptionsRow
+	for rows.Next() {
+		var i SupplierOptionsRow
+		if err := rows.Scan(&i.ID, &i.Ten); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

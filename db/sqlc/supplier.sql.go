@@ -11,37 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const approveSupplier = `-- name: ApproveSupplier :one
-UPDATE nguoi_dung
-SET 
-    dang_hoat_dong = TRUE,
-    xac_thuc = TRUE,
-    ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1 
-    AND vai_tro = 'nha_cung_cap'
-    AND dang_hoat_dong = FALSE
-RETURNING id, ho_ten, email, mat_khau_ma_hoa, so_dien_thoai, vai_tro, dang_hoat_dong, xac_thuc, ngay_tao, ngay_cap_nhat
-`
-
-// phê duyệt nhà cung cấp
-func (q *Queries) ApproveSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error) {
-	row := q.db.QueryRow(ctx, approveSupplier, id)
-	var i NguoiDung
-	err := row.Scan(
-		&i.ID,
-		&i.HoTen,
-		&i.Email,
-		&i.MatKhauMaHoa,
-		&i.SoDienThoai,
-		&i.VaiTro,
-		&i.DangHoatDong,
-		&i.XacThuc,
-		&i.NgayTao,
-		&i.NgayCapNhat,
-	)
-	return i, err
-}
-
 const bulkUpdateSupplierStatus = `-- name: BulkUpdateSupplierStatus :exec
 UPDATE nha_cung_cap
 SET
@@ -221,14 +190,24 @@ func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) 
 	return i, err
 }
 
-const deleteSupplier = `-- name: DeleteSupplier :exec
-DELETE FROM nha_cung_cap
-WHERE id = $1 AND nha_cung_cap.dang_hoat_dong = TRUE
+const feedbackReview = `-- name: FeedbackReview :one
+INSERT INTO phan_hoi_danh_gia (danh_gia_id, nguoi_dung_id, noi_dung)
+VALUES ($1, $2, $3)
+RETURNING id
 `
 
-func (q *Queries) DeleteSupplier(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, deleteSupplier, id)
-	return err
+type FeedbackReviewParams struct {
+	DanhGiaID   int32       `json:"danh_gia_id"`
+	NguoiDungID pgtype.UUID `json:"nguoi_dung_id"`
+	NoiDung     string      `json:"noi_dung"`
+}
+
+// Phản hồi đánh giá
+func (q *Queries) FeedbackReview(ctx context.Context, arg FeedbackReviewParams) (int32, error) {
+	row := q.db.QueryRow(ctx, feedbackReview, arg.DanhGiaID, arg.NguoiDungID, arg.NoiDung)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getActiveSuppliers = `-- name: GetActiveSuppliers :many
@@ -272,81 +251,6 @@ func (q *Queries) GetActiveSuppliers(ctx context.Context) ([]GetActiveSuppliersR
 	var items []GetActiveSuppliersRow
 	for rows.Next() {
 		var i GetActiveSuppliersRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.DiaChi,
-			&i.Website,
-			&i.MoTa,
-			&i.Logo,
-			&i.NamThanhLap,
-			&i.ThanhPho,
-			&i.QuocGia,
-			&i.MaSoThue,
-			&i.SoNhanVien,
-			&i.GiayToKinhDoanh,
-			&i.ID_2,
-			&i.HoTen,
-			&i.Email,
-			&i.MatKhauMaHoa,
-			&i.SoDienThoai,
-			&i.VaiTro,
-			&i.DangHoatDong,
-			&i.XacThuc,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllSuppliers = `-- name: GetAllSuppliers :many
-SELECT nha_cung_cap.id, ten, dia_chi, website, mo_ta, logo, nam_thanh_lap, thanh_pho, quoc_gia, ma_so_thue, so_nhan_vien, giay_to_kinh_doanh, nguoi_dung.id, ho_ten, email, mat_khau_ma_hoa, so_dien_thoai, vai_tro, dang_hoat_dong, xac_thuc, ngay_tao, ngay_cap_nhat FROM nha_cung_cap
-JOIN nguoi_dung ON nguoi_dung.id = nha_cung_cap.id
-WHERE nguoi_dung.dang_hoat_dong = TRUE
-ORDER BY nguoi_dung.ngay_tao DESC
-`
-
-type GetAllSuppliersRow struct {
-	ID              pgtype.UUID         `json:"id"`
-	Ten             string              `json:"ten"`
-	DiaChi          *string             `json:"dia_chi"`
-	Website         *string             `json:"website"`
-	MoTa            *string             `json:"mo_ta"`
-	Logo            *string             `json:"logo"`
-	NamThanhLap     pgtype.Date         `json:"nam_thanh_lap"`
-	ThanhPho        *string             `json:"thanh_pho"`
-	QuocGia         *string             `json:"quoc_gia"`
-	MaSoThue        *string             `json:"ma_so_thue"`
-	SoNhanVien      *string             `json:"so_nhan_vien"`
-	GiayToKinhDoanh *string             `json:"giay_to_kinh_doanh"`
-	ID_2            pgtype.UUID         `json:"id_2"`
-	HoTen           string              `json:"ho_ten"`
-	Email           string              `json:"email"`
-	MatKhauMaHoa    string              `json:"mat_khau_ma_hoa"`
-	SoDienThoai     *string             `json:"so_dien_thoai"`
-	VaiTro          NullVaiTroNguoiDung `json:"vai_tro"`
-	DangHoatDong    *bool               `json:"dang_hoat_dong"`
-	XacThuc         *bool               `json:"xac_thuc"`
-	NgayTao         pgtype.Timestamp    `json:"ngay_tao"`
-	NgayCapNhat     pgtype.Timestamp    `json:"ngay_cap_nhat"`
-}
-
-func (q *Queries) GetAllSuppliers(ctx context.Context) ([]GetAllSuppliersRow, error) {
-	rows, err := q.db.Query(ctx, getAllSuppliers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllSuppliersRow
-	for rows.Next() {
-		var i GetAllSuppliersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Ten,
@@ -455,6 +359,116 @@ func (q *Queries) GetAllSuppliersIncludingDeleted(ctx context.Context) ([]GetAll
 	return items, nil
 }
 
+const getDetailedSupplierReviews = `-- name: GetDetailedSupplierReviews :many
+SELECT 
+    dg.id AS danh_gia_id,
+    dg.tieu_de,
+    dg.noi_dung,
+    dg.diem_danh_gia,
+    dg.hinh_anh_dinh_kem, -- Trả về dạng slice/array trong code
+    dg.ngay_tao,
+    nd.ho_ten AS nguoi_dung_ten,
+    nd.email AS nguoi_dung_email,
+    t.id AS tour_id,
+    t.tieu_de AS tour_tieu_de
+FROM danh_gia dg
+JOIN tour t ON t.id = dg.tour_id
+JOIN nguoi_dung nd ON nd.id = dg.nguoi_dung_id
+WHERE 
+    t.nha_cung_cap_id = $1
+    -- Lọc theo số sao: truyền 0 nếu muốn lấy tất cả
+    AND ($2::int = 0 OR dg.diem_danh_gia = $2)
+    -- Lọc theo tour: truyền 0 nếu muốn lấy tất cả tour của NCC này
+    AND ($3::int = 0 OR t.id = $3)
+    AND dg.dang_hoat_dong = TRUE
+ORDER BY dg.ngay_tao DESC
+`
+
+type GetDetailedSupplierReviewsParams struct {
+	NhaCungCapID pgtype.UUID `json:"nha_cung_cap_id"`
+	Column2      int32       `json:"column_2"`
+	Column3      int32       `json:"column_3"`
+}
+
+type GetDetailedSupplierReviewsRow struct {
+	DanhGiaID      int32            `json:"danh_gia_id"`
+	TieuDe         *string          `json:"tieu_de"`
+	NoiDung        *string          `json:"noi_dung"`
+	DiemDanhGia    int32            `json:"diem_danh_gia"`
+	HinhAnhDinhKem []string         `json:"hinh_anh_dinh_kem"`
+	NgayTao        pgtype.Timestamp `json:"ngay_tao"`
+	NguoiDungTen   string           `json:"nguoi_dung_ten"`
+	NguoiDungEmail string           `json:"nguoi_dung_email"`
+	TourID         int32            `json:"tour_id"`
+	TourTieuDe     string           `json:"tour_tieu_de"`
+}
+
+// Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour
+func (q *Queries) GetDetailedSupplierReviews(ctx context.Context, arg GetDetailedSupplierReviewsParams) ([]GetDetailedSupplierReviewsRow, error) {
+	rows, err := q.db.Query(ctx, getDetailedSupplierReviews, arg.NhaCungCapID, arg.Column2, arg.Column3)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDetailedSupplierReviewsRow
+	for rows.Next() {
+		var i GetDetailedSupplierReviewsRow
+		if err := rows.Scan(
+			&i.DanhGiaID,
+			&i.TieuDe,
+			&i.NoiDung,
+			&i.DiemDanhGia,
+			&i.HinhAnhDinhKem,
+			&i.NgayTao,
+			&i.NguoiDungTen,
+			&i.NguoiDungEmail,
+			&i.TourID,
+			&i.TourTieuDe,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFeedbackReview = `-- name: GetFeedbackReview :many
+SELECT id, danh_gia_id, nguoi_dung_id, noi_dung, ngay_tao, ngay_cap_nhat FROM phan_hoi_danh_gia
+WHERE danh_gia_id = $1
+ORDER BY ngay_cap_nhat DESC
+`
+
+// Lấy danh sách phản hồi đánh giá
+func (q *Queries) GetFeedbackReview(ctx context.Context, danhGiaID int32) ([]PhanHoiDanhGium, error) {
+	rows, err := q.db.Query(ctx, getFeedbackReview, danhGiaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PhanHoiDanhGium
+	for rows.Next() {
+		var i PhanHoiDanhGium
+		if err := rows.Scan(
+			&i.ID,
+			&i.DanhGiaID,
+			&i.NguoiDungID,
+			&i.NoiDung,
+			&i.NgayTao,
+			&i.NgayCapNhat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMyTours = `-- name: GetMyTours :many
 SELECT id, tieu_de, mo_ta, danh_muc_id, so_ngay, so_dem, gia_nguoi_lon, gia_tre_em, don_vi_tien_te, trang_thai, noi_bat, nha_cung_cap_id, dang_hoat_dong, ngay_tao, ngay_cap_nhat FROM tour
 WHERE nha_cung_cap_id = $1 
@@ -513,123 +527,49 @@ func (q *Queries) GetMyTours(ctx context.Context, arg GetMyToursParams) ([]Tour,
 	return items, nil
 }
 
-const getPendingSuppliers = `-- name: GetPendingSuppliers :many
-SELECT 
-    nha_cung_cap.id, nha_cung_cap.ten, nha_cung_cap.dia_chi, nha_cung_cap.website, nha_cung_cap.mo_ta, nha_cung_cap.logo, nha_cung_cap.nam_thanh_lap, nha_cung_cap.thanh_pho, nha_cung_cap.quoc_gia, nha_cung_cap.ma_so_thue, nha_cung_cap.so_nhan_vien, nha_cung_cap.giay_to_kinh_doanh,
-    nguoi_dung.ho_ten,
-    nguoi_dung.email,
-    nguoi_dung.so_dien_thoai,
-    nguoi_dung.ngay_tao,
-    nguoi_dung.ngay_cap_nhat,
-    nguoi_dung.dang_hoat_dong,
-    nguoi_dung.xac_thuc
-FROM nha_cung_cap
-JOIN nguoi_dung ON nguoi_dung.id = nha_cung_cap.id
-WHERE nguoi_dung.vai_tro = 'nha_cung_cap'
-    AND (nguoi_dung.dang_hoat_dong = FALSE OR nguoi_dung.xac_thuc = FALSE)
-ORDER BY nguoi_dung.ngay_tao DESC
-`
-
-type GetPendingSuppliersRow struct {
-	ID              pgtype.UUID      `json:"id"`
-	Ten             string           `json:"ten"`
-	DiaChi          *string          `json:"dia_chi"`
-	Website         *string          `json:"website"`
-	MoTa            *string          `json:"mo_ta"`
-	Logo            *string          `json:"logo"`
-	NamThanhLap     pgtype.Date      `json:"nam_thanh_lap"`
-	ThanhPho        *string          `json:"thanh_pho"`
-	QuocGia         *string          `json:"quoc_gia"`
-	MaSoThue        *string          `json:"ma_so_thue"`
-	SoNhanVien      *string          `json:"so_nhan_vien"`
-	GiayToKinhDoanh *string          `json:"giay_to_kinh_doanh"`
-	HoTen           string           `json:"ho_ten"`
-	Email           string           `json:"email"`
-	SoDienThoai     *string          `json:"so_dien_thoai"`
-	NgayTao         pgtype.Timestamp `json:"ngay_tao"`
-	NgayCapNhat     pgtype.Timestamp `json:"ngay_cap_nhat"`
-	DangHoatDong    *bool            `json:"dang_hoat_dong"`
-	XacThuc         *bool            `json:"xac_thuc"`
-}
-
-// lấy danh sách nhà cung cấp chờ phê duyệt
-func (q *Queries) GetPendingSuppliers(ctx context.Context) ([]GetPendingSuppliersRow, error) {
-	rows, err := q.db.Query(ctx, getPendingSuppliers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetPendingSuppliersRow
-	for rows.Next() {
-		var i GetPendingSuppliersRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.DiaChi,
-			&i.Website,
-			&i.MoTa,
-			&i.Logo,
-			&i.NamThanhLap,
-			&i.ThanhPho,
-			&i.QuocGia,
-			&i.MaSoThue,
-			&i.SoNhanVien,
-			&i.GiayToKinhDoanh,
-			&i.HoTen,
-			&i.Email,
-			&i.SoDienThoai,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-			&i.DangHoatDong,
-			&i.XacThuc,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getSupplierBookingStatsByStatus = `-- name: GetSupplierBookingStatsByStatus :many
 SELECT 
+    DATE_TRUNC($2::text, dc.ngay_dat)::timestamp AS ngay_trong_thang,
     dc.trang_thai,
-    COUNT(DISTINCT dc.id)::int AS booking_count,
-    COALESCE(SUM(dc.tong_tien), 0)::numeric AS total_amount,
-    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em), 0)::int AS total_passengers,
-    MIN(dc.ngay_dat)::timestamp AS first_booking_date,
-    MAX(dc.ngay_dat)::timestamp AS last_booking_date
+    COUNT(dc.id)::int AS so_dat_cho,
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS tong_tien,
+    -- Tính tổng số khách cho từng nhóm trạng thái trong mỗi kỳ
+    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em), 0)::int AS tong_khach
 FROM nha_cung_cap ncc
 JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
 JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
 WHERE ncc.id = $1
-    AND ($2::timestamp IS NULL OR dc.ngay_dat >= $2)
-    AND ($3::timestamp IS NULL OR dc.ngay_dat <= $3)
-GROUP BY dc.trang_thai
-ORDER BY booking_count DESC
+    AND (dc.ngay_dat >= $3 OR $3::timestamp IS NULL)
+    AND (dc.ngay_dat <= $4 OR $4::timestamp IS NULL)
+GROUP BY ngay_trong_thang, dc.trang_thai
+ORDER BY ngay_trong_thang ASC, so_dat_cho DESC
 `
 
 type GetSupplierBookingStatsByStatusParams struct {
-	ID      pgtype.UUID      `json:"id"`
-	Column2 pgtype.Timestamp `json:"column_2"`
-	Column3 pgtype.Timestamp `json:"column_3"`
+	ID        pgtype.UUID      `json:"id"`
+	Column2   string           `json:"column_2"`
+	NgayDat   pgtype.Timestamp `json:"ngay_dat"`
+	NgayDat_2 pgtype.Timestamp `json:"ngay_dat_2"`
 }
 
 type GetSupplierBookingStatsByStatusRow struct {
-	TrangThai        NullTrangThaiDatCho `json:"trang_thai"`
-	BookingCount     int32               `json:"booking_count"`
-	TotalAmount      pgtype.Numeric      `json:"total_amount"`
-	TotalPassengers  int32               `json:"total_passengers"`
-	FirstBookingDate pgtype.Timestamp    `json:"first_booking_date"`
-	LastBookingDate  pgtype.Timestamp    `json:"last_booking_date"`
+	NgayTrongThang pgtype.Timestamp    `json:"ngay_trong_thang"`
+	TrangThai      NullTrangThaiDatCho `json:"trang_thai"`
+	SoDatCho       int32               `json:"so_dat_cho"`
+	TongTien       pgtype.Numeric      `json:"tong_tien"`
+	TongKhach      int32               `json:"tong_khach"`
 }
 
 // Thống kê booking theo trạng thái và thời gian
+// Thống kê booking theo trạng thái phân bổ qua thời gian
 func (q *Queries) GetSupplierBookingStatsByStatus(ctx context.Context, arg GetSupplierBookingStatsByStatusParams) ([]GetSupplierBookingStatsByStatusRow, error) {
-	rows, err := q.db.Query(ctx, getSupplierBookingStatsByStatus, arg.ID, arg.Column2, arg.Column3)
+	rows, err := q.db.Query(ctx, getSupplierBookingStatsByStatus,
+		arg.ID,
+		arg.Column2,
+		arg.NgayDat,
+		arg.NgayDat_2,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -638,12 +578,11 @@ func (q *Queries) GetSupplierBookingStatsByStatus(ctx context.Context, arg GetSu
 	for rows.Next() {
 		var i GetSupplierBookingStatsByStatusRow
 		if err := rows.Scan(
+			&i.NgayTrongThang,
 			&i.TrangThai,
-			&i.BookingCount,
-			&i.TotalAmount,
-			&i.TotalPassengers,
-			&i.FirstBookingDate,
-			&i.LastBookingDate,
+			&i.SoDatCho,
+			&i.TongTien,
+			&i.TongKhach,
 		); err != nil {
 			return nil, err
 		}
@@ -1033,14 +972,14 @@ func (q *Queries) GetSupplierCancellationAnalysis(ctx context.Context, arg GetSu
 
 const getSupplierCustomerStats = `-- name: GetSupplierCustomerStats :many
 SELECT 
-    nd.id AS customer_id,
-    nd.ho_ten AS customer_name,
-    nd.email AS customer_email,
-    COUNT(DISTINCT dc.id)::int AS total_bookings,
-    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS total_spent,
-    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS total_passengers,
-    MIN(dc.ngay_dat)::timestamp AS first_booking_date,
-    MAX(dc.ngay_dat)::timestamp AS last_booking_date
+    nd.id AS khach_hang_id,
+    nd.ho_ten AS ten_khach_hang,
+    nd.email AS email_khach_hang,
+    COUNT(DISTINCT dc.id)::int AS so_dat_cho,
+    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS tong_tien,
+    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS so_nguoi_lon_va_tre_em,
+    MIN(dc.ngay_dat)::timestamp AS ngay_dat_dau_tien,
+    MAX(dc.ngay_dat)::timestamp AS ngay_dat_cuoi_cung
 FROM nha_cung_cap ncc
 JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
@@ -1053,7 +992,7 @@ GROUP BY nd.id, nd.ho_ten, nd.email
 ORDER BY 
     CASE WHEN $4::text = 'spent' THEN COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0) END DESC,
     CASE WHEN $4::text = 'bookings' THEN COUNT(DISTINCT dc.id) END DESC,
-    total_spent DESC
+    tong_tien DESC
 LIMIT $5
 `
 
@@ -1066,14 +1005,14 @@ type GetSupplierCustomerStatsParams struct {
 }
 
 type GetSupplierCustomerStatsRow struct {
-	CustomerID       pgtype.UUID      `json:"customer_id"`
-	CustomerName     string           `json:"customer_name"`
-	CustomerEmail    string           `json:"customer_email"`
-	TotalBookings    int32            `json:"total_bookings"`
-	TotalSpent       pgtype.Numeric   `json:"total_spent"`
-	TotalPassengers  int32            `json:"total_passengers"`
-	FirstBookingDate pgtype.Timestamp `json:"first_booking_date"`
-	LastBookingDate  pgtype.Timestamp `json:"last_booking_date"`
+	KhachHangID       pgtype.UUID      `json:"khach_hang_id"`
+	TenKhachHang      string           `json:"ten_khach_hang"`
+	EmailKhachHang    string           `json:"email_khach_hang"`
+	SoDatCho          int32            `json:"so_dat_cho"`
+	TongTien          pgtype.Numeric   `json:"tong_tien"`
+	SoNguoiLonVaTreEm int32            `json:"so_nguoi_lon_va_tre_em"`
+	NgayDatDauTien    pgtype.Timestamp `json:"ngay_dat_dau_tien"`
+	NgayDatCuoiCung   pgtype.Timestamp `json:"ngay_dat_cuoi_cung"`
 }
 
 // Thống kê khách hàng: top khách hàng, số lần đặt, tổng tiền
@@ -1093,14 +1032,14 @@ func (q *Queries) GetSupplierCustomerStats(ctx context.Context, arg GetSupplierC
 	for rows.Next() {
 		var i GetSupplierCustomerStatsRow
 		if err := rows.Scan(
-			&i.CustomerID,
-			&i.CustomerName,
-			&i.CustomerEmail,
-			&i.TotalBookings,
-			&i.TotalSpent,
-			&i.TotalPassengers,
-			&i.FirstBookingDate,
-			&i.LastBookingDate,
+			&i.KhachHangID,
+			&i.TenKhachHang,
+			&i.EmailKhachHang,
+			&i.SoDatCho,
+			&i.TongTien,
+			&i.SoNguoiLonVaTreEm,
+			&i.NgayDatDauTien,
+			&i.NgayDatCuoiCung,
 		); err != nil {
 			return nil, err
 		}
@@ -1385,19 +1324,20 @@ func (q *Queries) GetSupplierRecentBookings(ctx context.Context, arg GetSupplier
 
 const getSupplierRevenueByTimeRange = `-- name: GetSupplierRevenueByTimeRange :many
 SELECT 
-    DATE_TRUNC($2::text, dc.ngay_dat)::timestamp AS period,
-    COUNT(DISTINCT dc.id)::int AS booking_count,
+    -- Đổi 'date' thành 'period' và ép kiểu 2 lần để sqlc không thể nhận nhầm
+    (DATE_TRUNC($2::text, dc.ngay_dat::timestamp))::timestamp AS period,
     COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS revenue,
-    COALESCE(SUM(dc.so_nguoi_lon + dc.so_tre_em) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS total_passengers
+    COUNT(DISTINCT dc.id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS booking_count,
+    COUNT(DISTINCT dc.nguoi_dung_id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS customer_count
 FROM nha_cung_cap ncc
 JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
 JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
 WHERE ncc.id = $1
-    AND dc.ngay_dat >= COALESCE($3::timestamp, CURRENT_DATE - INTERVAL '30 days')
-    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_DATE)
-    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh', 'cho_xac_nhan', 'da_xac_nhan')
-GROUP BY DATE_TRUNC($2::text, dc.ngay_dat)
+    AND dc.ngay_dat >= COALESCE($3::timestamp, (CURRENT_TIMESTAMP - INTERVAL '30 days')::timestamp)
+    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_TIMESTAMP::timestamp)
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+GROUP BY 1
 ORDER BY period ASC
 `
 
@@ -1409,10 +1349,10 @@ type GetSupplierRevenueByTimeRangeParams struct {
 }
 
 type GetSupplierRevenueByTimeRangeRow struct {
-	Period          pgtype.Timestamp `json:"period"`
-	BookingCount    int32            `json:"booking_count"`
-	Revenue         pgtype.Numeric   `json:"revenue"`
-	TotalPassengers int32            `json:"total_passengers"`
+	Period        pgtype.Timestamp `json:"period"`
+	Revenue       pgtype.Numeric   `json:"revenue"`
+	BookingCount  int32            `json:"booking_count"`
+	CustomerCount int32            `json:"customer_count"`
 }
 
 // Doanh thu theo khoảng thời gian (ngày, tuần, tháng)
@@ -1432,9 +1372,9 @@ func (q *Queries) GetSupplierRevenueByTimeRange(ctx context.Context, arg GetSupp
 		var i GetSupplierRevenueByTimeRangeRow
 		if err := rows.Scan(
 			&i.Period,
-			&i.BookingCount,
 			&i.Revenue,
-			&i.TotalPassengers,
+			&i.BookingCount,
+			&i.CustomerCount,
 		); err != nil {
 			return nil, err
 		}
@@ -1448,7 +1388,7 @@ func (q *Queries) GetSupplierRevenueByTimeRange(ctx context.Context, arg GetSupp
 
 const getSupplierRevenueChart = `-- name: GetSupplierRevenueChart :many
 SELECT 
-    DATE_TRUNC($2::text, dc.ngay_dat) AS date,
+    (DATE_TRUNC($2::text, dc.ngay_dat::timestamp))::timestamptz AS period,
     COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS revenue,
     COUNT(DISTINCT dc.id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS booking_count,
     COUNT(DISTINCT dc.nguoi_dung_id) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh'))::int AS customer_count
@@ -1457,11 +1397,11 @@ JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
 JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
 JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
 WHERE ncc.id = $1
-    AND dc.ngay_dat >= COALESCE($3::timestamp, CURRENT_DATE - INTERVAL '30 days')
-    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_DATE)
+    AND dc.ngay_dat >= COALESCE($3::timestamp, (CURRENT_TIMESTAMP - INTERVAL '30 days')::timestamp)
+    AND dc.ngay_dat <= COALESCE($4::timestamp, CURRENT_TIMESTAMP::timestamp)
     AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
-GROUP BY DATE_TRUNC($2::text, dc.ngay_dat)
-ORDER BY date ASC
+GROUP BY DATE_TRUNC($2::text, dc.ngay_dat::timestamp)
+ORDER BY period ASC
 `
 
 type GetSupplierRevenueChartParams struct {
@@ -1472,10 +1412,10 @@ type GetSupplierRevenueChartParams struct {
 }
 
 type GetSupplierRevenueChartRow struct {
-	Date          pgtype.Interval `json:"date"`
-	Revenue       pgtype.Numeric  `json:"revenue"`
-	BookingCount  int32           `json:"booking_count"`
-	CustomerCount int32           `json:"customer_count"`
+	Period        pgtype.Timestamptz `json:"period"`
+	Revenue       pgtype.Numeric     `json:"revenue"`
+	BookingCount  int32              `json:"booking_count"`
+	CustomerCount int32              `json:"customer_count"`
 }
 
 // Biểu đồ doanh thu theo thời gian (cho chart)
@@ -1494,7 +1434,7 @@ func (q *Queries) GetSupplierRevenueChart(ctx context.Context, arg GetSupplierRe
 	for rows.Next() {
 		var i GetSupplierRevenueChartRow
 		if err := rows.Scan(
-			&i.Date,
+			&i.Period,
 			&i.Revenue,
 			&i.BookingCount,
 			&i.CustomerCount,
@@ -1507,6 +1447,57 @@ func (q *Queries) GetSupplierRevenueChart(ctx context.Context, arg GetSupplierRe
 		return nil, err
 	}
 	return items, nil
+}
+
+const getSupplierReviewStatistics = `-- name: GetSupplierReviewStatistics :one
+SELECT 
+    COUNT(DISTINCT dg.id)::int AS so_luong_danh_gia,
+    COALESCE(AVG(dg.diem_danh_gia), 0)::float AS diem_trung_binh,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 5 THEN dg.id END)::int AS so_luong_5_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 4 THEN dg.id END)::int AS so_luong_4_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 3 THEN dg.id END)::int AS so_luong_3_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 2 THEN dg.id END)::int AS so_luong_2_sao,
+    COUNT(DISTINCT CASE WHEN dg.diem_danh_gia = 1 THEN dg.id END)::int AS so_luong_1_sao
+    -- COUNT(DISTINCT t.id)::int AS tong_tour_co_danh_gia
+FROM nha_cung_cap ncc
+JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
+LEFT JOIN danh_gia dg ON dg.tour_id = t.id AND dg.dang_hoat_dong = TRUE
+WHERE 
+    ncc.id = $1
+    -- Nếu $2 (tour_id) > 0 thì lọc theo tour đó, nếu bằng 0 thì lấy tất cả
+    AND ($2::int = 0 OR t.id = $2)
+`
+
+type GetSupplierReviewStatisticsParams struct {
+	ID      pgtype.UUID `json:"id"`
+	Column2 int32       `json:"column_2"`
+}
+
+type GetSupplierReviewStatisticsRow struct {
+	SoLuongDanhGia int32   `json:"so_luong_danh_gia"`
+	DiemTrungBinh  float64 `json:"diem_trung_binh"`
+	SoLuong5Sao    int32   `json:"so_luong_5_sao"`
+	SoLuong4Sao    int32   `json:"so_luong_4_sao"`
+	SoLuong3Sao    int32   `json:"so_luong_3_sao"`
+	SoLuong2Sao    int32   `json:"so_luong_2_sao"`
+	SoLuong1Sao    int32   `json:"so_luong_1_sao"`
+}
+
+// Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp
+// Thống kê đánh giá của nhà cung cấp, có thể lọc theo từng tour cụ thể
+func (q *Queries) GetSupplierReviewStatistics(ctx context.Context, arg GetSupplierReviewStatisticsParams) (GetSupplierReviewStatisticsRow, error) {
+	row := q.db.QueryRow(ctx, getSupplierReviewStatistics, arg.ID, arg.Column2)
+	var i GetSupplierReviewStatisticsRow
+	err := row.Scan(
+		&i.SoLuongDanhGia,
+		&i.DiemTrungBinh,
+		&i.SoLuong5Sao,
+		&i.SoLuong4Sao,
+		&i.SoLuong3Sao,
+		&i.SoLuong2Sao,
+		&i.SoLuong1Sao,
+	)
+	return i, err
 }
 
 const getSupplierTopTours = `-- name: GetSupplierTopTours :many
@@ -1597,6 +1588,60 @@ func (q *Queries) GetSupplierTopTours(ctx context.Context, arg GetSupplierTopTou
 			&i.TotalPassengers,
 			&i.AvgRating,
 			&i.TotalReviews,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSupplierTourStatsByCategory = `-- name: GetSupplierTourStatsByCategory :many
+SELECT 
+    dmt.id AS danh_muc_id,
+    dmt.ten AS ten_danh_muc,
+    COUNT(t.id)::int AS tong_tour,
+    COUNT(t.id) FILTER (WHERE t.trang_thai = 'cong_bo')::int AS tour_cong_bo,
+    COUNT(t.id) FILTER (WHERE t.noi_bat = TRUE)::int AS tour_noi_bat,
+    COALESCE(AVG(t.gia_nguoi_lon), 0)::numeric AS gia_trung_binh
+FROM nha_cung_cap ncc
+JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
+LEFT JOIN danh_muc_tour dmt ON dmt.id = t.danh_muc_id
+WHERE ncc.id = $1
+GROUP BY dmt.id, dmt.ten
+HAVING COUNT(t.id) > 0
+ORDER BY tong_tour DESC
+`
+
+type GetSupplierTourStatsByCategoryRow struct {
+	DanhMucID    *int32         `json:"danh_muc_id"`
+	TenDanhMuc   *string        `json:"ten_danh_muc"`
+	TongTour     int32          `json:"tong_tour"`
+	TourCongBo   int32          `json:"tour_cong_bo"`
+	TourNoiBat   int32          `json:"tour_noi_bat"`
+	GiaTrungBinh pgtype.Numeric `json:"gia_trung_binh"`
+}
+
+// Thống kê tour theo danh mục của supplier
+func (q *Queries) GetSupplierTourStatsByCategory(ctx context.Context, id pgtype.UUID) ([]GetSupplierTourStatsByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, getSupplierTourStatsByCategory, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSupplierTourStatsByCategoryRow
+	for rows.Next() {
+		var i GetSupplierTourStatsByCategoryRow
+		if err := rows.Scan(
+			&i.DanhMucID,
+			&i.TenDanhMuc,
+			&i.TongTour,
+			&i.TourCongBo,
+			&i.TourNoiBat,
+			&i.GiaTrungBinh,
 		); err != nil {
 			return nil, err
 		}
@@ -1884,63 +1929,40 @@ func (q *Queries) GetSuppliersByStatus(ctx context.Context) ([]GetSuppliersBySta
 	return items, nil
 }
 
-const rejectSupplier = `-- name: RejectSupplier :one
-UPDATE nguoi_dung
-SET 
-    dang_hoat_dong = FALSE,
-    xac_thuc = FALSE,
-    ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1 
-    AND vai_tro = 'nha_cung_cap'
-RETURNING id, ho_ten, email, mat_khau_ma_hoa, so_dien_thoai, vai_tro, dang_hoat_dong, xac_thuc, ngay_tao, ngay_cap_nhat
+const optionTour = `-- name: OptionTour :many
+SELECT 
+    t.id,
+    t.tieu_de
+FROM tour t
+WHERE t.nha_cung_cap_id = $1
+    AND t.dang_hoat_dong = TRUE
+ORDER BY t.ngay_tao DESC
 `
 
-// từ chối nhà cung cấp
-func (q *Queries) RejectSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error) {
-	row := q.db.QueryRow(ctx, rejectSupplier, id)
-	var i NguoiDung
-	err := row.Scan(
-		&i.ID,
-		&i.HoTen,
-		&i.Email,
-		&i.MatKhauMaHoa,
-		&i.SoDienThoai,
-		&i.VaiTro,
-		&i.DangHoatDong,
-		&i.XacThuc,
-		&i.NgayTao,
-		&i.NgayCapNhat,
-	)
-	return i, err
+type OptionTourRow struct {
+	ID     int32  `json:"id"`
+	TieuDe string `json:"tieu_de"`
 }
 
-const restoreSupplier = `-- name: RestoreSupplier :one
-UPDATE nha_cung_cap
-SET
-    nha_cung_cap.dang_hoat_dong = TRUE,
-    nha_cung_cap.ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1
-RETURNING id, ten, dia_chi, website, mo_ta, logo, nam_thanh_lap, thanh_pho, quoc_gia, ma_so_thue, so_nhan_vien, giay_to_kinh_doanh
-`
-
-func (q *Queries) RestoreSupplier(ctx context.Context, id pgtype.UUID) (NhaCungCap, error) {
-	row := q.db.QueryRow(ctx, restoreSupplier, id)
-	var i NhaCungCap
-	err := row.Scan(
-		&i.ID,
-		&i.Ten,
-		&i.DiaChi,
-		&i.Website,
-		&i.MoTa,
-		&i.Logo,
-		&i.NamThanhLap,
-		&i.ThanhPho,
-		&i.QuocGia,
-		&i.MaSoThue,
-		&i.SoNhanVien,
-		&i.GiayToKinhDoanh,
-	)
-	return i, err
+// Lấy danh sách tour của nhà cung cấp
+func (q *Queries) OptionTour(ctx context.Context, nhaCungCapID pgtype.UUID) ([]OptionTourRow, error) {
+	rows, err := q.db.Query(ctx, optionTour, nhaCungCapID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OptionTourRow
+	for rows.Next() {
+		var i OptionTourRow
+		if err := rows.Scan(&i.ID, &i.TieuDe); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const searchSuppliers = `-- name: SearchSuppliers :many
@@ -2022,19 +2044,6 @@ func (q *Queries) SearchSuppliers(ctx context.Context, email string) ([]SearchSu
 		return nil, err
 	}
 	return items, nil
-}
-
-const softDeleteSupplier = `-- name: SoftDeleteSupplier :exec
-UPDATE nha_cung_cap
-SET
-    nha_cung_cap.dang_hoat_dong = FALSE,
-    nha_cung_cap.ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $1
-`
-
-func (q *Queries) SoftDeleteSupplier(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteSupplier, id)
-	return err
 }
 
 const updateSupplier = `-- name: UpdateSupplier :one

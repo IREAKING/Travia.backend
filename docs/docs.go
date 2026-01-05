@@ -20,6 +20,274 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/chartBookingStatusStats": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy biểu đồ trạng thái booking",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy biểu đồ trạng thái booking",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tháng (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/chartCategoryDistribution": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy biểu đồ phân bố danh mục tour",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy biểu đồ phân bố danh mục tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tháng (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/chartRevenueTrend": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy biểu đồ doanh thu theo ngày",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy biểu đồ doanh thu theo ngày",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tháng (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/chartTopSuppliers": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy biểu đồ top nhà cung cấp",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy biểu đồ top nhà cung cấp",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tháng (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/customers/adminCustomerGrowthMonthlyReport": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy báo cáo tăng trưởng khách hàng theo tháng",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy báo cáo tăng trưởng khách hàng theo tháng",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.AdminCustomerGrowthMonthlyReportRow"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/customers/getTopActiveUsers": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy top người dùng hoạt động nhiều nhất (theo số booking)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy top người dùng hoạt động nhiều nhất (theo số booking)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.GetTopActiveUsersRow"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/getBookingsByDayOfWeek": {
             "get": {
                 "security": [
@@ -54,40 +322,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/getBookingsByStatus": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Lấy thống kê booking theo trạng thái",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy thống kê booking theo trạng thái",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetBookingStatsByStatusRow"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
         "/admin/getDashboardOverview": {
             "get": {
                 "security": [
@@ -106,6 +340,20 @@ const docTemplate = `{
                     "Admin"
                 ],
                 "summary": "Lấy tổng quan dashboard",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Tháng (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -122,14 +370,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/getDashboardOverviewWithComparison": {
+        "/admin/getDashboardOverviewByMonthAndYear": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Lấy tổng quan dashboard với so sánh tháng trước",
+                "description": "Lấy tổng quan dashboard",
                 "consumes": [
                     "application/json"
                 ],
@@ -139,46 +387,26 @@ const docTemplate = `{
                 "tags": [
                     "Admin"
                 ],
-                "summary": "Lấy tổng quan dashboard với so sánh tháng trước",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetDashboardOverviewWithComparisonRow"
-                        }
+                "summary": "Lấy tổng quan dashboard",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Tháng (1-12)",
+                        "name": "month",
+                        "in": "query"
                     },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/getNewUsersToday": {
-            "get": {
-                "security": [
                     {
-                        "ApiKeyAuth": []
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
                     }
                 ],
-                "description": "Lấy số người dùng mới hôm nay",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy số người dùng mới hôm nay",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/db.GetNewUsersTodayRow"
+                            "$ref": "#/definitions/db.GetDashboardOverviewRow"
                         }
                     },
                     "500": {
@@ -242,113 +470,31 @@ const docTemplate = `{
                     "Admin"
                 ],
                 "summary": "Lấy doanh thu theo ngày (30 ngày gần nhất)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Năm",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tháng (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID Nhà cung cấp",
+                        "name": "nha_cung_cap_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/db.GetRevenueByDayRow"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/getRevenueByMonth": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Lấy doanh thu theo tháng (12 tháng gần nhất)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy doanh thu theo tháng (12 tháng gần nhất)",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetRevenueByMonthRow"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/getRevenueByYear": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Lấy doanh thu theo năm",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy doanh thu theo năm",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetRevenueByYearRow"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/getTopActiveUsers": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Lấy top người dùng hoạt động nhiều nhất (theo số booking)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy top người dùng hoạt động nhiều nhất (theo số booking)",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetTopActiveUsersRow"
                         }
                     },
                     "500": {
@@ -394,6 +540,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/getTopDestination": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy top điểm đến phổ biến",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy top điểm đến phổ biến",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.GetTopDestinationsRow"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/getTourPriceDistribution": {
             "get": {
                 "security": [
@@ -428,108 +608,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/getToursCreatedByMonth": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Lấy số tour mới theo tháng",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy số tour mới theo tháng",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetToursCreatedByMonthRow"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/getUserGrowthByDay": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Lấy tăng trưởng người dùng theo ngày (30 ngày gần nhất)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy tăng trưởng người dùng theo ngày (30 ngày gần nhất)",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetUserGrowthByDayRow"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/getUserGrowthByMonth": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Lấy tăng trưởng người dùng theo tháng (12 tháng gần nhất)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Lấy tăng trưởng người dùng theo tháng (12 tháng gần nhất)",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.GetUserGrowthByMonthRow"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
         "/admin/getUserStatsByRole": {
             "get": {
                 "security": [
@@ -553,6 +631,316 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/db.GetUserStatsByRoleRow"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/supplierOptions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy danh sách nhà cung cấp",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy danh sách nhà cung cấp",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.SupplierOptionsRow"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/suppliers": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy tất cả nhà cung cấp",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy tất cả nhà cung cấp",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Xác thực",
+                        "name": "xac_thuc",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Hoạt động",
+                        "name": "dang_hoat_dong",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.GetAllSuppliersRow"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/suppliers/approve/{id}": {
+            "put": {
+                "description": "Phê duyệt đối tác",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Phê duyệt đối tác",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/suppliers/reject/{id}": {
+            "put": {
+                "description": "Từ chối đối tác",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Từ chối đối tác",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/suppliers/restore/{id}": {
+            "put": {
+                "description": "Khôi phục nhà cung cấp",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Khôi phục nhà cung cấp",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.NhaCungCap"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/suppliers/soft-delete/{id}": {
+            "delete": {
+                "description": "Xóa nhà cung cấp",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Xóa nhà cung cấp",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/suppliers/{id}": {
+            "get": {
+                "description": "Lấy nhà cung cấp theo ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy nhà cung cấp theo ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.NhaCungCap"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
                         }
                     },
                     "500": {
@@ -2720,6 +3108,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/review/check/{dat_cho_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Kiểm tra xem booking đã có đánh giá chưa",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Kiểm tra trạng thái đánh giá của booking",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID của booking",
+                        "name": "dat_cho_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/review/create": {
             "post": {
                 "security": [
@@ -3069,41 +3512,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/supplier": {
-            "get": {
-                "description": "Lấy tất cả nhà cung cấp",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Supplier"
-                ],
-                "summary": "Lấy tất cả nhà cung cấp",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.NhaCungCap"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
         "/supplier/active": {
             "get": {
                 "description": "Lấy nhà cung cấp đang hoạt động",
@@ -3174,52 +3582,13 @@ const docTemplate = `{
                 }
             }
         },
-        "/supplier/approve/{id}": {
-            "put": {
-                "description": "Phê duyệt đối tác",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Supplier"
-                ],
-                "summary": "Phê duyệt đối tác",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
         "/supplier/bookings/advanced": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy danh sách đặt chỗ với nhiều filter: trạng thái, tour, thời gian, search, pagination, sort",
                 "consumes": [
                     "application/json"
@@ -3455,6 +3824,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/booking-stats": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy thống kê booking theo trạng thái và thời gian",
                 "consumes": [
                     "application/json"
@@ -3467,6 +3841,14 @@ const docTemplate = `{
                 ],
                 "summary": "Lấy thống kê booking theo trạng thái",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "day",
+                        "description": "Period (day, week, month)",
+                        "name": "period",
+                        "in": "query",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "Start date (YYYY-MM-DD)",
@@ -3504,6 +3886,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/cancellation-analysis": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy phân tích tỷ lệ hủy booking và doanh thu mất đi",
                 "consumes": [
                     "application/json"
@@ -3553,6 +3940,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/customer-stats": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy top khách hàng theo số lần đặt hoặc tổng tiền",
                 "consumes": [
                     "application/json"
@@ -3614,8 +4006,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/supplier/dashboard/feedback-review/{danh_gia_id}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Phản hồi đánh giá",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Supplier"
+                ],
+                "summary": "Phản hồi đánh giá",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Danh gia ID",
+                        "name": "danh_gia_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Noi dung phan hoi",
+                        "name": "noi_dung",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/supplier/dashboard/monthly-comparison": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "So sánh số booking và doanh thu tháng hiện tại với tháng trước",
                 "consumes": [
                     "application/json"
@@ -3649,8 +4104,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/supplier/dashboard/options-tour": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy danh sách tour của nhà cung cấp",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Supplier"
+                ],
+                "summary": "Lấy danh sách tour của nhà cung cấp",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/supplier/dashboard/overview": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy tổng quan dashboard với các thống kê tổng hợp",
                 "consumes": [
                     "application/json"
@@ -3686,6 +4186,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/rating-analysis": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy phân tích đánh giá tour với số lượng theo từng sao",
                 "consumes": [
                     "application/json"
@@ -3721,6 +4226,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/recent-bookings": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy danh sách booking gần đây nhất",
                 "consumes": [
                     "application/json"
@@ -3765,6 +4275,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/revenue-by-time": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy doanh thu theo khoảng thời gian (day, week, month)",
                 "consumes": [
                     "application/json"
@@ -3822,6 +4337,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/revenue-chart": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy dữ liệu doanh thu theo thời gian cho biểu đồ",
                 "consumes": [
                     "application/json"
@@ -3877,8 +4397,118 @@ const docTemplate = `{
                 }
             }
         },
+        "/supplier/dashboard/review-statistics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Supplier"
+                ],
+                "summary": "Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Tour ID",
+                        "name": "tour_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/supplier/dashboard/reviews": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Supplier"
+                ],
+                "summary": "Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Rating",
+                        "name": "rating",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Tour ID",
+                        "name": "tour_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/supplier/dashboard/top-tours": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy top tours bán chạy nhất theo doanh thu, số booking hoặc đánh giá",
                 "consumes": [
                     "application/json"
@@ -3942,6 +4572,11 @@ const docTemplate = `{
         },
         "/supplier/dashboard/tour-stats": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy thống kê tour theo trạng thái",
                 "consumes": [
                     "application/json"
@@ -3975,8 +4610,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/supplier/dashboard/tour-stats-by-category": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy thống kê số lượng tour theo từng danh mục của supplier",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Supplier"
+                ],
+                "summary": "Lấy thống kê tour theo danh mục",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/supplier/dashboard/upcoming-departures": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy danh sách lịch khởi hành sắp tới",
                 "consumes": [
                     "application/json"
@@ -4065,6 +4751,11 @@ const docTemplate = `{
         },
         "/supplier/info": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy thông tin nhà cung cấp",
                 "consumes": [
                     "application/json"
@@ -4076,41 +4767,6 @@ const docTemplate = `{
                     "Supplier"
                 ],
                 "summary": "Lấy thông tin nhà cung cấp",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/supplier/pending": {
-            "get": {
-                "description": "lấy danh sách nhà cung cấp chờ phê duyệt",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Supplier"
-                ],
-                "summary": "lấy danh sách nhà cung cấp chờ phê duyệt",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4179,94 +4835,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/supplier/reject/{id}": {
-            "put": {
-                "description": "Từ chối đối tác",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Supplier"
-                ],
-                "summary": "Từ chối đối tác",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/supplier/restore/{id}": {
-            "put": {
-                "description": "Khôi phục nhà cung cấp",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Supplier"
-                ],
-                "summary": "Khôi phục nhà cung cấp",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.NhaCungCap"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
         "/supplier/search/{keyword}": {
             "get": {
                 "description": "Tìm kiếm nhà cung cấp",
@@ -4311,52 +4879,13 @@ const docTemplate = `{
                 }
             }
         },
-        "/supplier/soft-delete/{id}": {
-            "delete": {
-                "description": "Xóa nhà cung cấp",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Supplier"
-                ],
-                "summary": "Xóa nhà cung cấp",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
         "/supplier/tours/my": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "lấy danh sách tour của nhà cung cấp",
                 "consumes": [
                     "application/json"
@@ -4530,50 +5059,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/db.GetSupplierWithTourCountRow"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/supplier/{id}": {
-            "get": {
-                "description": "Lấy nhà cung cấp theo ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Supplier"
-                ],
-                "summary": "Lấy nhà cung cấp theo ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.NhaCungCap"
                         }
                     },
                     "400": {
@@ -5097,6 +5582,24 @@ const docTemplate = `{
         "big.Int": {
             "type": "object"
         },
+        "db.AdminCustomerGrowthMonthlyReportRow": {
+            "type": "object",
+            "properties": {
+                "khach_moi_thang_nay": {
+                    "type": "integer"
+                },
+                "khach_moi_thang_truoc": {},
+                "nam": {
+                    "type": "integer"
+                },
+                "phan_tram_tang_truong": {
+                    "$ref": "#/definitions/pgtype.Numeric"
+                },
+                "thang": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.CountSuppliersByStatusRow": {
             "type": "object",
             "properties": {
@@ -5220,6 +5723,65 @@ const docTemplate = `{
                 }
             }
         },
+        "db.GetAllSuppliersRow": {
+            "type": "object",
+            "properties": {
+                "dang_hoat_dong": {
+                    "type": "boolean"
+                },
+                "dia_chi": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "giay_to_kinh_doanh": {
+                    "type": "string"
+                },
+                "ho_ten": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "ma_so_thue": {
+                    "type": "string"
+                },
+                "mo_ta": {
+                    "type": "string"
+                },
+                "nam_thanh_lap": {
+                    "$ref": "#/definitions/pgtype.Date"
+                },
+                "ngay_tao": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "quoc_gia": {
+                    "type": "string"
+                },
+                "so_dien_thoai": {
+                    "type": "string"
+                },
+                "so_nhan_vien": {
+                    "type": "string"
+                },
+                "ten": {
+                    "type": "string"
+                },
+                "thanh_pho": {
+                    "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                },
+                "xac_thuc": {
+                    "type": "boolean"
+                }
+            }
+        },
         "db.GetAllTourRow": {
             "type": "object",
             "properties": {
@@ -5278,18 +5840,6 @@ const docTemplate = `{
                 }
             }
         },
-        "db.GetBookingStatsByStatusRow": {
-            "type": "object",
-            "properties": {
-                "so_luong": {
-                    "type": "integer"
-                },
-                "tong_tien": {},
-                "trang_thai": {
-                    "$ref": "#/definitions/db.NullTrangThaiDatCho"
-                }
-            }
-        },
         "db.GetBookingsByDayOfWeekRow": {
             "type": "object",
             "properties": {
@@ -5335,48 +5885,6 @@ const docTemplate = `{
                 }
             }
         },
-        "db.GetDashboardOverviewWithComparisonRow": {
-            "type": "object",
-            "properties": {
-                "booking_thang_nay": {
-                    "type": "integer"
-                },
-                "booking_thang_truoc": {
-                    "type": "integer"
-                },
-                "doanh_thu_thang_nay": {},
-                "doanh_thu_thang_truoc": {},
-                "nguoi_dung_moi_thang_nay": {
-                    "type": "integer"
-                },
-                "nguoi_dung_moi_thang_truoc": {
-                    "type": "integer"
-                },
-                "tong_dat_cho_thanh_cong": {
-                    "type": "integer"
-                },
-                "tong_nguoi_dung": {
-                    "type": "integer"
-                },
-                "tong_tour": {
-                    "type": "integer"
-                }
-            }
-        },
-        "db.GetNewUsersTodayRow": {
-            "type": "object",
-            "properties": {
-                "khach_hang_moi": {
-                    "type": "integer"
-                },
-                "nguoi_dung_moi_hom_nay": {
-                    "type": "integer"
-                },
-                "nha_cung_cap_moi": {
-                    "type": "integer"
-                }
-            }
-        },
         "db.GetRecentBookingsRow": {
             "type": "object",
             "properties": {
@@ -5418,31 +5926,6 @@ const docTemplate = `{
                 "doanh_thu": {},
                 "ngay": {
                     "$ref": "#/definitions/pgtype.Date"
-                },
-                "so_booking": {
-                    "type": "integer"
-                }
-            }
-        },
-        "db.GetRevenueByMonthRow": {
-            "type": "object",
-            "properties": {
-                "doanh_thu": {},
-                "so_booking": {
-                    "type": "integer"
-                },
-                "thang": {
-                    "$ref": "#/definitions/pgtype.Interval"
-                },
-                "trung_binh_booking": {}
-            }
-        },
-        "db.GetRevenueByYearRow": {
-            "type": "object",
-            "properties": {
-                "doanh_thu": {},
-                "nam": {
-                    "$ref": "#/definitions/pgtype.Numeric"
                 },
                 "so_booking": {
                     "type": "integer"
@@ -5537,6 +6020,30 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tieu_de": {
+                    "type": "string"
+                },
+                "tong_doanh_thu": {}
+            }
+        },
+        "db.GetTopDestinationsRow": {
+            "type": "object",
+            "properties": {
+                "anh": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "quoc_gia": {
+                    "type": "string"
+                },
+                "so_tour": {
+                    "type": "integer"
+                },
+                "ten": {
+                    "type": "string"
+                },
+                "tinh": {
                     "type": "string"
                 },
                 "tong_doanh_thu": {}
@@ -5642,45 +6149,6 @@ const docTemplate = `{
                 }
             }
         },
-        "db.GetToursCreatedByMonthRow": {
-            "type": "object",
-            "properties": {
-                "so_luong": {
-                    "type": "integer"
-                },
-                "thang": {
-                    "$ref": "#/definitions/pgtype.Interval"
-                }
-            }
-        },
-        "db.GetUserGrowthByDayRow": {
-            "type": "object",
-            "properties": {
-                "ngay": {
-                    "$ref": "#/definitions/pgtype.Date"
-                },
-                "so_luong": {
-                    "type": "integer"
-                }
-            }
-        },
-        "db.GetUserGrowthByMonthRow": {
-            "type": "object",
-            "properties": {
-                "khach_hang_moi": {
-                    "type": "integer"
-                },
-                "nha_cung_cap_moi": {
-                    "type": "integer"
-                },
-                "thang": {
-                    "$ref": "#/definitions/pgtype.Interval"
-                },
-                "tong_dang_ky": {
-                    "type": "integer"
-                }
-            }
-        },
         "db.GetUserStatsByRoleRow": {
             "type": "object",
             "properties": {
@@ -5770,6 +6238,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "mat_khau_ma_hoa": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.SupplierOptionsRow": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "ten": {
                     "type": "string"
                 }
             }
@@ -6456,26 +6935,6 @@ const docTemplate = `{
                 "Finite",
                 "NegativeInfinity"
             ]
-        },
-        "pgtype.Interval": {
-            "type": "object",
-            "properties": {
-                "days": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "microseconds": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "months": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "valid": {
-                    "type": "boolean"
-                }
-            }
         },
         "pgtype.Numeric": {
             "type": "object",

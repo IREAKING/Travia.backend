@@ -375,3 +375,13 @@ CREATE TABLE tour_yeu_thich (
     ngay_tao TIMESTAMP DEFAULT NOW(),
     UNIQUE(nguoi_dung_id, tour_id)
 );
+
+CREATE TABLE phan_hoi_danh_gia (
+    id SERIAL PRIMARY KEY,
+    danh_gia_id INT NOT NULL UNIQUE REFERENCES danh_gia(id) ON DELETE CASCADE,
+    nguoi_dung_id UUID NOT NULL REFERENCES nguoi_dung(id), -- ID của NCC hoặc Admin
+    noi_dung TEXT NOT NULL,
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_phan_hoi_danh_gia_id ON phan_hoi_danh_gia(danh_gia_id);

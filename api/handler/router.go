@@ -98,92 +98,77 @@ func (s *Server) SetupRoutes() {
 		middleware.RequireRoles("quan_tri"),
 	)
 	{
+		admin.GET("/supplierOptions",
+			s.GetSupplierOptions,
+		)
 		admin.GET("/getDashboardOverview",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetDashboardOverview,
 		)
-		admin.GET("/getDashboardOverviewWithComparison",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetDashboardOverviewWithComparison,
+		admin.GET("/getDashboardOverviewByMonthAndYear",
+			s.GetDashboardOverviewByMonthAndYear,
 		)
 		admin.GET("/getUserStatsByRole",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetUserStatsByRole,
 		)
-		admin.GET("/getUserGrowthByMonth",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetUserGrowthByMonth,
-		)
-		admin.GET("/getUserGrowthByDay",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetUserGrowthByDay,
-		)
-		admin.GET("/getNewUsersToday",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetNewUsersToday,
-		)
-		admin.GET("/getTopActiveUsers",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetTopActiveUsers,
-		)
+		
 		admin.GET("/getTopBookedTours",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetTopBookedTours,
 		)
-		admin.GET("/getToursCreatedByMonth",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetToursCreatedByMonth,
-		)
 		admin.GET("/getTourPriceDistribution",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetTourPriceDistribution,
 		)
 		admin.GET("/getRevenueByDay",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetRevenueByDay,
 		)
-		admin.GET("/getRevenueByMonth",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetRevenueByMonth,
-		)
-		admin.GET("/getRevenueByYear",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetRevenueByYear,
-		)
 		admin.GET("/getBookingsByDayOfWeek",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetBookingsByDayOfWeek,
 		)
 		admin.GET("/getRecentBookings",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetRecentBookings,
 		)
-		admin.GET("/getBookingsByStatus",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.GetBookingStatsByStatus,
-		)
 		admin.GET("/transactions",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
 			s.GetTransactions,
 		)
-	}
+		admin.GET("/chartRevenueTrend",
+			s.AdminChartRevenueTrend,
+		)
+		admin.GET("/chartCategoryDistribution",
+			s.AdminChartCategoryDistribution,
+		)
+		admin.GET("/chartTopSuppliers",
+			s.AdminChartTopSuppliers,
+		)
+		admin.GET("/chartBookingStatusStats",
+			s.AdminChartBookingStatusStats,
+		)
+
+		//=====================================Nhà cung cấp=====================================
+		admin.GET("/suppliers",
+			s.GetAllSuppliers,
+		)
+		admin.PUT("/suppliers/approve/:id",
+			s.ApproveSupplier,
+		)
+		admin.PUT("/suppliers/reject/:id",
+			s.RejectSupplier,
+		)
+		admin.DELETE("/suppliers/soft-delete/:id",
+			s.SoftDeleteSupplier,
+		)
+		admin.PUT("/suppliers/restore/:id",
+			s.RestoreSupplier,
+		)
+		admin.GET("/suppliers/:id",
+			s.GetSupplierByID,
+		)
+		//=====================================Khách hàng=====================================
+		admin.GET("/customers/getTopActiveUsers",
+			s.GetTopActiveUsers,
+		)
+		admin.GET("/customers/adminCustomerGrowthMonthlyReport",
+			s.AdminCustomerGrowthMonthlyReport,
+		)
+	}	
 	// ========== DESTINATION ROUTES (with Redis caching) ==========
 	destination := api.Group("/destination")
 	{
@@ -278,6 +263,11 @@ func (s *Server) SetupRoutes() {
 			middleware.RequireRoles("nha_cung_cap"),
 			s.GetSupplierTourStatsByStatus,
 		)
+		supplier.GET("/dashboard/tour-stats-by-category",
+			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
+			middleware.RequireRoles("nha_cung_cap"),
+			s.GetSupplierTourStatsByCategory,
+		)
 		supplier.GET("/dashboard/revenue-chart",
 			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
 			middleware.RequireRoles("nha_cung_cap"),
@@ -320,35 +310,10 @@ func (s *Server) SetupRoutes() {
 			middleware.RequireRoles("nha_cung_cap"),
 			s.GetSupplierBookingsByStatusAdvanced,
 		)
-
-		supplier.GET("/pending",
-			//middleware.CacheMiddleware(s.redis, 30*time.Minute),
-			s.GetPendingSuppliers,
-		)
-
-		// GET routes with caching
-		supplier.GET("/:id",
-			//middleware.CacheMiddleware(s.redis, 2*time.Hour),
-			s.GetSupplierByID,
-		)
-		supplier.PUT("/approve/:id",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.ApproveSupplier,
-		)
-		supplier.PUT("/reject/:id",
-			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
-			middleware.RequireRoles("quan_tri"),
-			s.RejectSupplier,
-		)
 		supplier.PUT("/tours/update-status/:id",
 			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
 			middleware.RequireRoles("nha_cung_cap"),
 			s.UpdateTourStatus,
-		)
-		supplier.GET("",
-			//middleware.CacheMiddleware(s.redis, 30*time.Minute),
-			s.GetAllSuppliers,
 		)
 		supplier.GET("/search/:keyword",
 			//middleware.CacheMiddleware(s.redis, 30*time.Minute),
@@ -363,27 +328,28 @@ func (s *Server) SetupRoutes() {
 			s.GetActiveSuppliers,
 		)
 
+		supplier.GET("/dashboard/review-statistics",
+			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
+			middleware.RequireRoles("nha_cung_cap"),
+			s.GetSupplierReviewStatistics,
+		)
+		supplier.GET("/dashboard/reviews",
+			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
+			middleware.RequireRoles("nha_cung_cap"),
+			s.GetDetailedSupplierReviews,
+		)
+		supplier.GET("/dashboard/options-tour",
+			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
+			middleware.RequireRoles("nha_cung_cap"),
+			s.GetOptionTour,
+		)
+
 		// Write operations - require authentication and invalidate cache
 		supplierWrite := supplier.Group("")
 		supplierWrite.Use(
 			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
 			middleware.InvalidateCacheMiddleware(s.redis, "cache:http:*supplier*"),
 		)
-		{
-
-			supplierWrite.DELETE("/soft-delete/:id",
-				middleware.RequireRoles("quan_tri"),
-				s.SoftDeleteSupplier,
-			)
-			supplierWrite.PUT("/restore/:id",
-				middleware.RequireRoles("quan_tri"),
-				s.RestoreSupplier,
-			)
-			supplierWrite.DELETE("/delete/:id",
-				middleware.RequireRoles("quan_tri"),
-				s.DeleteSupplier,
-			)
-		}
 	}
 	// Location - IP Geolocation detection
 	location := api.Group("/location")
