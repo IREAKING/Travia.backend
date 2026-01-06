@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	db "travia.backend/db/sqlc"
 )
 
 // LocationResponse represents the location data response
@@ -28,7 +30,7 @@ type LocationResponse struct {
 	CachedAt    string  `json:"cached_at,omitempty"`
 }
 
-// IpApiResponse represents the response from ip-api.com
+// IpApiResponse thể hiện phản hồi từ ip-api.com.
 type IpApiResponse struct {
 	Status      string  `json:"status"`
 	Country     string  `json:"country"`
@@ -65,13 +67,26 @@ type IpapiResponse struct {
 
 // GetClientIP extracts the real client IP from the request
 // Handles X-Forwarded-For, X-Real-IP, and other proxy headers
+// When behind VPN/proxy, prioritizes headers that contain the real client IP
 func GetClientIP(c *gin.Context) string {
 	// Check X-Forwarded-For header (most common with proxies/load balancers)
+	// Format: "client_ip, proxy1_ip, proxy2_ip"
+	// For VPN: We want the LAST IP (the one closest to the client) if it's public,
+	// otherwise the first non-private IP
 	xForwardedFor := c.GetHeader("X-Forwarded-For")
 	if xForwardedFor != "" {
-		// X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-		// We want the first one (original client)
 		ips := strings.Split(xForwardedFor, ",")
+		// Try to find the first public IP (likely the real client behind VPN)
+		for i := len(ips) - 1; i >= 0; i-- {
+			clientIP := strings.TrimSpace(ips[i])
+			if ip := net.ParseIP(clientIP); ip != nil {
+				// If it's a public IP, use it (this is likely the VPN exit IP)
+				if !isPrivateIP(clientIP) {
+					return clientIP
+				}
+			}
+		}
+		// If no public IP found, use the first one
 		if len(ips) > 0 {
 			clientIP := strings.TrimSpace(ips[0])
 			if ip := net.ParseIP(clientIP); ip != nil {
@@ -83,6 +98,7 @@ func GetClientIP(c *gin.Context) string {
 	// Check X-Real-IP header
 	xRealIP := c.GetHeader("X-Real-IP")
 	if xRealIP != "" {
+		xRealIP = strings.TrimSpace(xRealIP)
 		if ip := net.ParseIP(xRealIP); ip != nil {
 			return xRealIP
 		}
@@ -91,14 +107,39 @@ func GetClientIP(c *gin.Context) string {
 	// Check CF-Connecting-IP (Cloudflare)
 	cfConnectingIP := c.GetHeader("CF-Connecting-IP")
 	if cfConnectingIP != "" {
+		cfConnectingIP = strings.TrimSpace(cfConnectingIP)
 		if ip := net.ParseIP(cfConnectingIP); ip != nil {
 			return cfConnectingIP
 		}
 	}
 
+	// Check True-Client-IP (used by some proxies)
+	trueClientIP := c.GetHeader("True-Client-IP")
+	if trueClientIP != "" {
+		trueClientIP = strings.TrimSpace(trueClientIP)
+		if ip := net.ParseIP(trueClientIP); ip != nil {
+			return trueClientIP
+		}
+	}
+
+	// Check X-Client-IP (some proxies use this)
+	xClientIP := c.GetHeader("X-Client-IP")
+	if xClientIP != "" {
+		xClientIP = strings.TrimSpace(xClientIP)
+		if ip := net.ParseIP(xClientIP); ip != nil {
+			return xClientIP
+		}
+	}
+
 	// Fallback to RemoteAddr
+	// This will be the IP that directly connected to the server
+	// If behind VPN, this should be the VPN server's IP
 	ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
 	if err != nil {
+		// If RemoteAddr doesn't have a port, try parsing it directly
+		if parsedIP := net.ParseIP(c.Request.RemoteAddr); parsedIP != nil {
+			return c.Request.RemoteAddr
+		}
 		return c.Request.RemoteAddr
 	}
 	return ip
@@ -407,4 +448,162 @@ func (s *Server) GetLocationByIP(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, location)
+}
+
+// GetClientIPDebug godoc
+// @Summary Debug endpoint để xem IP và headers được detect
+// @Description Trả về thông tin chi tiết về IP và các headers liên quan để debug
+// @Tags Location
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H
+// @Router /location/debug [get]
+func (s *Server) GetClientIPDebug(c *gin.Context) {
+	detectedIP := GetClientIP(c)
+	remoteAddr := c.Request.RemoteAddr
+
+	// Get all relevant headers
+	headers := gin.H{
+		"X-Forwarded-For":  c.GetHeader("X-Forwarded-For"),
+		"X-Real-IP":        c.GetHeader("X-Real-IP"),
+		"CF-Connecting-IP": c.GetHeader("CF-Connecting-IP"),
+		"True-Client-IP":   c.GetHeader("True-Client-IP"),
+		"X-Client-IP":      c.GetHeader("X-Client-IP"),
+		"RemoteAddr":       remoteAddr,
+		"DetectedIP":       detectedIP,
+		"IsPrivateIP":      isPrivateIP(detectedIP),
+	}
+
+	// Try to get location for detected IP
+	var locationInfo gin.H
+	if !isPrivateIP(detectedIP) {
+		loc, err := fetchLocationFromAPI(detectedIP)
+		if err == nil {
+			locationInfo = gin.H{
+				"country":      loc.Country,
+				"country_code": loc.CountryCode,
+				"city":         loc.City,
+				"ip":           loc.IP,
+			}
+		} else {
+			locationInfo = gin.H{
+				"error": err.Error(),
+			}
+		}
+	} else {
+		locationInfo = gin.H{
+			"message": "Private IP detected, cannot fetch location",
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"headers":     headers,
+		"location":    locationInfo,
+		"all_headers": c.Request.Header,
+	})
+}
+
+// GetToursByLocation godoc
+// @Summary Lấy danh sách tour quốc nội và quốc tế dựa vào vị trí người dùng
+// @Description Tự động phát hiện vị trí người dùng và trả về danh sách tour quốc nội (trong nước) và quốc tế (nước ngoài) sắp xếp theo số lượt đặt nhiều nhất
+// @Tags Location
+// @Accept json
+// @Produce json
+// @Param limit query int false "Số lượng tour mỗi loại (mặc định: 10)"
+// @Param offset query int false "Offset (mặc định: 0)"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /location/tours [get]
+func (s *Server) GetToursByLocation(c *gin.Context) {
+	// Get IP and detect location
+	ip := GetClientIP(c)
+	if ip == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Không thể xác định địa chỉ IP",
+		})
+		return
+	}
+
+	// Get location info
+	var countryCode string
+	if isPrivateIP(ip) {
+		// Default to Vietnam for private IPs
+		countryCode = "VN"
+	} else {
+		location, err := fetchLocationFromAPI(ip)
+		if err != nil {
+			// Fallback to Vietnam if API fails
+			countryCode = "VN"
+		} else {
+			countryCode = location.CountryCode
+		}
+	}
+
+	// Get limit and offset
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if limit <= 0 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	ctx := context.Background()
+
+	// Get domestic tours (quốc nội)
+	domesticTours, err := s.z.GetToursByCountryCode(ctx, db.GetToursByCountryCodeParams{
+		Column1: "domestic",
+		Iso2:    &countryCode,
+		Limit:   int32(limit),
+		Offset:  int32(offset),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Không thể lấy danh sách tour quốc nội",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Get international tours (quốc tế)
+	internationalTours, err := s.z.GetToursByCountryCode(ctx, db.GetToursByCountryCodeParams{
+		Column1: "international",
+		Iso2:    &countryCode,
+		Limit:   int32(limit),
+		Offset:  int32(offset),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Không thể lấy danh sách tour quốc tế",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lấy danh sách tour thành công",
+		"data": gin.H{
+			"country_code":        countryCode,
+			"domestic_tours":      domesticTours,
+			"international_tours": internationalTours,
+		},
+	})
+}
+
+// Handler godoc
+// @Summary Handler endpoint để xem IP và headers được detect
+// @Description Trả về thông tin chi tiết về IP và các headers liên quan để debug
+// @Tags Location
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H
+// @Router /location/test [get]
+func (s *Server) Handler(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"client_ip":       c.ClientIP(),
+		"x_forwarded_for": c.GetHeader("X-Forwarded-For"),
+		"x_real_ip":       c.GetHeader("X-Real-IP"),
+	})
 }

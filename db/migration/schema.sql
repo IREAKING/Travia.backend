@@ -385,3 +385,25 @@ CREATE TABLE phan_hoi_danh_gia (
     ngay_cap_nhat TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX idx_phan_hoi_danh_gia_id ON phan_hoi_danh_gia(danh_gia_id);
+
+-- Bảng liên hệ (Contact form)
+CREATE TABLE lien_he (
+    id SERIAL PRIMARY KEY,
+    ho_ten VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    so_dien_thoai VARCHAR(50),
+    tieu_de VARCHAR(255) NOT NULL,
+    noi_dung TEXT NOT NULL,
+    nguoi_dung_id UUID REFERENCES nguoi_dung(id) ON DELETE SET NULL, -- NULL nếu khách vãng lai
+    trang_thai VARCHAR(20) DEFAULT 'moi' CHECK (trang_thai IN ('moi', 'dang_xu_ly', 'da_phan_hoi', 'da_dong')),
+    da_doc BOOLEAN DEFAULT FALSE,
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes cho bảng lien_he
+CREATE INDEX idx_lien_he_email ON lien_he(email);
+CREATE INDEX idx_lien_he_trang_thai ON lien_he(trang_thai);
+CREATE INDEX idx_lien_he_da_doc ON lien_he(da_doc);
+CREATE INDEX idx_lien_he_ngay_tao ON lien_he(ngay_tao DESC);
+CREATE INDEX idx_lien_he_nguoi_dung_id ON lien_he(nguoi_dung_id);

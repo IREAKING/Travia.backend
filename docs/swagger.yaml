@@ -33,6 +33,21 @@ definitions:
       so_tre_em:
         type: integer
     type: object
+  db.CreateContactParams:
+    properties:
+      email:
+        type: string
+      ho_ten:
+        type: string
+      nguoi_dung_id:
+        type: string
+      noi_dung:
+        type: string
+      so_dien_thoai:
+        type: string
+      tieu_de:
+        type: string
+    type: object
   db.CreateDestinationParams:
     properties:
       anh:
@@ -460,6 +475,15 @@ definitions:
     - TrangThaiDatChoDaThanhToan
     - TrangThaiDatChoDaHuy
     - TrangThaiDatChoHoanThanh
+  db.UpdateContactStatusParams:
+    properties:
+      da_doc:
+        type: boolean
+      id:
+        type: integer
+      trang_thai:
+        type: string
+    type: object
   db.UpdateSupplierParams:
     properties:
       dia_chi:
@@ -1573,6 +1597,37 @@ paths:
       summary: Lấy danh sách giao dịch thanh toán
       tags:
       - Admin
+  /ai/chatbot:
+    post:
+      consumes:
+      - application/json
+      description: Chat với AI chatbot để được tư vấn về tours. Hỗ trợ lưu lịch sử
+        chat.
+      parameters:
+      - description: Chat message
+        in: body
+        name: message
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Chat với AI chatbot
+      tags:
+      - AI
   /auth/changePassword:
     put:
       consumes:
@@ -2158,6 +2213,296 @@ paths:
       summary: Get my bookings
       tags:
       - Booking
+  /contact:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tất cả liên hệ với phân trang
+      parameters:
+      - default: 20
+        description: Số lượng kết quả
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách liên hệ (Admin only)
+      tags:
+      - Contact
+    post:
+      consumes:
+      - application/json
+      description: Tạo liên hệ mới từ form contact (có thể có hoặc không có user đăng
+        nhập)
+      parameters:
+      - description: Thông tin liên hệ
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/db.CreateContactParams'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Tạo liên hệ mới
+      tags:
+      - Contact
+  /contact/:id:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thông tin chi tiết của một liên hệ
+      parameters:
+      - description: ID liên hệ
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy chi tiết liên hệ (Admin only)
+      tags:
+      - Contact
+  /contact/:id/read:
+    put:
+      consumes:
+      - application/json
+      description: Đánh dấu một liên hệ là đã đọc
+      parameters:
+      - description: ID liên hệ
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Đánh dấu liên hệ đã đọc (Admin only)
+      tags:
+      - Contact
+  /contact/:id/status:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật trạng thái và trạng thái đọc của liên hệ
+      parameters:
+      - description: ID liên hệ
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Thông tin cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/db.UpdateContactStatusParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Cập nhật trạng thái liên hệ (Admin only)
+      tags:
+      - Contact
+  /contact/status/:status:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách liên hệ theo trạng thái với phân trang
+      parameters:
+      - description: Trạng thái (moi, dang_xu_ly, da_phan_hoi, da_dong)
+        in: path
+        name: status
+        required: true
+        type: string
+      - default: 20
+        description: Số lượng kết quả
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy liên hệ theo trạng thái (Admin only)
+      tags:
+      - Contact
+  /contact/unread:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách liên hệ chưa đọc với phân trang
+      parameters:
+      - default: 20
+        description: Số lượng kết quả
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách liên hệ chưa đọc (Admin only)
+      tags:
+      - Contact
   /departure/{id}:
     delete:
       description: Xóa một lịch khởi hành
@@ -2682,6 +3027,69 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Lấy thông tin vị trí địa lý theo IP cụ thể
+      tags:
+      - Location
+  /location/debug:
+    get:
+      consumes:
+      - application/json
+      description: Trả về thông tin chi tiết về IP và các headers liên quan để debug
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Debug endpoint để xem IP và headers được detect
+      tags:
+      - Location
+  /location/test:
+    get:
+      consumes:
+      - application/json
+      description: Trả về thông tin chi tiết về IP và các headers liên quan để debug
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Handler endpoint để xem IP và headers được detect
+      tags:
+      - Location
+  /location/tours:
+    get:
+      consumes:
+      - application/json
+      description: Tự động phát hiện vị trí người dùng và trả về danh sách tour quốc
+        nội (trong nước) và quốc tế (nước ngoài) sắp xếp theo số lượt đặt nhiều nhất
+      parameters:
+      - description: 'Số lượng tour mỗi loại (mặc định: 10)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset (mặc định: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách tour quốc nội và quốc tế dựa vào vị trí người dùng
       tags:
       - Location
   /payment/vnpay/create:

@@ -1126,6 +1126,141 @@ func (q *Queries) GetToursByCategoryFilter(ctx context.Context, arg GetToursByCa
 	return items, nil
 }
 
+const getToursByCountryCode = `-- name: GetToursByCountryCode :many
+SELECT
+  t.id,
+  t.tieu_de,
+  t.mo_ta,
+  t.danh_muc_id,
+  t.so_ngay,
+  t.so_dem,
+  t.gia_nguoi_lon,
+  t.gia_tre_em,
+  t.don_vi_tien_te,
+  t.trang_thai,
+  t.noi_bat,
+  dm.ten AS danh_muc_ten,
+  ncc.ten AS nha_cung_cap_ten,
+  (
+    SELECT a.duong_dan
+    FROM anh_tour a
+    WHERE a.tour_id = t.id
+    ORDER BY COALESCE(a.la_anh_chinh, false) DESC, COALESCE(a.thu_tu_hien_thi, 0) ASC, a.id ASC
+    LIMIT 1
+  ) AS anh_chinh,
+  dd.diem_den,
+  COALESCE(dg.avg_rating, 0) as avg_rating,
+  COALESCE(dg.total_reviews, 0) as total_reviews,
+  COUNT(dc.id) AS so_booking
+FROM tour t
+LEFT JOIN danh_muc_tour dm ON dm.id = t.danh_muc_id
+LEFT JOIN nha_cung_cap ncc ON ncc.id = t.nha_cung_cap_id
+LEFT JOIN (
+  SELECT td.tour_id, array_agg(DISTINCT d.ten ORDER BY d.ten) AS diem_den
+  FROM tour_diem_den td
+  JOIN diem_den d ON d.id = td.diem_den_id
+  GROUP BY td.tour_id
+) dd ON dd.tour_id = t.id
+LEFT JOIN (
+  SELECT tour_id, AVG(diem_danh_gia)::float AS avg_rating, COUNT(*)::int AS total_reviews
+  FROM danh_gia
+  WHERE dang_hoat_dong = TRUE
+  GROUP BY tour_id
+) dg ON dg.tour_id = t.id
+LEFT JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
+LEFT JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
+WHERE t.dang_hoat_dong = TRUE 
+  AND t.trang_thai = 'cong_bo'
+  AND EXISTS (
+    SELECT 1 
+    FROM tour_diem_den tdd
+    JOIN diem_den d ON d.id = tdd.diem_den_id
+    WHERE tdd.tour_id = t.id
+      AND (
+        ($1 = 'domestic' AND d.iso2 = $2)
+        OR ($1 = 'international' AND d.iso2 IS NOT NULL AND d.iso2 != $2)
+      )
+  )
+GROUP BY t.id, t.tieu_de, t.mo_ta, t.danh_muc_id, t.so_ngay, t.so_dem, 
+         t.gia_nguoi_lon, t.gia_tre_em, t.don_vi_tien_te, t.trang_thai, 
+         t.noi_bat, dm.ten, ncc.ten, dd.diem_den, dg.avg_rating, dg.total_reviews
+ORDER BY so_booking DESC, t.noi_bat DESC, t.ngay_tao DESC
+LIMIT $3 OFFSET $4
+`
+
+type GetToursByCountryCodeParams struct {
+	Column1 interface{} `json:"column_1"`
+	Iso2    *string     `json:"iso2"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+}
+
+type GetToursByCountryCodeRow struct {
+	ID            int32          `json:"id"`
+	TieuDe        string         `json:"tieu_de"`
+	MoTa          *string        `json:"mo_ta"`
+	DanhMucID     *int32         `json:"danh_muc_id"`
+	SoNgay        int32          `json:"so_ngay"`
+	SoDem         int32          `json:"so_dem"`
+	GiaNguoiLon   pgtype.Numeric `json:"gia_nguoi_lon"`
+	GiaTreEm      pgtype.Numeric `json:"gia_tre_em"`
+	DonViTienTe   *string        `json:"don_vi_tien_te"`
+	TrangThai     *string        `json:"trang_thai"`
+	NoiBat        *bool          `json:"noi_bat"`
+	DanhMucTen    *string        `json:"danh_muc_ten"`
+	NhaCungCapTen *string        `json:"nha_cung_cap_ten"`
+	AnhChinh      string         `json:"anh_chinh"`
+	DiemDen       interface{}    `json:"diem_den"`
+	AvgRating     float64        `json:"avg_rating"`
+	TotalReviews  int32          `json:"total_reviews"`
+	SoBooking     int64          `json:"so_booking"`
+}
+
+// Lấy tour quốc nội (iso2 = country_code) hoặc quốc tế (iso2 != country_code) sắp xếp theo số lượt đặt
+func (q *Queries) GetToursByCountryCode(ctx context.Context, arg GetToursByCountryCodeParams) ([]GetToursByCountryCodeRow, error) {
+	rows, err := q.db.Query(ctx, getToursByCountryCode,
+		arg.Column1,
+		arg.Iso2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetToursByCountryCodeRow
+	for rows.Next() {
+		var i GetToursByCountryCodeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TieuDe,
+			&i.MoTa,
+			&i.DanhMucID,
+			&i.SoNgay,
+			&i.SoDem,
+			&i.GiaNguoiLon,
+			&i.GiaTreEm,
+			&i.DonViTienTe,
+			&i.TrangThai,
+			&i.NoiBat,
+			&i.DanhMucTen,
+			&i.NhaCungCapTen,
+			&i.AnhChinh,
+			&i.DiemDen,
+			&i.AvgRating,
+			&i.TotalReviews,
+			&i.SoBooking,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getToursBySupplier = `-- name: GetToursBySupplier :many
 SELECT id, tieu_de, mo_ta, danh_muc_id, so_ngay, so_dem, gia_nguoi_lon, gia_tre_em, don_vi_tien_te, trang_thai, noi_bat, nha_cung_cap_id, dang_hoat_dong, ngay_tao, ngay_cap_nhat FROM tour
 WHERE nha_cung_cap_id = $1

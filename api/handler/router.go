@@ -110,7 +110,7 @@ func (s *Server) SetupRoutes() {
 		admin.GET("/getUserStatsByRole",
 			s.GetUserStatsByRole,
 		)
-		
+
 		admin.GET("/getTopBookedTours",
 			s.GetTopBookedTours,
 		)
@@ -168,7 +168,7 @@ func (s *Server) SetupRoutes() {
 		admin.GET("/customers/adminCustomerGrowthMonthlyReport",
 			s.AdminCustomerGrowthMonthlyReport,
 		)
-	}	
+	}
 	// ========== DESTINATION ROUTES (with Redis caching) ==========
 	destination := api.Group("/destination")
 	{
@@ -354,8 +354,11 @@ func (s *Server) SetupRoutes() {
 	// Location - IP Geolocation detection
 	location := api.Group("/location")
 	{
-		location.GET("", s.GetLocation)         // Auto-detect IP or use ?ip=xxx.xxx.xxx.xxx
-		location.GET("/:ip", s.GetLocationByIP) // Get location by specific IP
+		location.GET("", s.GetLocation)              // Auto-detect IP or use ?ip=xxx.xxx.xxx.xxx
+		location.GET("/:ip", s.GetLocationByIP)      // Get location by specific IP
+		location.GET("/tours", s.GetToursByLocation) // Get domestic and international tours by user location
+		location.GET("/debug", s.GetClientIPDebug)   // Debug endpoint to see detected IP and headers
+		location.GET("/test", s.Handler)           // Test endpoint to see detected IP and headers
 	}
 
 	// ========== PAYMENT ROUTES (with rate limiting) ==========
@@ -375,6 +378,28 @@ func (s *Server) SetupRoutes() {
 			vnpay.GET("/verify", s.VNPayVerifyCallback)
 			// IPN callback (public - VNPay server calls this)
 			vnpay.POST("/ipn", s.VNPayIPN)
+		}
+	}
+
+	// ========== CONTACT ROUTES ==========
+	contact := api.Group("/contact")
+	{
+		// Public - Create contact (anyone can submit contact form)
+		contact.POST("", s.CreateContact)
+
+		// Admin only - Get and manage contacts
+		contactAdmin := contact.Group("")
+		contactAdmin.Use(
+			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
+			middleware.RequireRoles("quan_tri"),
+		)
+		{
+			contactAdmin.GET("", s.GetAllContacts)
+			contactAdmin.GET("/unread", s.GetUnreadContacts)
+			contactAdmin.GET("/status/:status", s.GetContactsByStatus)
+			contactAdmin.GET("/:id", s.GetContactByID)
+			contactAdmin.PUT("/:id/status", s.UpdateContactStatus)
+			contactAdmin.PUT("/:id/read", s.MarkContactAsRead)
 		}
 	}
 
@@ -485,6 +510,13 @@ func (s *Server) SetupRoutes() {
 			s.PrintTicket,
 		)
 	}
+
+	// ========== AI ROUTES ==========
+	ai := api.Group("/ai")
+	{
+		ai.POST("/chatbot", s.Chatbot) // Public endpoint for chatbot
+	}
+
 }
 
 func (s *Server) SetupMiddlewares() {

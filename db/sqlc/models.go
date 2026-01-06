@@ -408,6 +408,15 @@ type KhoiHanhTour struct {
 	NgayCapNhat  pgtype.Timestamp      `json:"ngay_cap_nhat"`
 }
 
+type LichSuChat struct {
+	ID          int32            `json:"id"`
+	NguoiDungID pgtype.UUID      `json:"nguoi_dung_id"`
+	MaPhien     string           `json:"ma_phien"`
+	CauHoi      string           `json:"cau_hoi"`
+	CauTraLoi   string           `json:"cau_tra_loi"`
+	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
+}
+
 type LichSuGiaoDich struct {
 	ID                       int32                  `json:"id"`
 	DatChoID                 *int32                 `json:"dat_cho_id"`
@@ -435,6 +444,20 @@ type LichTrinh struct {
 	ThongTinLuuTru *string          `json:"thong_tin_luu_tru"`
 	NgayTao        pgtype.Timestamp `json:"ngay_tao"`
 	NgayCapNhat    pgtype.Timestamp `json:"ngay_cap_nhat"`
+}
+
+type LienHe struct {
+	ID          int32            `json:"id"`
+	HoTen       string           `json:"ho_ten"`
+	Email       string           `json:"email"`
+	SoDienThoai *string          `json:"so_dien_thoai"`
+	TieuDe      string           `json:"tieu_de"`
+	NoiDung     string           `json:"noi_dung"`
+	NguoiDungID pgtype.UUID      `json:"nguoi_dung_id"`
+	TrangThai   *string          `json:"trang_thai"`
+	DaDoc       *bool            `json:"da_doc"`
+	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
 }
 
 type NguoiDung struct {

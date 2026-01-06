@@ -24,6 +24,7 @@ type Config struct {
 	SupabaseConfig    *SupabaseConfig
 	StripeConfig      *StripeConfig
 	VNPayConfig       *VNPayConfig
+	OpenAIConfig      *OpenAIConfig
 }
 
 func NewConfig() *Config {
@@ -37,6 +38,7 @@ func NewConfig() *Config {
 		SupabaseConfig:    NewSupabaseConfig(),
 		StripeConfig:      NewStripeConfig(),
 		VNPayConfig:       NewVNPayConfig(),
+		OpenAIConfig:      NewOpenAIConfig(),
 	}
 }
 
@@ -226,5 +228,15 @@ func NewVNPayConfig() *VNPayConfig {
 		Command:    "pay",
 		CurrCode:   "VND",
 		Locale:     "vn",
+	}
+}
+
+type OpenAIConfig struct {
+	APIKey string
+}
+
+func NewOpenAIConfig() *OpenAIConfig {
+	return &OpenAIConfig{
+		APIKey: os.Getenv("OPENAI_API_KEY"),
 	}
 }
