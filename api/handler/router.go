@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -358,7 +357,7 @@ func (s *Server) SetupRoutes() {
 		location.GET("/:ip", s.GetLocationByIP)      // Get location by specific IP
 		location.GET("/tours", s.GetToursByLocation) // Get domestic and international tours by user location
 		location.GET("/debug", s.GetClientIPDebug)   // Debug endpoint to see detected IP and headers
-		location.GET("/test", s.Handler)           // Test endpoint to see detected IP and headers
+		location.GET("/test", s.Handler)             // Test endpoint to see detected IP and headers
 	}
 
 	// ========== PAYMENT ROUTES (with rate limiting) ==========
@@ -532,8 +531,8 @@ func (s *Server) SetupSwagger() {
 	docs.SwaggerInfo.Title = "Travia API"
 	docs.SwaggerInfo.Description = "Travia Travel Management API with Google OAuth"
 	docs.SwaggerInfo.Version = "1.0"
-	docs.SwaggerInfo.Host = fmt.Sprintf("%s:%s", "localhost", s.config.ServerConfig.Port)
-	//docs.SwaggerInfo.Host = "travia-backend-363518914287.asia-southeast1.run.app"
+	//docs.SwaggerInfo.Host = fmt.Sprintf("%s:%s", "localhost", s.config.ServerConfig.Port)
+	docs.SwaggerInfo.Host = "travia-backend-363518914287.asia-southeast1.run.app"
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 	docs.SwaggerInfo.BasePath = "/api"
 
