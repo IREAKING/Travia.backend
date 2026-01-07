@@ -81,6 +81,51 @@ func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (L
 	return i, err
 }
 
+const createContactResponse = `-- name: CreateContactResponse :one
+
+INSERT INTO phan_hoi_lien_he (
+    lien_he_id,
+    nguoi_phan_hoi_id,
+    noi_dung
+) VALUES (
+    $1, $2, $3
+) RETURNING id, lien_he_id, nguoi_phan_hoi_id, noi_dung, ngay_tao, ngay_cap_nhat
+`
+
+type CreateContactResponseParams struct {
+	LienHeID       int32       `json:"lien_he_id"`
+	NguoiPhanHoiID pgtype.UUID `json:"nguoi_phan_hoi_id"`
+	NoiDung        string      `json:"noi_dung"`
+}
+
+// ===========================================
+// PHẢN HỒI LIÊN HỆ
+// ===========================================
+// Tạo phản hồi cho liên hệ
+func (q *Queries) CreateContactResponse(ctx context.Context, arg CreateContactResponseParams) (PhanHoiLienHe, error) {
+	row := q.db.QueryRow(ctx, createContactResponse, arg.LienHeID, arg.NguoiPhanHoiID, arg.NoiDung)
+	var i PhanHoiLienHe
+	err := row.Scan(
+		&i.ID,
+		&i.LienHeID,
+		&i.NguoiPhanHoiID,
+		&i.NoiDung,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const deleteContactResponse = `-- name: DeleteContactResponse :exec
+DELETE FROM phan_hoi_lien_he WHERE id = $1
+`
+
+// Xóa phản hồi
+func (q *Queries) DeleteContactResponse(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteContactResponse, id)
+	return err
+}
+
 const getAllContacts = `-- name: GetAllContacts :many
 SELECT 
     lh.id, lh.ho_ten, lh.email, lh.so_dien_thoai, lh.tieu_de, lh.noi_dung, lh.nguoi_dung_id, lh.trang_thai, lh.da_doc, lh.ngay_tao, lh.ngay_cap_nhat,
@@ -192,6 +237,96 @@ func (q *Queries) GetContactByID(ctx context.Context, id int32) (GetContactByIDR
 		&i.EmailNguoiDung,
 	)
 	return i, err
+}
+
+const getContactResponseByID = `-- name: GetContactResponseByID :one
+SELECT 
+    ph.id, ph.lien_he_id, ph.nguoi_phan_hoi_id, ph.noi_dung, ph.ngay_tao, ph.ngay_cap_nhat,
+    nd.ho_ten AS ten_nguoi_phan_hoi,
+    nd.email AS email_nguoi_phan_hoi
+FROM phan_hoi_lien_he ph
+JOIN nguoi_dung nd ON ph.nguoi_phan_hoi_id = nd.id
+WHERE ph.id = $1
+`
+
+type GetContactResponseByIDRow struct {
+	ID                int32            `json:"id"`
+	LienHeID          int32            `json:"lien_he_id"`
+	NguoiPhanHoiID    pgtype.UUID      `json:"nguoi_phan_hoi_id"`
+	NoiDung           string           `json:"noi_dung"`
+	NgayTao           pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat       pgtype.Timestamp `json:"ngay_cap_nhat"`
+	TenNguoiPhanHoi   string           `json:"ten_nguoi_phan_hoi"`
+	EmailNguoiPhanHoi string           `json:"email_nguoi_phan_hoi"`
+}
+
+// Lấy phản hồi theo ID
+func (q *Queries) GetContactResponseByID(ctx context.Context, id int32) (GetContactResponseByIDRow, error) {
+	row := q.db.QueryRow(ctx, getContactResponseByID, id)
+	var i GetContactResponseByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.LienHeID,
+		&i.NguoiPhanHoiID,
+		&i.NoiDung,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+		&i.TenNguoiPhanHoi,
+		&i.EmailNguoiPhanHoi,
+	)
+	return i, err
+}
+
+const getContactResponses = `-- name: GetContactResponses :many
+SELECT 
+    ph.id, ph.lien_he_id, ph.nguoi_phan_hoi_id, ph.noi_dung, ph.ngay_tao, ph.ngay_cap_nhat,
+    nd.ho_ten AS ten_nguoi_phan_hoi,
+    nd.email AS email_nguoi_phan_hoi
+FROM phan_hoi_lien_he ph
+JOIN nguoi_dung nd ON ph.nguoi_phan_hoi_id = nd.id
+WHERE ph.lien_he_id = $1
+ORDER BY ph.ngay_tao ASC
+`
+
+type GetContactResponsesRow struct {
+	ID                int32            `json:"id"`
+	LienHeID          int32            `json:"lien_he_id"`
+	NguoiPhanHoiID    pgtype.UUID      `json:"nguoi_phan_hoi_id"`
+	NoiDung           string           `json:"noi_dung"`
+	NgayTao           pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat       pgtype.Timestamp `json:"ngay_cap_nhat"`
+	TenNguoiPhanHoi   string           `json:"ten_nguoi_phan_hoi"`
+	EmailNguoiPhanHoi string           `json:"email_nguoi_phan_hoi"`
+}
+
+// Lấy tất cả phản hồi của một liên hệ
+func (q *Queries) GetContactResponses(ctx context.Context, lienHeID int32) ([]GetContactResponsesRow, error) {
+	rows, err := q.db.Query(ctx, getContactResponses, lienHeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetContactResponsesRow
+	for rows.Next() {
+		var i GetContactResponsesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LienHeID,
+			&i.NguoiPhanHoiID,
+			&i.NoiDung,
+			&i.NgayTao,
+			&i.NgayCapNhat,
+			&i.TenNguoiPhanHoi,
+			&i.EmailNguoiPhanHoi,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getContactsByStatus = `-- name: GetContactsByStatus :many
@@ -351,6 +486,35 @@ func (q *Queries) MarkContactAsRead(ctx context.Context, id int32) (LienHe, erro
 		&i.NguoiDungID,
 		&i.TrangThai,
 		&i.DaDoc,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const updateContactResponse = `-- name: UpdateContactResponse :one
+UPDATE phan_hoi_lien_he
+SET 
+    noi_dung = $2,
+    ngay_cap_nhat = NOW()
+WHERE id = $1
+RETURNING id, lien_he_id, nguoi_phan_hoi_id, noi_dung, ngay_tao, ngay_cap_nhat
+`
+
+type UpdateContactResponseParams struct {
+	ID      int32  `json:"id"`
+	NoiDung string `json:"noi_dung"`
+}
+
+// Cập nhật phản hồi
+func (q *Queries) UpdateContactResponse(ctx context.Context, arg UpdateContactResponseParams) (PhanHoiLienHe, error) {
+	row := q.db.QueryRow(ctx, updateContactResponse, arg.ID, arg.NoiDung)
+	var i PhanHoiLienHe
+	err := row.Scan(
+		&i.ID,
+		&i.LienHeID,
+		&i.NguoiPhanHoiID,
+		&i.NoiDung,
 		&i.NgayTao,
 		&i.NgayCapNhat,
 	)

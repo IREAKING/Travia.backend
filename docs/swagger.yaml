@@ -891,6 +891,13 @@ definitions:
     required:
     - refreshToken
     type: object
+  models.ResponseContact_Swagger:
+    properties:
+      noi_dung:
+        type: string
+    required:
+    - noi_dung
+    type: object
   models.UpdateDiscountTourRequest:
     properties:
       id:
@@ -2365,6 +2372,98 @@ paths:
       summary: Đánh dấu liên hệ đã đọc (Admin only)
       tags:
       - Contact
+  /contact/:id/response:
+    post:
+      consumes:
+      - application/json
+      description: Admin phản hồi lại liên hệ từ khách hàng
+      parameters:
+      - description: ID liên hệ
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nội dung phản hồi
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ResponseContact_Swagger'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Tạo phản hồi cho liên hệ (Admin only)
+      tags:
+      - Contact
+  /contact/:id/responses:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả phản hồi của một liên hệ
+      parameters:
+      - description: ID liên hệ
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách phản hồi của liên hệ (Admin only)
+      tags:
+      - Contact
   /contact/:id/status:
     put:
       consumes:
@@ -3092,6 +3191,167 @@ paths:
       summary: Lấy danh sách tour quốc nội và quốc tế dựa vào vị trí người dùng
       tags:
       - Location
+  /notifications:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách thông báo của người dùng đã đăng nhập
+      parameters:
+      - default: 20
+        description: Số lượng kết quả
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy thông báo của người dùng
+      tags:
+      - Notification
+  /notifications/:id/read:
+    put:
+      consumes:
+      - application/json
+      description: Đánh dấu một thông báo là đã đọc
+      parameters:
+      - description: ID thông báo
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Đánh dấu thông báo đã đọc
+      tags:
+      - Notification
+  /notifications/count:
+    get:
+      consumes:
+      - application/json
+      description: Lấy số lượng thông báo chưa đọc của người dùng
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy số lượng thông báo chưa đọc
+      tags:
+      - Notification
+  /notifications/read-all:
+    put:
+      consumes:
+      - application/json
+      description: Đánh dấu tất cả thông báo của người dùng là đã đọc
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Đánh dấu tất cả thông báo đã đọc
+      tags:
+      - Notification
+  /notifications/unread:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách thông báo chưa đọc của người dùng
+      parameters:
+      - default: 20
+        description: Số lượng kết quả
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy thông báo chưa đọc
+      tags:
+      - Notification
   /payment/vnpay/create:
     post:
       consumes:
@@ -3360,6 +3620,103 @@ paths:
       summary: VNPay Verify Callback
       tags:
       - Payment
+  /recommendation/similar/{tour_id}:
+    get:
+      consumes:
+      - application/json
+      description: Tìm tour tương tự với tour hiện tại sử dụng semantic search
+      parameters:
+      - description: ID tour
+        in: path
+        name: tour_id
+        required: true
+        type: integer
+      - description: 'Số lượng tour (mặc định: 5)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy tour tương tự dựa trên embedding
+      tags:
+      - Recommendation
+  /recommendation/tours:
+    get:
+      consumes:
+      - application/json
+      description: Gợi ý tour dựa trên sở thích, lịch sử xem và AI
+      parameters:
+      - description: 'Số lượng tour (mặc định: 10)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset (mặc định: 0)'
+        in: query
+        name: offset
+        type: integer
+      - description: 'Phương pháp gợi ý: preferences, destinations, history, ai (mặc
+          định: preferences)'
+        in: query
+        name: method
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lấy danh sách tour được gợi ý
+      tags:
+      - Recommendation
+  /recommendation/track-view:
+    post:
+      consumes:
+      - application/json
+      description: Lưu lại khi người dùng xem tour để phân tích sở thích và gợi ý
+        tour
+      parameters:
+      - description: Thông tin xem tour
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Lưu lịch sử xem tour
+      tags:
+      - Recommendation
   /review/check/{dat_cho_id}:
     get:
       consumes:

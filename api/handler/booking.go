@@ -322,10 +322,14 @@ func (s *Server) AddPassengers(c *gin.Context) {
 	var dbReq []db.AddPassengersParams
 	for _, p := range req {
 		dbReq = append(dbReq, db.AddPassengersParams{
-			DatChoID:  int32(bookingID),
-			HoTen:     p.HoTen,
-			NgaySinh:  pgtype.Date{Time: utils.StringToDate(p.NgaySinh), Valid: true},
-			LoaiKhach: p.LoaiKhach,
+			DatChoID:         int32(bookingID),
+			HoTen:            p.HoTen,
+			NgaySinh:         pgtype.Date{Time: utils.StringToDate(p.NgaySinh), Valid: true},
+			LoaiKhach:        p.LoaiKhach,
+			GioiTinh:         p.GioiTinh,
+			SoGiayToTuyThanh: p.SoGiayToTuyThanh,
+			QuocTich:         p.QuocTich,
+			GhiChu:           p.GhiChu,
 		})
 	}
 

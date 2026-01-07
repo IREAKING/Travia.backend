@@ -585,9 +585,9 @@ func (s *Server) GetToursByLocation(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Lấy danh sách tour thành công",
 		"data": gin.H{
-			"country_code":        countryCode,
-			"domestic_tours":      domesticTours,
-			"international_tours": internationalTours,
+			"country_code":   countryCode,
+			"tours_quoc_noi": domesticTours,
+			"tours_quoc_te":  internationalTours,
 		},
 	})
 }

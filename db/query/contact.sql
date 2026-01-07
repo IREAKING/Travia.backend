@@ -74,3 +74,51 @@ SET
 WHERE id = $1
 RETURNING *;
 
+-- ===========================================
+-- PHẢN HỒI LIÊN HỆ
+-- ===========================================
+
+-- name: CreateContactResponse :one
+-- Tạo phản hồi cho liên hệ
+INSERT INTO phan_hoi_lien_he (
+    lien_he_id,
+    nguoi_phan_hoi_id,
+    noi_dung
+) VALUES (
+    $1, $2, $3
+) RETURNING *;
+
+-- name: GetContactResponses :many
+-- Lấy tất cả phản hồi của một liên hệ
+SELECT 
+    ph.*,
+    nd.ho_ten AS ten_nguoi_phan_hoi,
+    nd.email AS email_nguoi_phan_hoi
+FROM phan_hoi_lien_he ph
+JOIN nguoi_dung nd ON ph.nguoi_phan_hoi_id = nd.id
+WHERE ph.lien_he_id = $1
+ORDER BY ph.ngay_tao ASC;
+
+-- name: UpdateContactResponse :one
+-- Cập nhật phản hồi
+UPDATE phan_hoi_lien_he
+SET 
+    noi_dung = $2,
+    ngay_cap_nhat = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteContactResponse :exec
+-- Xóa phản hồi
+DELETE FROM phan_hoi_lien_he WHERE id = $1;
+
+-- name: GetContactResponseByID :one
+-- Lấy phản hồi theo ID
+SELECT 
+    ph.*,
+    nd.ho_ten AS ten_nguoi_phan_hoi,
+    nd.email AS email_nguoi_phan_hoi
+FROM phan_hoi_lien_he ph
+JOIN nguoi_dung nd ON ph.nguoi_phan_hoi_id = nd.id
+WHERE ph.id = $1;
+

@@ -360,22 +360,25 @@ func (s *Server) SetupRoutes() {
 		location.GET("/test", s.Handler)             // Test endpoint to see detected IP and headers
 	}
 
+	// Recommendation - AI Tour Recommendation
+	recommendation := api.Group("/recommendation")
+	{
+		recommendation.POST("/track-view", s.TrackTourView)        // Lưu lịch sử xem tour
+		recommendation.GET("/tours", s.GetRecommendedTours)        // Lấy tour gợi ý
+		recommendation.GET("/similar/:tour_id", s.GetSimilarTours) // Lấy tour tương tự
+	}
+
 	// ========== PAYMENT ROUTES (with rate limiting) ==========
 	payment := api.Group("/payment")
 	{
-		// VNPay routes
 		vnpay := payment.Group("/vnpay")
 		{
-			// Create payment URL (requires authentication)
 			vnpay.POST("/create",
 				middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
 				s.CreateVNPayPaymentURL,
 			)
-			// Return URL callback (public - VNPay redirects here)
 			vnpay.GET("/return", s.VNPayCallback)
-			// Verify callback (public - Frontend calls this with VNPay params)
 			vnpay.GET("/verify", s.VNPayVerifyCallback)
-			// IPN callback (public - VNPay server calls this)
 			vnpay.POST("/ipn", s.VNPayIPN)
 		}
 	}
@@ -383,10 +386,7 @@ func (s *Server) SetupRoutes() {
 	// ========== CONTACT ROUTES ==========
 	contact := api.Group("/contact")
 	{
-		// Public - Create contact (anyone can submit contact form)
 		contact.POST("", s.CreateContact)
-
-		// Admin only - Get and manage contacts
 		contactAdmin := contact.Group("")
 		contactAdmin.Use(
 			middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret),
@@ -399,6 +399,22 @@ func (s *Server) SetupRoutes() {
 			contactAdmin.GET("/:id", s.GetContactByID)
 			contactAdmin.PUT("/:id/status", s.UpdateContactStatus)
 			contactAdmin.PUT("/:id/read", s.MarkContactAsRead)
+			contactAdmin.POST("/:id/response", s.CreateContactResponse)
+			contactAdmin.GET("/:id/responses", s.GetContactResponses)
+		}
+	}
+
+	// ========== NOTIFICATION ROUTES ==========
+	notification := api.Group("/notifications")
+	{
+		notificationAuth := notification.Group("")
+		notificationAuth.Use(middleware.AuthMiddleware(s.config.ServerConfig.ApiSecret))
+		{
+			notificationAuth.GET("", s.GetMyNotifications)
+			notificationAuth.GET("/unread", s.GetUnreadNotifications)
+			notificationAuth.GET("/count", s.GetNotificationCount)
+			notificationAuth.PUT("/:id/read", s.MarkNotificationAsRead)
+			notificationAuth.PUT("/read-all", s.MarkAllNotificationsAsRead)
 		}
 	}
 

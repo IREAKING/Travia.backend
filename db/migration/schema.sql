@@ -386,6 +386,20 @@ CREATE TABLE phan_hoi_danh_gia (
 );
 CREATE INDEX idx_phan_hoi_danh_gia_id ON phan_hoi_danh_gia(danh_gia_id);
 
+CREATE TABLE IF NOT EXISTS lich_su_chat (
+    id SERIAL PRIMARY KEY,
+    nguoi_dung_id UUID REFERENCES nguoi_dung(id) ON DELETE CASCADE,
+    ma_phien VARCHAR(100) NOT NULL, -- Session ID cho khách vãng lai
+    cau_hoi TEXT NOT NULL,
+    cau_tra_loi TEXT NOT NULL,
+    ngay_tao TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes cho bảng lich_su_chat
+CREATE INDEX idx_lich_su_chat_nguoi_dung_id ON lich_su_chat(nguoi_dung_id);
+CREATE INDEX idx_lich_su_chat_ma_phien ON lich_su_chat(ma_phien);
+CREATE INDEX idx_lich_su_chat_ngay_tao ON lich_su_chat(ngay_tao DESC);
+
 -- Bảng liên hệ (Contact form)
 CREATE TABLE lien_he (
     id SERIAL PRIMARY KEY,
@@ -407,3 +421,26 @@ CREATE INDEX idx_lien_he_trang_thai ON lien_he(trang_thai);
 CREATE INDEX idx_lien_he_da_doc ON lien_he(da_doc);
 CREATE INDEX idx_lien_he_ngay_tao ON lien_he(ngay_tao DESC);
 CREATE INDEX idx_lien_he_nguoi_dung_id ON lien_he(nguoi_dung_id);
+
+CREATE TABLE IF NOT EXISTS phan_hoi_lien_he (
+    id SERIAL PRIMARY KEY,
+    lien_he_id INT NOT NULL REFERENCES lien_he(id) ON DELETE CASCADE,
+    nguoi_phan_hoi_id UUID NOT NULL REFERENCES nguoi_dung(id) ON DELETE CASCADE, -- Admin hoặc NCC
+    noi_dung TEXT NOT NULL,
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW()
+);
+-- Drop existing constraint if exists and add new one with all statuses
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'lien_he_trang_thai_check'
+    ) THEN
+        ALTER TABLE lien_he DROP CONSTRAINT lien_he_trang_thai_check;
+    END IF;
+END $$;
+
+ALTER TABLE lien_he 
+ADD CONSTRAINT lien_he_trang_thai_check 
+CHECK (trang_thai IN ('moi', 'dang_xu_ly', 'da_phan_hoi', 'da_dong'));

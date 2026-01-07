@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 type LoaiThanhToan string
@@ -432,6 +433,16 @@ type LichSuGiaoDich struct {
 	NgayHoanThanh            pgtype.Timestamp       `json:"ngay_hoan_thanh"`
 }
 
+type LichSuXemTour struct {
+	ID               int32            `json:"id"`
+	NguoiDungID      pgtype.UUID      `json:"nguoi_dung_id"`
+	TourID           *int32           `json:"tour_id"`
+	ThoiGianXem      pgtype.Timestamp `json:"thoi_gian_xem"`
+	ThoiLuongXemGiay *int32           `json:"thoi_luong_xem_giay"`
+	IpAddress        *string          `json:"ip_address"`
+	UserAgent        *string          `json:"user_agent"`
+}
+
 type LichTrinh struct {
 	ID             int32            `json:"id"`
 	TourID         int32            `json:"tour_id"`
@@ -497,6 +508,15 @@ type PhanHoiDanhGium struct {
 	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
 }
 
+type PhanHoiLienHe struct {
+	ID             int32            `json:"id"`
+	LienHeID       int32            `json:"lien_he_id"`
+	NguoiPhanHoiID pgtype.UUID      `json:"nguoi_phan_hoi_id"`
+	NoiDung        string           `json:"noi_dung"`
+	NgayTao        pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat    pgtype.Timestamp `json:"ngay_cap_nhat"`
+}
+
 type PhienDangNhap struct {
 	ID              int32            `json:"id"`
 	NguoiDungID     pgtype.UUID      `json:"nguoi_dung_id"`
@@ -507,6 +527,14 @@ type PhienDangNhap struct {
 	DangHoatDong    *bool            `json:"dang_hoat_dong"`
 	NgayTao         pgtype.Timestamp `json:"ngay_tao"`
 	NgayCapNhat     pgtype.Timestamp `json:"ngay_cap_nhat"`
+}
+
+type SoThichNguoiDung struct {
+	NguoiDungID pgtype.UUID      `json:"nguoi_dung_id"`
+	LoaiSoThich string           `json:"loai_so_thich"`
+	GiaTriID    int32            `json:"gia_tri_id"`
+	DiemSo      pgtype.Numeric   `json:"diem_so"`
+	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
 }
 
 type TaiKhoanNganHang struct {
@@ -552,6 +580,13 @@ type TourDiemDen struct {
 	TourID        int32  `json:"tour_id"`
 	DiemDenID     int32  `json:"diem_den_id"`
 	ThuTuThamQuan *int32 `json:"thu_tu_tham_quan"`
+}
+
+type TourEmbedding struct {
+	TourID      int32            `json:"tour_id"`
+	Embedding   *pgvector.Vector `json:"embedding"`
+	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
 }
 
 type TourYeuThich struct {
