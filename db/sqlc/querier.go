@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	AddHinhAnhTour(ctx context.Context, arg AddHinhAnhTourParams) (AnhTour, error)
 	// ===========================================
 	// BƯỚC 3: NHẬP THÔNG TIN HÀNH KHÁCH
 	// ===========================================
@@ -29,23 +30,23 @@ type Querier interface {
 	//Top 5 Nhà cung cấp xuất sắc
 	AdminChartTopSuppliers(ctx context.Context, arg AdminChartTopSuppliersParams) ([]AdminChartTopSuppliersRow, error)
 	AdminCustomerGrowthMonthlyReport(ctx context.Context, nam int32) ([]AdminCustomerGrowthMonthlyReportRow, error)
+	ApproveComment(ctx context.Context, id int32) (BinhLuanBlog, error)
 	// phê duyệt nhà cung cấp
 	ApproveSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error)
 	// Tự động hoàn thành các booking sau khi tour kết thúc (chạy bằng cron job)
 	AutoCompleteBookings(ctx context.Context) error
-	BulkDeleteDestinations(ctx context.Context, dollar_1 []int32) error
 	// cập nhật trạng thái nhà cung cấp hàng loạt
 	BulkUpdateSupplierStatus(ctx context.Context, dollar_1 []int32) error
+	CalculateRefundAmount(ctx context.Context, bookingID int32) (CalculateRefundAmountRow, error)
 	// Tính giá tour cho khách hàng xem trước khi đặt
 	CalculateTourPrice(ctx context.Context, arg CalculateTourPriceParams) (CalculateTourPriceRow, error)
-	CancelBooking(ctx context.Context, bookingID int32) error
+	CancelBooking(ctx context.Context, bookingID int32) (CancelBookingRow, error)
 	CancelDeparture(ctx context.Context, id int32) (KhoiHanhTour, error)
 	ChangePassword(ctx context.Context, arg ChangePasswordParams) error
 	// Kiểm tra booking có thể đánh giá: trang_thai_dat_cho = 'da_thanh_toan' VÀ trang_thai_khoi_hanh = 'hoan_thanh'
 	CheckBookingCompletedAndNotReviewed(ctx context.Context, arg CheckBookingCompletedAndNotReviewedParams) (CheckBookingCompletedAndNotReviewedRow, error)
 	// Kiểm tra còn đủ chỗ không
 	CheckDepartureAvailability(ctx context.Context, arg CheckDepartureAvailabilityParams) (CheckDepartureAvailabilityRow, error)
-	CheckDestinationExists(ctx context.Context, arg CheckDestinationExistsParams) (bool, error)
 	// Kiểm tra đã có review cho booking này chưa
 	CheckReviewExists(ctx context.Context, arg CheckReviewExistsParams) (bool, error)
 	// ===========================================
@@ -58,17 +59,18 @@ type Querier interface {
 	// ===========================================
 	// Admin/Hệ thống xác nhận đặt chỗ
 	ConfirmBooking(ctx context.Context, id int32) (DatCho, error)
-	CountAllDepartures(ctx context.Context) (int64, error)
+	// Đếm tổng số booking cho admin với filter
+	CountAllBookingsForAdmin(ctx context.Context, arg CountAllBookingsForAdminParams) (int32, error)
 	CountAllTours(ctx context.Context) (int64, error)
 	// Đếm tổng số giao dịch
 	CountAllTransactions(ctx context.Context) (int64, error)
+	CountBlogComments(ctx context.Context, blogID int32) (int64, error)
+	CountBlogs(ctx context.Context, arg CountBlogsParams) (int64, error)
 	// Đếm tổng số đặt chỗ của người dùng (có filter)
 	CountBookingsByUser(ctx context.Context, arg CountBookingsByUserParams) (int32, error)
 	CountContacts(ctx context.Context) (int64, error)
 	CountContactsByStatus(ctx context.Context, trangThai *string) (int64, error)
-	CountDeparturesByTour(ctx context.Context, tourID int32) (int64, error)
-	CountDestinations(ctx context.Context) (int32, error)
-	CountDestinationsByCountry(ctx context.Context) ([]CountDestinationsByCountryRow, error)
+	CountPublishedBlogs(ctx context.Context) (int64, error)
 	CountSearchTours(ctx context.Context, arg CountSearchToursParams) (int64, error)
 	// Đếm tổng số booking theo các filter nâng cao
 	CountSupplierBookingsByStatusAdvanced(ctx context.Context, arg CountSupplierBookingsByStatusAdvancedParams) (int32, error)
@@ -80,8 +82,21 @@ type Querier interface {
 	CountUnreadNotificationsByUser(ctx context.Context, nguoiDungID pgtype.UUID) (int32, error)
 	// ==================== ACTIVITY QUERIES ====================
 	CreateActivity(ctx context.Context, arg CreateActivityParams) (HoatDongTrongNgay, error)
+	// ===========================================
+	// BLOG QUERIES
+	// ===========================================
+	CreateBlog(ctx context.Context, arg CreateBlogParams) (Blog, error)
+	// ===========================================
+	// BLOG AI HISTORY QUERIES
+	// ===========================================
+	CreateBlogAIHistory(ctx context.Context, arg CreateBlogAIHistoryParams) (LichSuAiBlog, error)
+	// ===========================================
+	// BLOG COMMENT QUERIES
+	// ===========================================
+	CreateBlogComment(ctx context.Context, arg CreateBlogCommentParams) (BinhLuanBlog, error)
 	// Tạo đặt chỗ mới (tự động tính tổng tiền)
 	CreateBooking(ctx context.Context, arg CreateBookingParams) (CreateBookingRow, error)
+	CreateCategoryTour(ctx context.Context, arg CreateCategoryTourParams) (DanhMucTour, error)
 	CreateChatHistory(ctx context.Context, arg CreateChatHistoryParams) (LichSuChat, error)
 	CreateContact(ctx context.Context, arg CreateContactParams) (LienHe, error)
 	// ===========================================
@@ -107,6 +122,7 @@ type Querier interface {
 	// Tạo thông báo khi admin phản hồi liên hệ
 	// Function này sẽ được gọi tự động khi có phản hồi
 	CreateNotificationForContactResponse(ctx context.Context, arg CreateNotificationForContactResponseParams) (ThongBao, error)
+	CreatePasswordResetOTP(ctx context.Context, arg CreatePasswordResetOTPParams) (OtpDatLaiMatKhau, error)
 	// Tạo đánh giá tour mới (chỉ khi booking đã hoàn thành)
 	CreateReview(ctx context.Context, arg CreateReviewParams) (DanhGium, error)
 	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (NhaCungCap, error)
@@ -125,17 +141,25 @@ type Querier interface {
 	// Tạo giao dịch thanh toán mới
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (LichSuGiaoDich, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (NguoiDung, error)
+	DecrementBlogLikes(ctx context.Context, id int32) error
 	DeleteActivitiesByItinerary(ctx context.Context, lichTrinhID int32) error
 	DeleteActivity(ctx context.Context, arg DeleteActivityParams) error
+	DeleteBlog(ctx context.Context, id int32) error
+	// Xóa đặt chỗ
+	DeleteBooking(ctx context.Context, id int32) error
+	// Xóa nhiều đặt chỗ
+	DeleteBookings(ctx context.Context, ids []int32) error
 	DeleteChatHistoryBySessionID(ctx context.Context, maPhien string) error
 	DeleteChatHistoryByUserID(ctx context.Context, nguoiDungID pgtype.UUID) error
+	DeleteComment(ctx context.Context, id int32) error
 	// Xóa phản hồi
 	DeleteContactResponse(ctx context.Context, id int32) error
 	DeleteDeparture(ctx context.Context, id int32) error
-	DeleteDestination(ctx context.Context, id int32) error
 	DeleteDiscountTour(ctx context.Context, arg DeleteDiscountTourParams) error
+	DeleteExpiredOTPs(ctx context.Context) error
 	DeleteFavoriteTour(ctx context.Context, arg DeleteFavoriteTourParams) error
 	DeleteGroupConfig(ctx context.Context, tourID int32) error
+	DeleteHinhAnhTour(ctx context.Context, arg DeleteHinhAnhTourParams) error
 	DeleteItinerariesByTour(ctx context.Context, tourID int32) error
 	DeleteItinerary(ctx context.Context, arg DeleteItineraryParams) error
 	// Xóa thông báo
@@ -144,19 +168,29 @@ type Querier interface {
 	DeletePassenger(ctx context.Context, id int32) error
 	DeleteSupplier(ctx context.Context, id pgtype.UUID) error
 	DeleteTour(ctx context.Context, id int32) error
+	DeleteTourDestination(ctx context.Context, arg DeleteTourDestinationParams) error
 	DeleteTourImage(ctx context.Context, arg DeleteTourImageParams) error
 	// Phản hồi đánh giá
 	FeedbackReview(ctx context.Context, arg FeedbackReviewParams) (int32, error)
 	FilterTours(ctx context.Context, arg FilterToursParams) ([]FilterToursRow, error)
-	ForgotPassword(ctx context.Context, arg ForgotPasswordParams) (NguoiDung, error)
+	ForgotPassword(ctx context.Context, arg ForgotPasswordParams) error
 	GetActiveSuppliers(ctx context.Context) ([]GetActiveSuppliersRow, error)
 	GetActivitiesByItinerary(ctx context.Context, lichTrinhID int32) ([]HoatDongTrongNgay, error)
 	GetActivityByID(ctx context.Context, id int32) (HoatDongTrongNgay, error)
+	// Thống kê đặt chỗ chi tiết cho admin với nhiều filter
+	GetAdminBookingStatistics(ctx context.Context, arg GetAdminBookingStatisticsParams) (GetAdminBookingStatisticsRow, error)
 	// Lấy nhà cung cấp theo ID (admin)
 	GetAdminSupplierByID(ctx context.Context, id pgtype.UUID) (GetAdminSupplierByIDRow, error)
+	GetAllBlogs(ctx context.Context, arg GetAllBlogsParams) ([]GetAllBlogsRow, error)
+	// Lấy tất cả booking cho admin với filter và pagination
+	GetAllBookingsForAdmin(ctx context.Context, arg GetAllBookingsForAdminParams) ([]GetAllBookingsForAdminRow, error)
 	GetAllContacts(ctx context.Context, arg GetAllContactsParams) ([]GetAllContactsRow, error)
 	GetAllDepartures(ctx context.Context, arg GetAllDeparturesParams) ([]GetAllDeparturesRow, error)
-	GetAllDestinations(ctx context.Context) ([]DiemDen, error)
+	// ===========================================
+	// QUẢN LÝ HOÀN TIỀN (REFUND MANAGEMENT)
+	// ===========================================
+	// Lấy tất cả refund cho admin (tất cả booking đã hủy với thông tin refund)
+	GetAllRefunds(ctx context.Context, arg GetAllRefundsParams) ([]GetAllRefundsRow, error)
 	//=====================================Nhà cung cấp=====================================
 	GetAllSuppliers(ctx context.Context, arg GetAllSuppliersParams) ([]GetAllSuppliersRow, error)
 	GetAllSuppliersIncludingDeleted(ctx context.Context) ([]GetAllSuppliersIncludingDeletedRow, error)
@@ -170,6 +204,14 @@ type Querier interface {
 	// ===========================================
 	// Lấy danh sách ngày khởi hành còn chỗ của một tour
 	GetAvailableDepartures(ctx context.Context, tourID int32) ([]GetAvailableDeparturesRow, error)
+	GetBlogAIHistory(ctx context.Context, blogID *int32) ([]LichSuAiBlog, error)
+	GetBlogByID(ctx context.Context, id int32) (GetBlogByIDRow, error)
+	GetBlogBySlug(ctx context.Context, slug string) (GetBlogBySlugRow, error)
+	GetBlogCommentReplies(ctx context.Context, binhLuanChaID *int32) ([]GetBlogCommentRepliesRow, error)
+	GetBlogComments(ctx context.Context, arg GetBlogCommentsParams) ([]GetBlogCommentsRow, error)
+	GetBlogStats(ctx context.Context) (GetBlogStatsRow, error)
+	GetBlogsByAuthor(ctx context.Context, arg GetBlogsByAuthorParams) ([]GetBlogsByAuthorRow, error)
+	GetBlogsByCategory(ctx context.Context, arg GetBlogsByCategoryParams) ([]GetBlogsByCategoryRow, error)
 	// Lấy thông tin đặt chỗ theo ID
 	GetBookingById(ctx context.Context, id int32) (GetBookingByIdRow, error)
 	// ===========================================
@@ -188,14 +230,14 @@ type Querier interface {
 	GetCancelledBookings(ctx context.Context, arg GetCancelledBookingsParams) ([]GetCancelledBookingsRow, error)
 	GetChatHistoryBySessionID(ctx context.Context, arg GetChatHistoryBySessionIDParams) ([]LichSuChat, error)
 	GetChatHistoryByUserID(ctx context.Context, arg GetChatHistoryByUserIDParams) ([]LichSuChat, error)
-	GetCityByProvince(ctx context.Context, tinh *string) ([]string, error)
+	GetCityByProvince(ctx context.Context, tinh *string) ([]GetCityByProvinceRow, error)
 	GetContactByID(ctx context.Context, id int32) (GetContactByIDRow, error)
 	// Lấy phản hồi theo ID
 	GetContactResponseByID(ctx context.Context, id int32) (GetContactResponseByIDRow, error)
 	// Lấy tất cả phản hồi của một liên hệ
 	GetContactResponses(ctx context.Context, lienHeID int32) ([]GetContactResponsesRow, error)
 	GetContactsByStatus(ctx context.Context, arg GetContactsByStatusParams) ([]GetContactsByStatusRow, error)
-	GetCountry(ctx context.Context) ([]*string, error)
+	GetCountry(ctx context.Context) ([]GetCountryRow, error)
 	// Tổng quan dashboard: tổng số người dùng, tour, booking, doanh thu
 	GetDashboardOverview(ctx context.Context) (GetDashboardOverviewRow, error)
 	// Tổng quan dashboard: tổng số người dùng, tour, booking, doanh thu
@@ -208,25 +250,20 @@ type Querier interface {
 	GetDeparturesByStatus(ctx context.Context, arg GetDeparturesByStatusParams) ([]GetDeparturesByStatusRow, error)
 	// lấy danh sách lịch khởi hành của một tour
 	GetDeparturesByTour(ctx context.Context, tourID int32) ([]GetDeparturesByTourRow, error)
+	// Lấy thông tin chi tiết điểm đến theo ID
 	GetDestinationByID(ctx context.Context, id int32) (DiemDen, error)
-	GetDestinationWithTourCount(ctx context.Context) ([]GetDestinationWithTourCountRow, error)
-	GetDestinationWithTourCountByID(ctx context.Context, id int32) (GetDestinationWithTourCountByIDRow, error)
-	GetDestinationsByCountry(ctx context.Context, quocGia *string) ([]DiemDen, error)
-	GetDestinationsByCountryAndRegion(ctx context.Context, arg GetDestinationsByCountryAndRegionParams) ([]DiemDen, error)
-	GetDestinationsByRegion(ctx context.Context, khuVuc *string) ([]DiemDen, error)
-	GetDestinationsByTourID(ctx context.Context, tourID int32) ([]GetDestinationsByTourIDRow, error)
-	GetDestinationsWithPagination(ctx context.Context, arg GetDestinationsWithPaginationParams) ([]DiemDen, error)
-	GetDestinationsWithoutImage(ctx context.Context, limit int32) ([]GetDestinationsWithoutImageRow, error)
 	// Lấy danh sách đánh giá chi tiết với các bộ lọc theo sao và tour
 	GetDetailedSupplierReviews(ctx context.Context, arg GetDetailedSupplierReviewsParams) ([]GetDetailedSupplierReviewsRow, error)
 	GetDiscountsByTourID(ctx context.Context, tourID int32) ([]GiamGiaTour, error)
 	GetFavoriteTours(ctx context.Context, nguoiDungID pgtype.UUID) ([]TourYeuThich, error)
+	GetFeaturedBlogs(ctx context.Context, limit int32) ([]GetFeaturedBlogsRow, error)
 	GetFeaturedTours(ctx context.Context, limit int32) ([]GetFeaturedToursRow, error)
 	// Lấy danh sách phản hồi đánh giá
 	GetFeedbackReview(ctx context.Context, danhGiaID int32) ([]PhanHoiDanhGium, error)
 	// ==================== COMBINED QUERIES ====================
 	GetFullItineraryByTour(ctx context.Context, tourID int32) ([]GetFullItineraryByTourRow, error)
 	GetGroupConfigByTour(ctx context.Context, tourID int32) (CauHinhNhomTour, error)
+	GetHinhAnhTourByID(ctx context.Context, id int32) (AnhTour, error)
 	GetItinerariesByTour(ctx context.Context, tourID int32) ([]LichTrinh, error)
 	GetItineraryByID(ctx context.Context, id int32) (LichTrinh, error)
 	// =====================
@@ -246,12 +283,16 @@ type Querier interface {
 	GetNotificationsByUser(ctx context.Context, arg GetNotificationsByUserParams) ([]ThongBao, error)
 	// Lấy danh sách hành khách của một booking
 	GetPassengersByBooking(ctx context.Context, datChoID int32) ([]HanhKhach, error)
+	GetPasswordResetOTP(ctx context.Context, arg GetPasswordResetOTPParams) (OtpDatLaiMatKhau, error)
 	// Lấy danh sách cổng thanh toán đang hoạt động
 	GetPaymentGateways(ctx context.Context) ([]CongThanhToan, error)
 	// Lấy danh sách booking chờ xác nhận (dành cho Admin/NCC)
 	GetPendingBookings(ctx context.Context, arg GetPendingBookingsParams) ([]GetPendingBookingsRow, error)
+	GetPendingComments(ctx context.Context, arg GetPendingCommentsParams) ([]GetPendingCommentsRow, error)
+	// Lấy các điểm đến phổ biến nhất (được nhiều tour sử dụng nhất)
 	GetPopularDestinations(ctx context.Context, limit int32) ([]GetPopularDestinationsRow, error)
-	GetProvinceByCountry(ctx context.Context, quocGia *string) ([]*string, error)
+	GetProvinceByCountry(ctx context.Context, quocGia *string) ([]GetProvinceByCountryRow, error)
+	GetPublishedBlogs(ctx context.Context, arg GetPublishedBlogsParams) ([]GetPublishedBlogsRow, error)
 	// Báo cáo theo quý
 	GetQuarterlyReport(ctx context.Context) ([]GetQuarterlyReportRow, error)
 	// Booking gần đây
@@ -263,20 +304,20 @@ type Querier interface {
 	GetRecommendedToursByPreferences(ctx context.Context, arg GetRecommendedToursByPreferencesParams) ([]GetRecommendedToursByPreferencesRow, error)
 	// Gợi ý tour dựa trên lịch sử xem (ưu tiên tour xem lâu)
 	GetRecommendedToursByViewHistory(ctx context.Context, arg GetRecommendedToursByViewHistoryParams) ([]GetRecommendedToursByViewHistoryRow, error)
+	// Thống kê refund cho admin
+	GetRefundStats(ctx context.Context, arg GetRefundStatsParams) (GetRefundStatsRow, error)
+	GetRelatedBlogs(ctx context.Context, arg GetRelatedBlogsParams) ([]GetRelatedBlogsRow, error)
 	// Doanh thu theo năm và tháng
 	GetRevenueByDay(ctx context.Context, arg GetRevenueByDayParams) ([]GetRevenueByDayRow, error)
 	GetReviewByTourId(ctx context.Context, tourID int32) (GetReviewByTourIdRow, error)
 	// Tìm các tour tương tự dựa trên embedding (semantic search)
 	GetSimilarToursByEmbedding(ctx context.Context, arg GetSimilarToursByEmbeddingParams) ([]GetSimilarToursByEmbeddingRow, error)
 	// Thống kê booking theo trạng thái và thời gian
-	// Thống kê booking theo trạng thái phân bổ qua thời gian
 	GetSupplierBookingStatsByStatus(ctx context.Context, arg GetSupplierBookingStatsByStatusParams) ([]GetSupplierBookingStatsByStatusRow, error)
 	// Lấy danh sách đặt chỗ theo trạng thái với nhiều filter nâng cao
 	GetSupplierBookingsByStatusAdvanced(ctx context.Context, arg GetSupplierBookingsByStatusAdvancedParams) ([]GetSupplierBookingsByStatusAdvancedRow, error)
 	GetSupplierByID(ctx context.Context, id pgtype.UUID) (GetSupplierByIDRow, error)
 	GetSupplierById(ctx context.Context, id pgtype.UUID) (GetSupplierByIdRow, error)
-	// Phân tích tỷ lệ hủy booking
-	GetSupplierCancellationAnalysis(ctx context.Context, arg GetSupplierCancellationAnalysisParams) (GetSupplierCancellationAnalysisRow, error)
 	// Thống kê khách hàng: top khách hàng, số lần đặt, tổng tiền
 	GetSupplierCustomerStats(ctx context.Context, arg GetSupplierCustomerStatsParams) ([]GetSupplierCustomerStatsRow, error)
 	// ===========================================
@@ -286,16 +327,20 @@ type Querier interface {
 	GetSupplierDashboardOverview(ctx context.Context, id pgtype.UUID) (GetSupplierDashboardOverviewRow, error)
 	// Tăng trưởng nhà cung cấp theo tháng
 	GetSupplierGrowthByMonth(ctx context.Context) ([]GetSupplierGrowthByMonthRow, error)
-	// So sánh tháng hiện tại với tháng trước
-	GetSupplierMonthlyComparison(ctx context.Context, id pgtype.UUID) (GetSupplierMonthlyComparisonRow, error)
 	// Phân tích đánh giá tour
 	GetSupplierRatingAnalysis(ctx context.Context, id pgtype.UUID) (GetSupplierRatingAnalysisRow, error)
 	// Booking gần đây
 	GetSupplierRecentBookings(ctx context.Context, arg GetSupplierRecentBookingsParams) ([]GetSupplierRecentBookingsRow, error)
+	// Thống kê refund cho supplier
+	GetSupplierRefundStats(ctx context.Context, arg GetSupplierRefundStatsParams) (GetSupplierRefundStatsRow, error)
+	// Lấy refund cho supplier (chỉ tour của họ)
+	GetSupplierRefunds(ctx context.Context, arg GetSupplierRefundsParams) ([]GetSupplierRefundsRow, error)
 	// Doanh thu theo khoảng thời gian (ngày, tuần, tháng)
 	GetSupplierRevenueByTimeRange(ctx context.Context, arg GetSupplierRevenueByTimeRangeParams) ([]GetSupplierRevenueByTimeRangeRow, error)
 	// Biểu đồ doanh thu theo thời gian (cho chart)
 	GetSupplierRevenueChart(ctx context.Context, arg GetSupplierRevenueChartParams) ([]GetSupplierRevenueChartRow, error)
+	// Thống kê doanh thu tổng hợp cho supplier
+	GetSupplierRevenueStatistics(ctx context.Context, arg GetSupplierRevenueStatisticsParams) (GetSupplierRevenueStatisticsRow, error)
 	// Thống kê chi tiết các chỉ số đánh giá của nhà cung cấp
 	// Thống kê đánh giá của nhà cung cấp, có thể lọc theo từng tour cụ thể
 	GetSupplierReviewStatistics(ctx context.Context, arg GetSupplierReviewStatisticsParams) (GetSupplierReviewStatisticsRow, error)
@@ -307,6 +352,8 @@ type Querier interface {
 	GetSupplierTourStatsByCategory(ctx context.Context, id pgtype.UUID) ([]GetSupplierTourStatsByCategoryRow, error)
 	// Thống kê tour theo trạng thái
 	GetSupplierTourStatsByStatus(ctx context.Context, id pgtype.UUID) ([]GetSupplierTourStatsByStatusRow, error)
+	// Lấy danh sách giao dịch (bookings đã thanh toán) với thông tin chi tiết
+	GetSupplierTransactions(ctx context.Context, arg GetSupplierTransactionsParams) ([]GetSupplierTransactionsRow, error)
 	// Lịch khởi hành sắp tới
 	GetSupplierUpcomingDepartures(ctx context.Context, arg GetSupplierUpcomingDeparturesParams) ([]GetSupplierUpcomingDeparturesRow, error)
 	GetSupplierWithTourCount(ctx context.Context, email string) ([]GetSupplierWithTourCountRow, error)
@@ -319,6 +366,8 @@ type Querier interface {
 	GetTopBookedTours(ctx context.Context, limit int32) ([]GetTopBookedToursRow, error)
 	// Top điểm đến phổ biến
 	GetTopDestinations(ctx context.Context, limit int32) ([]GetTopDestinationsRow, error)
+	// Lấy top N điểm đến phổ biến nhất với thông tin chi tiết (có số tour nổi bật)
+	GetTopPopularDestinations(ctx context.Context, limit int32) ([]GetTopPopularDestinationsRow, error)
 	// Top nhà cung cấp theo doanh thu
 	GetTopSuppliersByRevenue(ctx context.Context, limit int32) ([]GetTopSuppliersByRevenueRow, error)
 	// Top nhà cung cấp theo số tour
@@ -346,10 +395,10 @@ type Querier interface {
 	GetTransactionsByPaymentGateway(ctx context.Context, arg GetTransactionsByPaymentGatewayParams) ([]GetTransactionsByPaymentGatewayRow, error)
 	// Lấy giao dịch theo trạng thái
 	GetTransactionsByStatus(ctx context.Context, arg GetTransactionsByStatusParams) ([]GetTransactionsByStatusRow, error)
-	GetUniqueCountries(ctx context.Context) ([]*string, error)
 	GetUnreadContacts(ctx context.Context, arg GetUnreadContactsParams) ([]GetUnreadContactsRow, error)
 	// Lấy thông báo chưa đọc của người dùng
 	GetUnreadNotificationsByUser(ctx context.Context, arg GetUnreadNotificationsByUserParams) ([]ThongBao, error)
+	GetUnverifiedPasswordResetOTP(ctx context.Context, arg GetUnverifiedPasswordResetOTPParams) (OtpDatLaiMatKhau, error)
 	// =====================
 	// 9. DEPARTURE STATISTICS
 	// =====================
@@ -358,6 +407,12 @@ type Querier interface {
 	GetUpcomingDeparturesList(ctx context.Context, limit int32) ([]GetUpcomingDeparturesListRow, error)
 	GetUserByEmail(ctx context.Context, email string) (NguoiDung, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (GetUserByIdRow, error)
+	// Note: yeu_thich table doesn't exist yet, will implement in Sprint 3-4
+	// -- name: GetUserFavorites :many
+	// SELECT * FROM yeu_thich
+	// WHERE nguoi_dung_id = $1;
+	// Function để xóa các OTP đã hết hạn
+	GetUserPaymentHistory(ctx context.Context) ([]GetUserPaymentHistoryRow, error)
 	// Lấy sở thích của người dùng
 	GetUserPreferences(ctx context.Context, nguoiDungID pgtype.UUID) ([]SoThichNguoiDung, error)
 	// Lấy sở thích theo loại (danh_muc hoặc diem_den)
@@ -370,6 +425,9 @@ type Querier interface {
 	// So sánh theo năm
 	GetYearlyComparisonReport(ctx context.Context) ([]GetYearlyComparisonReportRow, error)
 	HoldSeat(ctx context.Context, arg HoldSeatParams) error
+	IncrementBlogLikes(ctx context.Context, id int32) error
+	IncrementBlogViews(ctx context.Context, id int32) error
+	InvalidateAllOTPsForEmail(ctx context.Context, email string) error
 	// Đánh dấu tất cả thông báo của user đã đọc
 	MarkAllNotificationsAsRead(ctx context.Context, nguoiDungID pgtype.UUID) error
 	MarkContactAsRead(ctx context.Context, id int32) (LienHe, error)
@@ -381,7 +439,7 @@ type Querier interface {
 	RejectSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error)
 	ResetPassword(ctx context.Context, arg ResetPasswordParams) (NguoiDung, error)
 	RestoreSupplier(ctx context.Context, id pgtype.UUID) (NguoiDung, error)
-	SearchDestinations(ctx context.Context, dollar_1 *string) ([]DiemDen, error)
+	SearchBlogs(ctx context.Context, arg SearchBlogsParams) ([]SearchBlogsRow, error)
 	SearchSuppliers(ctx context.Context, email string) ([]SearchSuppliersRow, error)
 	// Đảm bảo bạn đã định nghĩa các CTE cần thiết (dd, dg, kh, ggt) như trong các bước trước.
 	// Tôi sẽ gộp CTE tổng hợp thông tin tour cơ bản vào tour_info.
@@ -399,6 +457,7 @@ type Querier interface {
 	SupplierOptions(ctx context.Context) ([]SupplierOptionsRow, error)
 	ToggleTourActive(ctx context.Context, id int32) (Tour, error)
 	UpdateActivity(ctx context.Context, arg UpdateActivityParams) (HoatDongTrongNgay, error)
+	UpdateBlog(ctx context.Context, arg UpdateBlogParams) (Blog, error)
 	// Cập nhật trạng thái booking sau khi thanh toán thành công
 	UpdateBookingPaymentStatus(ctx context.Context, arg UpdateBookingPaymentStatusParams) (DatCho, error)
 	// Cập nhật phản hồi
@@ -407,11 +466,14 @@ type Querier interface {
 	UpdateDeparture(ctx context.Context, arg UpdateDepartureParams) (KhoiHanhTour, error)
 	UpdateDepartureCapacity(ctx context.Context, arg UpdateDepartureCapacityParams) (KhoiHanhTour, error)
 	UpdateDepartureStat(ctx context.Context, id int32) (KhoiHanhTour, error)
-	UpdateDestination(ctx context.Context, arg UpdateDestinationParams) (DiemDen, error)
-	UpdateDestinationImage(ctx context.Context, arg UpdateDestinationImageParams) error
+	// Cập nhật hình ảnh cho điểm đến
+	UpdateDestinationImage(ctx context.Context, arg UpdateDestinationImageParams) (DiemDen, error)
 	UpdateDiscountTour(ctx context.Context, arg UpdateDiscountTourParams) (GiamGiaTour, error)
 	UpdateGroupConfig(ctx context.Context, arg UpdateGroupConfigParams) (CauHinhNhomTour, error)
+	UpdateHoatDongTrongNgay(ctx context.Context, arg UpdateHoatDongTrongNgayParams) (HoatDongTrongNgay, error)
 	UpdateItinerary(ctx context.Context, arg UpdateItineraryParams) (LichTrinh, error)
+	UpdateKhoiHanhTour(ctx context.Context, arg UpdateKhoiHanhTourParams) (KhoiHanhTour, error)
+	UpdateLichTrinh(ctx context.Context, arg UpdateLichTrinhParams) (LichTrinh, error)
 	// Cập nhật thông tin hành khách
 	UpdatePassenger(ctx context.Context, arg UpdatePassengerParams) (HanhKhach, error)
 	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) (NhaCungCap, error)
@@ -427,6 +489,7 @@ type Querier interface {
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (NguoiDung, error)
 	// Thêm dòng này
 	UpdateUserById(ctx context.Context, arg UpdateUserByIdParams) (NguoiDung, error)
+	VerifyPasswordResetOTP(ctx context.Context, arg VerifyPasswordResetOTPParams) error
 }
 
 var _ Querier = (*Queries)(nil)

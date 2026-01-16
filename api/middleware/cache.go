@@ -64,8 +64,12 @@ func CacheMiddleware(redis *redis.Client, duration time.Duration) gin.HandlerFun
 				CachedAt:    time.Now(),
 			}
 
-			// Store in cache (fire and forget)
-			go cache.Set(c.Request.Context(), cacheKey, response, duration)
+			// Store in cache (fire and forget) using background context to avoid cancellation
+			go func(key string, resp CachedResponse, ttl time.Duration) {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				_ = cache.Set(ctx, key, resp, ttl)
+			}(cacheKey, response, duration)
 		}
 	}
 }
@@ -146,9 +150,12 @@ func InvalidateCacheMiddleware(redis *redis.Client, patterns ...string) gin.Hand
 
 		// Only invalidate on successful write operations
 		if c.Request.Method != http.MethodGet && c.Writer.Status() < 400 {
-			ctx := c.Request.Context()
 			for _, pattern := range patterns {
-				go cache.DeletePattern(ctx, pattern)
+				go func(p string) {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					_ = cache.DeletePattern(ctx, p)
+				}(pattern)
 			}
 		}
 	}

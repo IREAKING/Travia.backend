@@ -225,6 +225,104 @@ func sendEmail(toEmail, subject, textBody, htmlBody string, e *config.EmailConfi
 	return nil
 }
 
+// SendPasswordResetOTPAsync sends password reset OTP email in background (non-blocking)
+func SendPasswordResetOTPAsync(toEmail, otpCode string, e *config.EmailConfig) {
+	go func() {
+		err := SendPasswordResetOTP(toEmail, otpCode, e)
+		if err != nil {
+			log.Printf("❌ Failed to send password reset OTP email to %s: %v", toEmail, err)
+		} else {
+			log.Printf("✅ Password reset OTP email sent successfully to %s (OTP: %s)", toEmail, otpCode)
+		}
+	}()
+}
+
+// SendPasswordResetOTP sends password reset OTP to user's email (synchronous)
+func SendPasswordResetOTP(toEmail, otpCode string, e *config.EmailConfig) error {
+	subject := "Travia - Mã OTP Đặt Lại Mật Khẩu"
+
+	// HTML email template
+	htmlBody := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đặt Lại Mật Khẩu - Travia</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .verification-code { background: #fff; border: 2px dashed #667eea; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; }
+        .code { font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Đặt Lại Mật Khẩu</h1>
+            <p>Mã OTP để đặt lại mật khẩu của bạn</p>
+        </div>
+        
+        <div class="content">
+            <h2>Xin chào!</h2>
+            <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong> tại <strong>Travia</strong>.</p>
+            <p>Vui lòng sử dụng mã OTP dưới đây để đặt lại mật khẩu của bạn:</p>
+            
+            <div class="verification-code">
+                <div class="code">%s</div>
+                <p><strong>Mã OTP của bạn</strong></p>
+            </div>
+            
+            <div class="warning">
+                <strong>⚠️ Lưu ý quan trọng:</strong>
+                <ul>
+                    <li>Mã này có hiệu lực trong 10 phút</li>
+                    <li>Không chia sẻ mã này với bất kỳ ai</li>
+                    <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và kiểm tra bảo mật tài khoản của bạn</li>
+                </ul>
+            </div>
+            
+            <p>Nếu bạn gặp vấn đề, vui lòng liên hệ với chúng tôi tại <a href="mailto:support@travia.com">support@travia.com</a></p>
+        </div>
+        
+        <div class="footer">
+            <p>© 2024 Travia. Tất cả quyền được bảo lưu.</p>
+            <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+        </div>
+    </div>
+</body>
+</html>`, toEmail, otpCode)
+
+	// Plain text version
+	textBody := fmt.Sprintf(`
+Đặt Lại Mật Khẩu - Travia
+
+Xin chào!
+
+Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản %s tại Travia.
+
+Vui lòng sử dụng mã OTP sau để đặt lại mật khẩu:
+
+Mã OTP: %s
+
+Mã này có hiệu lực trong 10 phút.
+
+Lưu ý:
+- Không chia sẻ mã này với bất kỳ ai
+- Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và kiểm tra bảo mật tài khoản
+
+Nếu bạn gặp vấn đề, vui lòng liên hệ: support@travia.com
+
+© 2024 Travia. Tất cả quyền được bảo lưu.
+`, toEmail, otpCode)
+
+	return sendEmail(toEmail, subject, textBody, htmlBody, e)
+}
+
 // MockEmailService for development/testing
 type MockEmailService struct{}
 

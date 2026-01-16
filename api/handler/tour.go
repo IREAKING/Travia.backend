@@ -97,7 +97,12 @@ func (s *Server) GetTourDetailByID(c *gin.Context) {
 		})
 		return
 	}
-	tour, err := s.z.GetTourDetailByID(context.Background(), int32(id))
+
+	// Create context with timeout for database query
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+
+	tour, err := s.z.GetTourDetailByID(ctx, int32(id))
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -107,11 +112,18 @@ func (s *Server) GetTourDetailByID(c *gin.Context) {
 		return
 	}
 
-	// Convert []byte JSON fields to json.RawMessage for proper JSON marshaling
+	// Convert pgtype.UUID to string for nha_cung_cap_id
+	var nhaCungCapIDStr *string
+	if tour.NhaCungCapID.Valid {
+		uuidStr := tour.NhaCungCapID.String()
+		nhaCungCapIDStr = &uuidStr
+	}
+
 	response := gin.H{
 		"id":                 tour.ID,
 		"tieu_de":            tour.TieuDe,
 		"mo_ta":              tour.MoTa,
+		"danh_muc_id":        tour.DanhMucID,
 		"so_ngay":            tour.SoNgay,
 		"so_dem":             tour.SoDem,
 		"gia_nguoi_lon":      tour.GiaNguoiLon,
@@ -119,6 +131,7 @@ func (s *Server) GetTourDetailByID(c *gin.Context) {
 		"don_vi_tien_te":     tour.DonViTienTe,
 		"trang_thai":         tour.TrangThai,
 		"noi_bat":            tour.NoiBat,
+		"nha_cung_cap_id":    nhaCungCapIDStr,
 		"ngay_tao":           tour.NgayTao,
 		"ngay_cap_nhat":      tour.NgayCapNhat,
 		"ten_danh_muc":       tour.TenDanhMuc,
@@ -698,5 +711,80 @@ func (s *Server) GetDiscountsByTourID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Lấy khuyến mãi tour thành công",
 		"data":    discounts,
+	})
+}
+
+// cập nhật tour
+// @summary Cập nhật tour
+// @description Cập nhật tour
+// @tags tour
+// @accept json
+// @produce json
+// @param request body models.UpdateTourRequest true "Tour"
+// @security ApiKeyAuth
+// @success 200 {object} gin.H "Thành công"
+// @failure 500 {object} gin.H "Lỗi server"
+// @router /tour/{id} [put]
+func (s *Server) UpdateTour(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "ID không hợp lệ",
+		})
+		return
+	}
+	var req models.UpdateTourRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Dữ liệu không hợp lệ",
+			"message": err.Error(),
+		})
+		return
+	}
+	var giaNguoiLon, giaTreEm pgtype.Numeric
+	if err := giaNguoiLon.Scan(fmt.Sprintf("%.2f", req.GiaNguoiLon)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Giá không hợp lệ",
+		})
+		return
+	}
+	if err := giaTreEm.Scan(fmt.Sprintf("%.2f", req.GiaTreEm)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Giá không hợp lệ",
+		})
+		return
+	}
+	var nhaCungCapID pgtype.UUID
+	if err := nhaCungCapID.Scan(req.NhaCungCapID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Nha cung cap ID không hợp lệ",
+		})
+		return
+	}
+	result, err := s.z.UpdateTour(c.Request.Context(), db.UpdateTourParams{
+		ID:           int32(id),
+		TieuDe:       &req.TieuDe,
+		MoTa:         &req.MoTa,
+		DanhMucID:    &req.DanhMucID,
+		SoNgay:       &req.SoNgay,
+		SoDem:        &req.SoDem,
+		GiaNguoiLon:  giaNguoiLon,
+		GiaTreEm:     giaTreEm,
+		DonViTienTe:  &req.DonViTienTe,
+		TrangThai:    &req.TrangThai,
+		NoiBat:       &req.NoiBat,
+		NhaCungCapID: nhaCungCapID,
+		DangHoatDong: helpers.NewBool(true),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Không thể cập nhật tour",
+			"details": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Cập nhật tour thành công",
+		"data":    result,
 	})
 }

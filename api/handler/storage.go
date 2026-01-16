@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -52,7 +53,7 @@ func (s *Server) UploadImagesForTour(c *gin.Context) {
 	}
 
 	// Use tour-images folder by default
-	folderPath := "tour-images"
+	folderPath := "tours/upload"
 	if bucketName == "" {
 		bucketName = "images"
 	}
@@ -484,6 +485,180 @@ func (s *Server) DeleteImage(ctx context.Context, fileName string) error {
 	}
 
 	return nil
+}
+
+// uploadFileToSupabase uploads a file to Supabase storage and returns the public URL
+func (s *Server) uploadFileToSupabase(ctx context.Context, fileContent []byte, fileName, bucketName, folderPath, contentType string) (string, error) {
+	supabaseURL := s.config.SupabaseConfig.URL
+	supabaseKey := s.config.SupabaseConfig.Key
+
+	if supabaseURL == "" || supabaseKey == "" {
+		return "", fmt.Errorf("SUPABASE_URL and SUPABASE_KEY environment variables are required")
+	}
+
+	// Generate unique filename with timestamp
+	ext := filepath.Ext(fileName)
+	nameWithoutExt := fileName[:len(fileName)-len(ext)]
+	timestamp := time.Now().UnixNano()
+	uniqueFileName := fmt.Sprintf("%s_%d%s", nameWithoutExt, timestamp, ext)
+
+	// Create full path
+	var fullPath string
+	if folderPath != "" {
+		fullPath = fmt.Sprintf("%s/%s", folderPath, uniqueFileName)
+	} else {
+		fullPath = uniqueFileName
+	}
+
+	// Prepare the upload URL
+	uploadURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", supabaseURL, bucketName, fullPath)
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", uploadURL, bytes.NewReader(fileContent))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+supabaseKey)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Cache-Control", "max-age=3600")
+
+	// Make the request
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Return the public URL
+	publicURL := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", supabaseURL, bucketName, fullPath)
+	return publicURL, nil
+}
+
+// GetSignedPDF lấy URL signed của file PDF
+// @Sumary lấy URL signed của file PDF
+// @Description lấy URL signed của file PDF
+// @Tags Storage
+// @Accept json
+// @Produce json
+// @Param filename path string true "Tên file"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Security ApiKeyAuth
+// @Router /storage/get-signed-pdf/{filename} [get]
+func (s *Server) GetSignedPDF(c *gin.Context) {
+	// 1️⃣ Lấy filename từ route
+	fileName := c.Param("filename")
+	log.Println("[GetSignedPDF] filename:", fileName)
+
+	if fileName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "filename parameter is required",
+		})
+		return
+	}
+
+	// 2️⃣ Load config
+	baseURL := strings.TrimRight(s.config.SupabaseConfig.URL, "/")
+	serviceKey := s.config.SupabaseConfig.Key
+	bucket := "giay_phep_kinh_doanh"
+
+	if baseURL == "" || serviceKey == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing",
+		})
+		return
+	}
+
+	// 3️⃣ Gọi Supabase tạo signed URL
+	signAPI := fmt.Sprintf(
+		"%s/storage/v1/object/sign/%s/%s",
+		baseURL,
+		bucket,
+		fileName,
+	)
+
+	payload := strings.NewReader(`{"expiresIn":300}`)
+
+	req, err := http.NewRequestWithContext(
+		c.Request.Context(),
+		http.MethodPost,
+		signAPI,
+		payload,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to create request: " + err.Error(),
+		})
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+serviceKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to request Supabase: " + err.Error(),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// 4️⃣ Check status
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Println("[GetSignedPDF] Supabase error:", string(body))
+		c.JSON(resp.StatusCode, gin.H{
+			"error": string(body),
+		})
+		return
+	}
+
+	// 5️⃣ Decode response
+	var res struct {
+		SignedURL string `json:"signedURL"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to decode Supabase response: " + err.Error(),
+		})
+		return
+	}
+
+	if res.SignedURL == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Supabase returned empty signedURL",
+		})
+		return
+	}
+
+	// 6️⃣ Normalize signed URL (FIX LỖI /object)
+	signedPath := res.SignedURL
+	if strings.HasPrefix(signedPath, "/object/") {
+		signedPath = "/storage/v1" + signedPath
+	}
+
+	fullURL := baseURL + signedPath
+
+	// 7️⃣ Trả về frontend
+	c.JSON(http.StatusOK, gin.H{
+		"url": fullURL,
+	})
 }
 
 // UploadMultipleImagesTest creates a simple HTML form for testing multiple file uploads

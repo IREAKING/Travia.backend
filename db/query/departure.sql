@@ -1,5 +1,4 @@
 -- ==================== DEPARTURE MANAGEMENT ====================
-
 -- name: CreateDeparture :one
 -- tạo lịch khởi hành
 INSERT INTO khoi_hanh_tour (
@@ -120,13 +119,6 @@ GROUP BY kh.id, t.tieu_de
 ORDER BY kh.ngay_khoi_hanh DESC
 LIMIT $1 OFFSET $2;
 
--- name: CountAllDepartures :one
-SELECT COUNT(*) FROM khoi_hanh_tour;
-
--- name: CountDeparturesByTour :one
-SELECT COUNT(*) FROM khoi_hanh_tour
-WHERE tour_id = $1;
-
 -- name: GetDeparturesByStatus :many
 SELECT 
     kh.*,
@@ -148,3 +140,60 @@ SET
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateLichTrinh :one
+UPDATE lich_trinh
+SET
+    ngay_thu = COALESCE(sqlc.narg('ngay_thu'), ngay_thu),
+    tieu_de = COALESCE(sqlc.narg('tieu_de'), tieu_de),
+    mo_ta = COALESCE(sqlc.narg('mo_ta'), mo_ta),
+    gio_bat_dau = COALESCE(sqlc.narg('gio_bat_dau'), gio_bat_dau),
+    gio_ket_thuc = COALESCE(sqlc.narg('gio_ket_thuc'), gio_ket_thuc),
+    dia_diem = COALESCE(sqlc.narg('dia_diem'), dia_diem),
+    thong_tin_luu_tru = COALESCE(sqlc.narg('thong_tin_luu_tru'), thong_tin_luu_tru),
+    ngay_cap_nhat = NOW()
+WHERE id = $1
+RETURNING *;
+-- name: UpdateHoatDongTrongNgay :one
+UPDATE hoat_dong_trong_ngay
+SET
+    ten = COALESCE(sqlc.narg('ten'), ten),
+    gio_bat_dau = COALESCE(sqlc.narg('gio_bat_dau'), gio_bat_dau),
+    gio_ket_thuc = COALESCE(sqlc.narg('gio_ket_thuc'), gio_ket_thuc),
+    mo_ta = COALESCE(sqlc.narg('mo_ta'), mo_ta),
+    thu_tu = COALESCE(sqlc.narg('thu_tu'), thu_tu)
+WHERE id = $1
+RETURNING *;
+-- name: UpdateKhoiHanhTour :one
+UPDATE khoi_hanh_tour
+SET
+    ngay_khoi_hanh = COALESCE(sqlc.narg('ngay_khoi_hanh'), ngay_khoi_hanh),
+    ngay_ket_thuc = COALESCE(sqlc.narg('ngay_ket_thuc'), ngay_ket_thuc),
+    suc_chua = COALESCE(sqlc.narg('suc_chua'), suc_chua),
+    trang_thai = COALESCE(sqlc.narg('trang_thai'), trang_thai),
+    ghi_chu = COALESCE(sqlc.narg('ghi_chu'), ghi_chu),
+    so_cho_da_dat = COALESCE(sqlc.narg('so_cho_da_dat'), so_cho_da_dat),
+    ngay_cap_nhat = NOW()
+WHERE id = $1 AND tour_id = $2
+RETURNING *;
+
+
+-- name: AddHinhAnhTour :one
+INSERT INTO anh_tour (tour_id, duong_dan, mo_ta, la_anh_chinh, thu_tu_hien_thi) VALUES ($1, $2, $3, $4, $5) RETURNING *;
+-- name: GetHinhAnhTourByID :one
+SELECT id, tour_id, duong_dan, mo_ta, la_anh_chinh, thu_tu_hien_thi, ngay_tao
+FROM anh_tour
+WHERE id = $1;
+-- name: DeleteHinhAnhTour :exec
+DELETE FROM anh_tour
+WHERE id = $1 AND tour_id = $2;
+
+-- name: AddTourDestination :exec
+INSERT INTO tour_diem_den (
+    tour_id,
+    diem_den_id,
+    thu_tu_tham_quan
+) VALUES (
+    $1, $2, $3
+);
+-- name: DeleteTourDestination :exec
+DELETE FROM tour_diem_den WHERE tour_id = $1 AND diem_den_id = $2;

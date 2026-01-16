@@ -11,6 +11,60 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addHinhAnhTour = `-- name: AddHinhAnhTour :one
+INSERT INTO anh_tour (tour_id, duong_dan, mo_ta, la_anh_chinh, thu_tu_hien_thi) VALUES ($1, $2, $3, $4, $5) RETURNING id, tour_id, duong_dan, mo_ta, la_anh_chinh, thu_tu_hien_thi, ngay_tao
+`
+
+type AddHinhAnhTourParams struct {
+	TourID       int32   `json:"tour_id"`
+	DuongDan     string  `json:"duong_dan"`
+	MoTa         *string `json:"mo_ta"`
+	LaAnhChinh   *bool   `json:"la_anh_chinh"`
+	ThuTuHienThi *int32  `json:"thu_tu_hien_thi"`
+}
+
+func (q *Queries) AddHinhAnhTour(ctx context.Context, arg AddHinhAnhTourParams) (AnhTour, error) {
+	row := q.db.QueryRow(ctx, addHinhAnhTour,
+		arg.TourID,
+		arg.DuongDan,
+		arg.MoTa,
+		arg.LaAnhChinh,
+		arg.ThuTuHienThi,
+	)
+	var i AnhTour
+	err := row.Scan(
+		&i.ID,
+		&i.TourID,
+		&i.DuongDan,
+		&i.MoTa,
+		&i.LaAnhChinh,
+		&i.ThuTuHienThi,
+		&i.NgayTao,
+	)
+	return i, err
+}
+
+const addTourDestination = `-- name: AddTourDestination :exec
+INSERT INTO tour_diem_den (
+    tour_id,
+    diem_den_id,
+    thu_tu_tham_quan
+) VALUES (
+    $1, $2, $3
+)
+`
+
+type AddTourDestinationParams struct {
+	TourID        int32  `json:"tour_id"`
+	DiemDenID     int32  `json:"diem_den_id"`
+	ThuTuThamQuan *int32 `json:"thu_tu_tham_quan"`
+}
+
+func (q *Queries) AddTourDestination(ctx context.Context, arg AddTourDestinationParams) error {
+	_, err := q.db.Exec(ctx, addTourDestination, arg.TourID, arg.DiemDenID, arg.ThuTuThamQuan)
+	return err
+}
+
 const cancelDeparture = `-- name: CancelDeparture :one
 UPDATE khoi_hanh_tour
 SET 
@@ -38,31 +92,7 @@ func (q *Queries) CancelDeparture(ctx context.Context, id int32) (KhoiHanhTour, 
 	return i, err
 }
 
-const countAllDepartures = `-- name: CountAllDepartures :one
-SELECT COUNT(*) FROM khoi_hanh_tour
-`
-
-func (q *Queries) CountAllDepartures(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countAllDepartures)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countDeparturesByTour = `-- name: CountDeparturesByTour :one
-SELECT COUNT(*) FROM khoi_hanh_tour
-WHERE tour_id = $1
-`
-
-func (q *Queries) CountDeparturesByTour(ctx context.Context, tourID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countDeparturesByTour, tourID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createDeparture = `-- name: CreateDeparture :one
-
 INSERT INTO khoi_hanh_tour (
     tour_id,
     ngay_khoi_hanh,
@@ -119,6 +149,35 @@ WHERE id = $1
 
 func (q *Queries) DeleteDeparture(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteDeparture, id)
+	return err
+}
+
+const deleteHinhAnhTour = `-- name: DeleteHinhAnhTour :exec
+DELETE FROM anh_tour
+WHERE id = $1 AND tour_id = $2
+`
+
+type DeleteHinhAnhTourParams struct {
+	ID     int32 `json:"id"`
+	TourID int32 `json:"tour_id"`
+}
+
+func (q *Queries) DeleteHinhAnhTour(ctx context.Context, arg DeleteHinhAnhTourParams) error {
+	_, err := q.db.Exec(ctx, deleteHinhAnhTour, arg.ID, arg.TourID)
+	return err
+}
+
+const deleteTourDestination = `-- name: DeleteTourDestination :exec
+DELETE FROM tour_diem_den WHERE tour_id = $1 AND diem_den_id = $2
+`
+
+type DeleteTourDestinationParams struct {
+	TourID    int32 `json:"tour_id"`
+	DiemDenID int32 `json:"diem_den_id"`
+}
+
+func (q *Queries) DeleteTourDestination(ctx context.Context, arg DeleteTourDestinationParams) error {
+	_, err := q.db.Exec(ctx, deleteTourDestination, arg.TourID, arg.DiemDenID)
 	return err
 }
 
@@ -448,6 +507,27 @@ func (q *Queries) GetDeparturesByTour(ctx context.Context, tourID int32) ([]GetD
 	return items, nil
 }
 
+const getHinhAnhTourByID = `-- name: GetHinhAnhTourByID :one
+SELECT id, tour_id, duong_dan, mo_ta, la_anh_chinh, thu_tu_hien_thi, ngay_tao
+FROM anh_tour
+WHERE id = $1
+`
+
+func (q *Queries) GetHinhAnhTourByID(ctx context.Context, id int32) (AnhTour, error) {
+	row := q.db.QueryRow(ctx, getHinhAnhTourByID, id)
+	var i AnhTour
+	err := row.Scan(
+		&i.ID,
+		&i.TourID,
+		&i.DuongDan,
+		&i.MoTa,
+		&i.LaAnhChinh,
+		&i.ThuTuHienThi,
+		&i.NgayTao,
+	)
+	return i, err
+}
+
 const getUpcomingDeparturesList = `-- name: GetUpcomingDeparturesList :many
 SELECT 
     kh.id, kh.tour_id, kh.ngay_khoi_hanh, kh.ngay_ket_thuc, kh.suc_chua, kh.so_cho_da_dat, kh.trang_thai, kh.ghi_chu, kh.ngay_tao, kh.ngay_cap_nhat,
@@ -617,6 +697,156 @@ func (q *Queries) UpdateDepartureStat(ctx context.Context, id int32) (KhoiHanhTo
 		&i.SoChoDaDat,
 		&i.TrangThai,
 		&i.GhiChu,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const updateHoatDongTrongNgay = `-- name: UpdateHoatDongTrongNgay :one
+UPDATE hoat_dong_trong_ngay
+SET
+    ten = COALESCE($2, ten),
+    gio_bat_dau = COALESCE($3, gio_bat_dau),
+    gio_ket_thuc = COALESCE($4, gio_ket_thuc),
+    mo_ta = COALESCE($5, mo_ta),
+    thu_tu = COALESCE($6, thu_tu)
+WHERE id = $1
+RETURNING id, lich_trinh_id, ten, gio_bat_dau, gio_ket_thuc, mo_ta, thu_tu, ngay_tao
+`
+
+type UpdateHoatDongTrongNgayParams struct {
+	ID         int32       `json:"id"`
+	Ten        *string     `json:"ten"`
+	GioBatDau  pgtype.Time `json:"gio_bat_dau"`
+	GioKetThuc pgtype.Time `json:"gio_ket_thuc"`
+	MoTa       *string     `json:"mo_ta"`
+	ThuTu      *int32      `json:"thu_tu"`
+}
+
+func (q *Queries) UpdateHoatDongTrongNgay(ctx context.Context, arg UpdateHoatDongTrongNgayParams) (HoatDongTrongNgay, error) {
+	row := q.db.QueryRow(ctx, updateHoatDongTrongNgay,
+		arg.ID,
+		arg.Ten,
+		arg.GioBatDau,
+		arg.GioKetThuc,
+		arg.MoTa,
+		arg.ThuTu,
+	)
+	var i HoatDongTrongNgay
+	err := row.Scan(
+		&i.ID,
+		&i.LichTrinhID,
+		&i.Ten,
+		&i.GioBatDau,
+		&i.GioKetThuc,
+		&i.MoTa,
+		&i.ThuTu,
+		&i.NgayTao,
+	)
+	return i, err
+}
+
+const updateKhoiHanhTour = `-- name: UpdateKhoiHanhTour :one
+UPDATE khoi_hanh_tour
+SET
+    ngay_khoi_hanh = COALESCE($3, ngay_khoi_hanh),
+    ngay_ket_thuc = COALESCE($4, ngay_ket_thuc),
+    suc_chua = COALESCE($5, suc_chua),
+    trang_thai = COALESCE($6, trang_thai),
+    ghi_chu = COALESCE($7, ghi_chu),
+    so_cho_da_dat = COALESCE($8, so_cho_da_dat),
+    ngay_cap_nhat = NOW()
+WHERE id = $1 AND tour_id = $2
+RETURNING id, tour_id, ngay_khoi_hanh, ngay_ket_thuc, suc_chua, so_cho_da_dat, trang_thai, ghi_chu, ngay_tao, ngay_cap_nhat
+`
+
+type UpdateKhoiHanhTourParams struct {
+	ID           int32                 `json:"id"`
+	TourID       int32                 `json:"tour_id"`
+	NgayKhoiHanh pgtype.Date           `json:"ngay_khoi_hanh"`
+	NgayKetThuc  pgtype.Date           `json:"ngay_ket_thuc"`
+	SucChua      *int32                `json:"suc_chua"`
+	TrangThai    NullTrangThaiKhoiHanh `json:"trang_thai"`
+	GhiChu       *string               `json:"ghi_chu"`
+	SoChoDaDat   *int32                `json:"so_cho_da_dat"`
+}
+
+func (q *Queries) UpdateKhoiHanhTour(ctx context.Context, arg UpdateKhoiHanhTourParams) (KhoiHanhTour, error) {
+	row := q.db.QueryRow(ctx, updateKhoiHanhTour,
+		arg.ID,
+		arg.TourID,
+		arg.NgayKhoiHanh,
+		arg.NgayKetThuc,
+		arg.SucChua,
+		arg.TrangThai,
+		arg.GhiChu,
+		arg.SoChoDaDat,
+	)
+	var i KhoiHanhTour
+	err := row.Scan(
+		&i.ID,
+		&i.TourID,
+		&i.NgayKhoiHanh,
+		&i.NgayKetThuc,
+		&i.SucChua,
+		&i.SoChoDaDat,
+		&i.TrangThai,
+		&i.GhiChu,
+		&i.NgayTao,
+		&i.NgayCapNhat,
+	)
+	return i, err
+}
+
+const updateLichTrinh = `-- name: UpdateLichTrinh :one
+UPDATE lich_trinh
+SET
+    ngay_thu = COALESCE($2, ngay_thu),
+    tieu_de = COALESCE($3, tieu_de),
+    mo_ta = COALESCE($4, mo_ta),
+    gio_bat_dau = COALESCE($5, gio_bat_dau),
+    gio_ket_thuc = COALESCE($6, gio_ket_thuc),
+    dia_diem = COALESCE($7, dia_diem),
+    thong_tin_luu_tru = COALESCE($8, thong_tin_luu_tru),
+    ngay_cap_nhat = NOW()
+WHERE id = $1
+RETURNING id, tour_id, ngay_thu, tieu_de, mo_ta, gio_bat_dau, gio_ket_thuc, dia_diem, thong_tin_luu_tru, ngay_tao, ngay_cap_nhat
+`
+
+type UpdateLichTrinhParams struct {
+	ID             int32       `json:"id"`
+	NgayThu        *int32      `json:"ngay_thu"`
+	TieuDe         *string     `json:"tieu_de"`
+	MoTa           *string     `json:"mo_ta"`
+	GioBatDau      pgtype.Time `json:"gio_bat_dau"`
+	GioKetThuc     pgtype.Time `json:"gio_ket_thuc"`
+	DiaDiem        *string     `json:"dia_diem"`
+	ThongTinLuuTru *string     `json:"thong_tin_luu_tru"`
+}
+
+func (q *Queries) UpdateLichTrinh(ctx context.Context, arg UpdateLichTrinhParams) (LichTrinh, error) {
+	row := q.db.QueryRow(ctx, updateLichTrinh,
+		arg.ID,
+		arg.NgayThu,
+		arg.TieuDe,
+		arg.MoTa,
+		arg.GioBatDau,
+		arg.GioKetThuc,
+		arg.DiaDiem,
+		arg.ThongTinLuuTru,
+	)
+	var i LichTrinh
+	err := row.Scan(
+		&i.ID,
+		&i.TourID,
+		&i.NgayThu,
+		&i.TieuDe,
+		&i.MoTa,
+		&i.GioBatDau,
+		&i.GioKetThuc,
+		&i.DiaDiem,
+		&i.ThongTinLuuTru,
 		&i.NgayTao,
 		&i.NgayCapNhat,
 	)

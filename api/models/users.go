@@ -53,3 +53,19 @@ type AddPassengersParams struct {
 	QuocTich         *string `json:"quoc_tich"`
 	GhiChu           *string `json:"ghi_chu"`
 }
+
+// Password Reset Models
+type RequestPasswordResetRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type VerifyOTPRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	OTP   string `json:"otp" binding:"required,len=6"`
+}
+
+type ResetPasswordRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	OTP         string `json:"otp" binding:"required,len=6"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}

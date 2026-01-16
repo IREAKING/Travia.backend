@@ -7,6 +7,8 @@ left join (
     where dang_hoat_dong = true
     group by danh_muc_id
 ) as t on t.danh_muc_id = danh_muc_tour.id;
+-- name: CreateCategoryTour :one
+INSERT INTO danh_muc_tour (ten, mo_ta, anh, dang_hoat_dong, ngay_tao) VALUES ($1, $2, $3, $4, $5) RETURNING *;
 
 -- name: GetAllTour :many
 SELECT
@@ -85,6 +87,7 @@ WITH tour_info AS (
         t.id,
         t.tieu_de,
         t.mo_ta,
+        t.danh_muc_id,
         t.so_ngay,
         t.so_dem,
         t.gia_nguoi_lon,
@@ -92,6 +95,7 @@ WITH tour_info AS (
         t.don_vi_tien_te,
         t.trang_thai,
         t.noi_bat,
+        t.nha_cung_cap_id,
         t.ngay_tao,
         t.ngay_cap_nhat,
         dm.ten as ten_danh_muc,
@@ -291,13 +295,13 @@ DELETE FROM tour
 WHERE id = $1;
 
 -- name: ToggleTourActive :one
-
 UPDATE tour
 SET 
     dang_hoat_dong = NOT dang_hoat_dong,
     ngay_cap_nhat = NOW()
 WHERE id = $1
 RETURNING *;
+
 
 -- name: SearchTours :many
 -- Đảm bảo bạn đã định nghĩa các CTE cần thiết (dd, dg, kh, ggt) như trong các bước trước.
@@ -625,14 +629,7 @@ JOIN diem_den dd ON td.diem_den_id = dd.id
 WHERE td.tour_id = $1
 ORDER BY td.thu_tu_tham_quan ASC NULLS LAST;
 
--- name: AddTourDestination :exec
-INSERT INTO tour_diem_den (
-    tour_id,
-    diem_den_id,
-    thu_tu_tham_quan
-) VALUES (
-    $1, $2, $3
-);
+
 
 -- name: GetDiscountsByTourID :many
 SELECT id, tour_id, phan_tram, ngay_bat_dau, ngay_ket_thuc, ngay_tao, ngay_cap_nhat FROM giam_gia_tour

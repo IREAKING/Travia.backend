@@ -296,6 +296,36 @@ type AnhTour struct {
 	NgayTao      pgtype.Timestamp `json:"ngay_tao"`
 }
 
+type BinhLuanBlog struct {
+	ID            int32            `json:"id"`
+	BlogID        int32            `json:"blog_id"`
+	NguoiDungID   pgtype.UUID      `json:"nguoi_dung_id"`
+	NoiDung       string           `json:"noi_dung"`
+	BinhLuanChaID *int32           `json:"binh_luan_cha_id"`
+	DaDuyet       *bool            `json:"da_duyet"`
+	NgayTao       pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat   pgtype.Timestamp `json:"ngay_cap_nhat"`
+}
+
+type Blog struct {
+	ID          int32            `json:"id"`
+	TieuDe      string           `json:"tieu_de"`
+	Slug        string           `json:"slug"`
+	TomTat      *string          `json:"tom_tat"`
+	NoiDung     string           `json:"noi_dung"`
+	AnhDaiDien  *string          `json:"anh_dai_dien"`
+	TacGiaID    pgtype.UUID      `json:"tac_gia_id"`
+	DanhMuc     *string          `json:"danh_muc"`
+	TuKhoa      []string         `json:"tu_khoa"`
+	LuotXem     *int32           `json:"luot_xem"`
+	LuotThich   *int32           `json:"luot_thich"`
+	TrangThai   *string          `json:"trang_thai"`
+	NoiBat      *bool            `json:"noi_bat"`
+	NgayDang    pgtype.Timestamp `json:"ngay_dang"`
+	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
+	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
+}
+
 type CauHinhNhomTour struct {
 	ID        int32  `json:"id"`
 	TourID    int32  `json:"tour_id"`
@@ -409,6 +439,16 @@ type KhoiHanhTour struct {
 	NgayCapNhat  pgtype.Timestamp      `json:"ngay_cap_nhat"`
 }
 
+type LichSuAiBlog struct {
+	ID           int32            `json:"id"`
+	BlogID       *int32           `json:"blog_id"`
+	Prompt       string           `json:"prompt"`
+	PhanHoiAi    *string          `json:"phan_hoi_ai"`
+	MoHinhAi     *string          `json:"mo_hinh_ai"`
+	SoLuongToken *int32           `json:"so_luong_token"`
+	NgayTao      pgtype.Timestamp `json:"ngay_tao"`
+}
+
 type LichSuChat struct {
 	ID          int32            `json:"id"`
 	NguoiDungID pgtype.UUID      `json:"nguoi_dung_id"`
@@ -497,6 +537,16 @@ type NhaCungCap struct {
 	MaSoThue        *string     `json:"ma_so_thue"`
 	SoNhanVien      *string     `json:"so_nhan_vien"`
 	GiayToKinhDoanh *string     `json:"giay_to_kinh_doanh"`
+}
+
+type OtpDatLaiMatKhau struct {
+	ID          int32            `json:"id"`
+	NguoiDungID pgtype.UUID      `json:"nguoi_dung_id"`
+	MaOtp       string           `json:"ma_otp"`
+	DaXacThuc   *bool            `json:"da_xac_thuc"`
+	ThoiHan     pgtype.Timestamp `json:"thoi_han"`
+	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
+	NgayXacThuc pgtype.Timestamp `json:"ngay_xac_thuc"`
 }
 
 type PhanHoiDanhGium struct {

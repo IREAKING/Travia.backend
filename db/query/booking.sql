@@ -287,6 +287,14 @@ WHERE
 ORDER BY dc.ngay_dat DESC
 LIMIT $2 OFFSET $3;
 
+-- name: DeleteBooking :exec
+-- Xóa đặt chỗ
+DELETE FROM dat_cho WHERE id = $1;
+
+-- name: DeleteBookings :exec
+-- Xóa nhiều đặt chỗ
+DELETE FROM dat_cho WHERE id IN (SELECT unnest(sqlc.arg('ids')::int[]));
+
 -- name: CountBookingsByUser :one
 -- Đếm tổng số đặt chỗ của người dùng (có filter)
 SELECT COUNT(*)::int AS total_count
@@ -484,18 +492,86 @@ WHERE dc.khoi_hanh_id = kh.id
     AND kh.ngay_ket_thuc < CURRENT_DATE;
 
 -- ===========================================
--- HỦY BOOKING
+-- HỦY BOOKING & HOÀN TIỀN
 -- ===========================================
+
+-- Function tính số tiền hoàn lại dựa trên chính sách hoàn tiền
+CREATE OR REPLACE FUNCTION tinh_tien_hoan_lai(
+    p_booking_id INT
+) RETURNS TABLE (
+    tong_tien DECIMAL(12,2),
+    so_tien_hoan DECIMAL(12,2),
+    phan_tram_hoan DECIMAL(5,2),
+    so_ngay_truoc_khoi_hanh INT,
+    ly_do TEXT
+) AS $$
+DECLARE
+    v_tong_tien DECIMAL(12,2);
+    v_ngay_khoi_hanh DATE;
+    v_so_ngay_truoc_khoi_hanh INT;
+    v_phan_tram_hoan DECIMAL(5,2);
+    v_so_tien_hoan DECIMAL(12,2);
+    v_ly_do TEXT;
+BEGIN
+    -- Lấy thông tin booking và ngày khởi hành
+    SELECT dc.tong_tien, kh.ngay_khoi_hanh
+    INTO v_tong_tien, v_ngay_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    WHERE dc.id = p_booking_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Booking ID % không tồn tại.', p_booking_id;
+    END IF;
+
+    -- Tính số ngày trước ngày khởi hành
+    v_so_ngay_truoc_khoi_hanh := v_ngay_khoi_hanh - CURRENT_DATE;
+
+    -- Áp dụng chính sách hoàn tiền
+    IF v_so_ngay_truoc_khoi_hanh >= 15 THEN
+        -- Trước 15 ngày: hoàn 100%
+        v_phan_tram_hoan := 100.00;
+        v_ly_do := 'Hủy trước 15 ngày - hoàn 100%';
+    ELSIF v_so_ngay_truoc_khoi_hanh >= 7 THEN
+        -- Trước 7 ngày: hoàn 90%
+        v_phan_tram_hoan := 90.00;
+        v_ly_do := 'Hủy trước 7 ngày - hoàn 90%';
+    ELSIF v_so_ngay_truoc_khoi_hanh >= 3 THEN
+        -- Trước 3 ngày: hoàn 70%
+        v_phan_tram_hoan := 70.00;
+        v_ly_do := 'Hủy trước 3 ngày - hoàn 70%';
+    ELSIF v_so_ngay_truoc_khoi_hanh >= 1 THEN
+        -- Trước 24 giờ (1 ngày): hoàn 50%
+        v_phan_tram_hoan := 50.00;
+        v_ly_do := 'Hủy trước 24 giờ - hoàn 50%';
+    ELSE
+        -- Trong 24 giờ: không hoàn
+        v_phan_tram_hoan := 0.00;
+        v_ly_do := 'Hủy trong 24 giờ - không hoàn tiền';
+    END IF;
+
+    -- Tính số tiền hoàn lại
+    v_so_tien_hoan := (v_tong_tien * v_phan_tram_hoan) / 100.00;
+
+    RETURN QUERY SELECT v_tong_tien, v_so_tien_hoan, v_phan_tram_hoan, v_so_ngay_truoc_khoi_hanh, v_ly_do;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Function hủy booking và trả lại chỗ
 CREATE OR REPLACE FUNCTION cancel_booking(
     p_booking_id INT
-) RETURNS VOID AS $$
+) RETURNS TABLE (
+    so_tien_hoan DECIMAL(12,2),
+    phan_tram_hoan DECIMAL(5,2),
+    so_ngay_truoc_khoi_hanh INT,
+    ly_do TEXT
+) AS $$
 DECLARE
     v_khoi_hanh_id INT;
     v_so_nguoi_lon INT;
     v_so_tre_em INT;
     v_trang_thai trang_thai_dat_cho;
+    v_refund_info RECORD;
 BEGIN
     -- Lấy thông tin booking
     SELECT khoi_hanh_id, so_nguoi_lon, so_tre_em, trang_thai
@@ -516,21 +592,82 @@ BEGIN
         RAISE EXCEPTION 'Không thể hủy booking đã hoàn thành.';
     END IF;
 
+    -- Tính số tiền hoàn lại
+    SELECT * INTO v_refund_info
+    FROM tinh_tien_hoan_lai(p_booking_id);
+
     -- Cập nhật trạng thái booking
     UPDATE dat_cho
     SET trang_thai = 'da_huy', ngay_cap_nhat = CURRENT_TIMESTAMP
     WHERE id = p_booking_id;
 
-    -- Trả lại chỗ cho khởi hành
+    -- Tính lại số chỗ đã đặt từ tổng số booking thực tế (không bao gồm booking đã hủy)
+    -- Điều này đảm bảo dữ liệu luôn đồng bộ và không bị lệch
     UPDATE khoi_hanh_tour
-    SET so_cho_da_dat = so_cho_da_dat - (v_so_nguoi_lon + v_so_tre_em),
+    SET so_cho_da_dat = COALESCE((
+        SELECT SUM(COALESCE(so_nguoi_lon, 0) + COALESCE(so_tre_em, 0))
+        FROM dat_cho
+        WHERE khoi_hanh_id = v_khoi_hanh_id
+            AND trang_thai != 'da_huy'
+    ), 0),
         ngay_cap_nhat = CURRENT_TIMESTAMP
     WHERE id = v_khoi_hanh_id;
+
+    -- Trả về thông tin hoàn tiền
+    RETURN QUERY SELECT 
+        v_refund_info.so_tien_hoan,
+        v_refund_info.phan_tram_hoan,
+        v_refund_info.so_ngay_truoc_khoi_hanh,
+        v_refund_info.ly_do;
 END;
 $$ LANGUAGE plpgsql;
 
--- name: CancelBooking :exec
-SELECT cancel_booking(sqlc.arg('booking_id')::int);
+-- name: CalculateRefundAmount :one
+WITH booking_info AS (
+    SELECT 
+        dc.tong_tien,
+        kh.ngay_khoi_hanh,
+        (kh.ngay_khoi_hanh - CURRENT_DATE)::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    WHERE dc.id = sqlc.arg('booking_id')::int
+),
+refund_calc AS (
+    SELECT 
+        bi.tong_tien,
+        bi.so_ngay_truoc_khoi_hanh,
+        CASE 
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END::DECIMAL(5,2) AS phan_tram_hoan,
+        CASE 
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 15 THEN 'Hủy trước 15 ngày - hoàn 100%'
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 7 THEN 'Hủy trước 7 ngày - hoàn 90%'
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 3 THEN 'Hủy trước 3 ngày - hoàn 70%'
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 1 THEN 'Hủy trước 24 giờ - hoàn 50%'
+            ELSE 'Hủy trong 24 giờ - không hoàn tiền'
+        END::TEXT AS ly_do
+    FROM booking_info bi
+)
+SELECT 
+    rc.tong_tien,
+    (rc.tong_tien * rc.phan_tram_hoan / 100.00)::DECIMAL(12,2) AS so_tien_hoan,
+    rc.phan_tram_hoan,
+    rc.so_ngay_truoc_khoi_hanh,
+    rc.ly_do
+FROM refund_calc rc;
+
+-- name: CancelBooking :one
+SELECT 
+    so_tien_hoan::DECIMAL(12,2) as so_tien_hoan,
+    phan_tram_hoan::DECIMAL(5,2) as phan_tram_hoan,
+    so_ngay_truoc_khoi_hanh::INT as so_ngay_truoc_khoi_hanh,
+    ly_do::TEXT as ly_do
+FROM cancel_booking(sqlc.arg('booking_id')::int)
+LIMIT 1;
 
 -- name: GetCancelledBookings :many
 -- Lấy danh sách booking đã hủy
@@ -598,3 +735,262 @@ JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
 JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
 JOIN tour t ON t.id = kh.tour_id
 WHERE dc.nguoi_dung_id = $1;
+
+-- ===========================================
+-- QUẢN LÝ HOÀN TIỀN (REFUND MANAGEMENT)
+-- ===========================================
+
+-- name: GetAllRefunds :many
+-- Lấy tất cả refund cho admin (tất cả booking đã hủy với thông tin refund)
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        kh.ngay_khoi_hanh,
+        -- Tính số ngày trước khởi hành tại thời điểm hủy (ngay_cap_nhat)
+        (kh.ngay_khoi_hanh - DATE(dc.ngay_cap_nhat))::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    WHERE dc.trang_thai = 'da_huy'
+)
+SELECT 
+    dc.id AS booking_id,
+    dc.ngay_dat,
+    dc.ngay_cap_nhat AS ngay_huy,
+    dc.tong_tien,
+    dc.don_vi_tien_te,
+    dc.so_nguoi_lon,
+    dc.so_tre_em,
+    dc.phuong_thuc_thanh_toan,
+    dc.trang_thai,
+    
+    -- Thông tin khách hàng
+    nd.id AS customer_id,
+    nd.ho_ten AS customer_name,
+    nd.email AS customer_email,
+    nd.so_dien_thoai AS customer_phone,
+    
+    -- Thông tin tour
+    t.id AS tour_id,
+    t.tieu_de AS tour_title,
+    ncc.id AS supplier_id,
+    ncc.ten AS supplier_name,
+    
+    -- Thông tin khởi hành
+    kh.id AS departure_id,
+    kh.ngay_khoi_hanh,
+    kh.ngay_ket_thuc,
+    
+    -- Thông tin refund
+    ri.so_ngay_truoc_khoi_hanh,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+        ELSE 0.00
+    END::DECIMAL(5,2) AS phan_tram_hoan,
+    (ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00)::DECIMAL(12,2) AS so_tien_hoan,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 'Hủy trước 15 ngày - hoàn 100%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 'Hủy trước 7 ngày - hoàn 90%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 'Hủy trước 3 ngày - hoàn 70%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 'Hủy trước 24 giờ - hoàn 50%'
+        ELSE 'Hủy trong 24 giờ - không hoàn tiền'
+    END::TEXT AS ly_do
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN nha_cung_cap ncc ON ncc.id = t.nha_cung_cap_id
+JOIN refund_info ri ON ri.booking_id = dc.id
+WHERE dc.trang_thai = 'da_huy'
+    AND ($1::timestamp IS NULL OR dc.ngay_cap_nhat >= $1::timestamp)
+    AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat <= $2::timestamp)
+    AND ($3::uuid IS NULL OR ncc.id = $3::uuid)
+    AND ($4::text IS NULL OR nd.ho_ten ILIKE '%' || $4::text || '%' OR nd.email ILIKE '%' || $4::text || '%' OR t.tieu_de ILIKE '%' || $4::text || '%')
+ORDER BY dc.ngay_cap_nhat DESC
+LIMIT $5 OFFSET $6;
+
+-- name: GetSupplierRefunds :many
+-- Lấy refund cho supplier (chỉ tour của họ)
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        kh.ngay_khoi_hanh,
+        -- Tính số ngày trước khởi hành tại thời điểm hủy (ngay_cap_nhat)
+        (kh.ngay_khoi_hanh - DATE(dc.ngay_cap_nhat))::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    JOIN tour t ON t.id = kh.tour_id
+    WHERE dc.trang_thai = 'da_huy'
+        AND t.nha_cung_cap_id = $1::uuid
+)
+SELECT 
+    dc.id AS booking_id,
+    dc.ngay_dat,
+    dc.ngay_cap_nhat AS ngay_huy,
+    dc.tong_tien,
+    dc.don_vi_tien_te,
+    dc.so_nguoi_lon,
+    dc.so_tre_em,
+    dc.phuong_thuc_thanh_toan,
+    dc.trang_thai,
+    
+    -- Thông tin khách hàng
+    nd.id AS customer_id,
+    nd.ho_ten AS customer_name,
+    nd.email AS customer_email,
+    nd.so_dien_thoai AS customer_phone,
+    
+    -- Thông tin tour
+    t.id AS tour_id,
+    t.tieu_de AS tour_title,
+    
+    -- Thông tin khởi hành
+    kh.id AS departure_id,
+    kh.ngay_khoi_hanh,
+    kh.ngay_ket_thuc,
+    
+    -- Thông tin refund
+    ri.so_ngay_truoc_khoi_hanh,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+        ELSE 0.00
+    END::DECIMAL(5,2) AS phan_tram_hoan,
+    (ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00)::DECIMAL(12,2) AS so_tien_hoan,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 'Hủy trước 15 ngày - hoàn 100%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 'Hủy trước 7 ngày - hoàn 90%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 'Hủy trước 3 ngày - hoàn 70%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 'Hủy trước 24 giờ - hoàn 50%'
+        ELSE 'Hủy trong 24 giờ - không hoàn tiền'
+    END::TEXT AS ly_do
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN refund_info ri ON ri.booking_id = dc.id
+WHERE dc.trang_thai = 'da_huy'
+    AND t.nha_cung_cap_id = $1::uuid
+    AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat >= $2::timestamp)
+    AND ($3::timestamp IS NULL OR dc.ngay_cap_nhat <= $3::timestamp)
+    AND ($4::text IS NULL OR nd.ho_ten ILIKE '%' || $4::text || '%' OR nd.email ILIKE '%' || $4::text || '%' OR t.tieu_de ILIKE '%' || $4::text || '%')
+ORDER BY dc.ngay_cap_nhat DESC
+LIMIT $5 OFFSET $6;
+
+-- name: GetRefundStats :one
+-- Thống kê refund cho admin
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        dc.ngay_cap_nhat AS ngay_huy,
+        kh.ngay_khoi_hanh,
+        (kh.ngay_khoi_hanh - CURRENT_DATE)::INT AS so_ngay_truoc_khoi_hanh,
+        t.nha_cung_cap_id
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    JOIN tour t ON t.id = kh.tour_id
+    WHERE dc.trang_thai = 'da_huy'
+        AND ($1::timestamp IS NULL OR dc.ngay_cap_nhat >= $1::timestamp)
+        AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat <= $2::timestamp)
+)
+SELECT 
+    COUNT(*)::int AS tong_so_refund,
+    COALESCE(SUM(ri.tong_tien), 0)::numeric AS tong_tien_goc,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00
+    ), 0)::numeric AS tong_tien_hoan,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        (100.00 - 
+            CASE 
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+                ELSE 0.00
+            END
+        ) / 100.00
+    ), 0)::numeric AS tong_tien_phat,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 15)::int AS hoan_100_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 7 AND ri.so_ngay_truoc_khoi_hanh < 15)::int AS hoan_90_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 3 AND ri.so_ngay_truoc_khoi_hanh < 7)::int AS hoan_70_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 1 AND ri.so_ngay_truoc_khoi_hanh < 3)::int AS hoan_50_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh < 1)::int AS khong_hoan
+FROM refund_info ri;
+
+-- name: GetSupplierRefundStats :one
+-- Thống kê refund cho supplier
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        dc.ngay_cap_nhat AS ngay_huy,
+        kh.ngay_khoi_hanh,
+        (kh.ngay_khoi_hanh - CURRENT_DATE)::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    JOIN tour t ON t.id = kh.tour_id
+    WHERE dc.trang_thai = 'da_huy'
+        AND t.nha_cung_cap_id = $1::uuid
+        AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat >= $2::timestamp)
+        AND ($3::timestamp IS NULL OR dc.ngay_cap_nhat <= $3::timestamp)
+)
+SELECT 
+    COUNT(*)::int AS tong_so_refund,
+    COALESCE(SUM(ri.tong_tien), 0)::numeric AS tong_tien_goc,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00
+    ), 0)::numeric AS tong_tien_hoan,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        (100.00 - 
+            CASE 
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+                ELSE 0.00
+            END
+        ) / 100.00
+    ), 0)::numeric AS tong_tien_phat,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 15)::int AS hoan_100_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 7 AND ri.so_ngay_truoc_khoi_hanh < 15)::int AS hoan_90_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 3 AND ri.so_ngay_truoc_khoi_hanh < 7)::int AS hoan_70_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 1 AND ri.so_ngay_truoc_khoi_hanh < 3)::int AS hoan_50_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh < 1)::int AS khong_hoan
+FROM refund_info ri;

@@ -54,17 +54,9 @@ func (s *Server) GetCountry(c *gin.Context) {
 		return
 	}
 
-	// Convert []*string to simple string array for frontend
-	var countries []string
-	for _, countryName := range countryNames {
-		if countryName != nil {
-			countries = append(countries, *countryName)
-		}
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Lấy dữ liệu thành công",
-		"data":    countries,
+		"data":    countryNames,
 	})
 }
 
@@ -90,22 +82,9 @@ func (s *Server) GetProvinceByCountry(c *gin.Context) {
 		return
 	}
 
-	// Convert []*string to []db.DiemDen format for frontend
-	var provinces []db.DiemDen
-	for i, provinceName := range provinceNames {
-		if provinceName != nil {
-			provinces = append(provinces, db.DiemDen{
-				ID:      int32(i + 1),  // Generate temporary ID
-				Ten:     *provinceName, // Use province name as ten
-				Tinh:    provinceName,  // Set tinh
-				QuocGia: &country,      // Set quoc_gia
-			})
-		}
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Lấy dữ liệu thành công",
-		"data":    provinces,
+		"data":    provinceNames,
 	})
 }
 
@@ -131,199 +110,202 @@ func (s *Server) GetCityByProvince(c *gin.Context) {
 		return
 	}
 
-	// Convert []string to []db.DiemDen format for frontend
-	var cities []db.DiemDen
-	for i, cityName := range cityNames {
-		cities = append(cities, db.DiemDen{
-			ID:   int32(i + 1), // Generate temporary ID
-			Ten:  cityName,     // Use city name as ten
-			Tinh: &province,    // Set tinh
-		})
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Lấy dữ liệu thành công",
-		"data":    cities,
+		"data":    cityNames,
 	})
 }
 
-// Lấy điểm đến theo ID
-// @Summary Lấy điểm đến theo ID
-// @Description Lấy điểm đến theo ID
+// Lấy danh sách điểm đến phổ biến nhất
+// @Summary Lấy danh sách điểm đến phổ biến nhất
+// @Description Lấy danh sách điểm đến phổ biến nhất (được nhiều tour sử dụng)
 // @Tags Destination
 // @Accept json
 // @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} db.DiemDen
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /destination/{id} [get]
-func (s *Server) GetDestinationByID(c *gin.Context) {
-	_id := c.Param("id")
-	id, err := strconv.Atoi(_id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID"})
-		return
-	}
-	data, err := s.z.GetDestinationByID(context.Background(), int32(id))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Destination fetched successfully", "data": data})
-}
-
-// Lấy tất cả điểm đến
-// @Summary Lấy tất cả điểm đến
-// @Description Lấy tất cả điểm đến
-// @Tags Destination
-// @Accept json
-// @Produce json
-// @Success 200 {object} db.DiemDen
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /destination/getAllDestination [get]
-func (s *Server) GetAllDestinations(c *gin.Context) {
-	data, err := s.z.GetAllDestinations(context.Background())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "All destinations fetched successfully", "data": data})
-}
-
-// Lấy tất cả điểm đến theo cấu trúc phân cấp
-// @Summary Lấy tất cả điểm đến theo cấu trúc phân cấp
-// @Description Lấy tất cả điểm đến được nhóm theo quốc gia, tỉnh thành và thành phố
-// @Tags Destination
-// @Accept json
-// @Produce json
+// @Param limit query int false "Số lượng điểm đến" default(10)
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /destination/hierarchical [get]
-func (s *Server) GetDestinationsHierarchical(c *gin.Context) {
-	// Lấy tất cả destinations
-	destinations, err := s.z.GetAllDestinations(context.Background())
+// @Router /destination/popular [get]
+func (s *Server) GetPopularDestinations(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "10")
+	limit := 10
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
+
+	destinations, err := s.z.GetPopularDestinations(context.Background(), int32(limit))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Không thể lấy dữ liệu điểm đến",
+			"error":   "không thể lấy dữ liệu",
 			"message": err.Error(),
 		})
 		return
 	}
 
-	// Tạo cấu trúc phân cấp
-	hierarchicalData := make(map[string]map[string][]db.DiemDen)
-
-	for _, dest := range destinations {
-		country := ""
-		province := ""
-
-		if dest.QuocGia != nil {
-			country = *dest.QuocGia
-		}
-		if dest.Tinh != nil {
-			province = *dest.Tinh
-		}
-
-		// Khởi tạo country nếu chưa có
-		if hierarchicalData[country] == nil {
-			hierarchicalData[country] = make(map[string][]db.DiemDen)
-		}
-
-		// Thêm destination vào province
-		hierarchicalData[country][province] = append(hierarchicalData[country][province], dest)
-	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Lấy dữ liệu điểm đến phân cấp thành công",
-		"data":    hierarchicalData,
+		"message": "Lấy dữ liệu thành công",
+		"data":    destinations,
 	})
 }
 
-// Lấy điểm đến với pagination và search cho create tour
-// @Summary Lấy điểm đến với pagination và search cho create tour
-// @Description Lấy điểm đến với pagination và search, tối ưu cho create tour
+// Lấy top điểm đến phổ biến nhất với thông tin chi tiết
+// @Summary Lấy top điểm đến phổ biến nhất
+// @Description Lấy top điểm đến phổ biến nhất với số tour nổi bật
 // @Tags Destination
 // @Accept json
 // @Produce json
-// @Param limit query int false "Limit (default: 20)"
-// @Param offset query int false "Offset (default: 0)"
-// @Param search query string false "Search term"
+// @Param limit query int false "Số lượng điểm đến" default(10)
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /destination/for-tour-creation [get]
-func (s *Server) GetDestinationsForTourCreation(c *gin.Context) {
-	// Parse query parameters
-	limitStr := c.DefaultQuery("limit", "20")
-	offsetStr := c.DefaultQuery("offset", "0")
-	search := c.Query("search")
-
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		limit = 20
+// @Router /destination/top [get]
+func (s *Server) GetTopPopularDestinations(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "10")
+	limit := 10
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
 	}
 
-	offset, err := strconv.Atoi(offsetStr)
+	destinations, err := s.z.GetTopPopularDestinations(context.Background(), int32(limit))
 	if err != nil {
-		offset = 0
-	}
-
-	var destinations []db.DiemDen
-	var total int32
-
-	if search != "" && len(search) >= 2 {
-		// Sử dụng search endpoint
-		searchResults, err := s.z.SearchDestinations(context.Background(), &search)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Không thể tìm kiếm điểm đến",
-				"message": err.Error(),
-			})
-			return
-		}
-		destinations = searchResults
-		total = int32(len(searchResults))
-	} else {
-		// Sử dụng pagination endpoint
-		paginatedResults, err := s.z.GetDestinationsWithPagination(context.Background(), db.GetDestinationsWithPaginationParams{
-			Limit:  int32(limit),
-			Offset: int32(offset),
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "không thể lấy dữ liệu",
+			"message": err.Error(),
 		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Không thể lấy dữ liệu điểm đến",
-				"message": err.Error(),
-			})
-			return
-		}
-		destinations = paginatedResults
-
-		// Lấy total count
-		countResult, err := s.z.CountDestinations(context.Background())
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Không thể đếm số lượng điểm đến",
-				"message": err.Error(),
-			})
-			return
-		}
-		total = countResult
-	}
-
-	// Format response cho frontend
-	response := gin.H{
-		"destinations": destinations,
-		"total":        total,
-		"limit":        limit,
-		"offset":       offset,
-		"has_more":     int32(offset+limit) < total,
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Lấy dữ liệu điểm đến thành công",
-		"data":    response,
+		"message": "Lấy dữ liệu thành công",
+		"data":    destinations,
+	})
+}
+
+// Lấy thông tin điểm đến theo ID
+// @Summary Lấy thông tin điểm đến theo ID
+// @Description Lấy thông tin chi tiết điểm đến theo ID
+// @Tags Destination
+// @Accept json
+// @Produce json
+// @Param id path int true "Destination ID"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /destination/:id [get]
+func (s *Server) GetDestinationByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID không hợp lệ"})
+		return
+	}
+
+	destination, err := s.z.GetDestinationByID(context.Background(), int32(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "Không tìm thấy điểm đến",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lấy dữ liệu thành công",
+		"data":    destination,
+	})
+}
+
+// Lấy danh sách tours theo điểm đến
+// @Summary Lấy danh sách tours theo điểm đến
+// @Description Lấy danh sách tours của một điểm đến cụ thể
+// @Tags Destination
+// @Accept json
+// @Produce json
+// @Param id path int true "Destination ID"
+// @Param limit query int false "Số lượng tours" default(10)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /destination/:id/tours [get]
+func (s *Server) GetToursByDestination(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID không hợp lệ"})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	// Sử dụng SearchTours với diem_den_id
+	diemDenID := int32(id)
+	req := db.SearchToursParams{
+		Limit:     int32(limit),
+		Offset:    int32(offset),
+		DiemDenID: &diemDenID,
+	}
+
+	tours, err := s.z.SearchTours(context.Background(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "không thể lấy dữ liệu",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lấy dữ liệu thành công",
+		"data":    tours,
+	})
+}
+
+// Cập nhật hình ảnh cho điểm đến
+// @Summary Cập nhật hình ảnh cho điểm đến
+// @Description Cập nhật hình ảnh cho điểm đến (cần quyền admin)
+// @Tags Destination
+// @Accept json
+// @Produce json
+// @Param id path int true "Destination ID"
+// @Param image body object true "Image URL"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /destination/:id/image [put]
+func (s *Server) UpdateDestinationImage(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID không hợp lệ"})
+		return
+	}
+
+	var req struct {
+		Anh string `json:"anh" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu không hợp lệ", "details": err.Error()})
+		return
+	}
+
+	destination, err := s.z.UpdateDestinationImage(context.Background(), db.UpdateDestinationImageParams{
+		ID:  int32(id),
+		Anh: &req.Anh,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "không thể cập nhật hình ảnh",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Cập nhật hình ảnh thành công",
+		"data":    destination,
 	})
 }

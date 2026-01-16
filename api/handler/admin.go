@@ -801,10 +801,11 @@ func (s *Server) RestoreSupplier(c *gin.Context) {
 // @Tags Admin
 // @Accept json
 // @Produce json
-// @Param id path int true "ID"
+// @Param id path string true "ID"
 // @Success 200 {object} db.NhaCungCap
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
+// @Security ApiKeyAuth
 // @Router /admin/suppliers/{id} [get]
 func (s *Server) GetSupplierByID(c *gin.Context) {
 	_id := c.Param("id")
@@ -851,7 +852,8 @@ func (s *Server) GetSupplierByID(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Supplier fetched successfully", "data": result})
 }
-//=====================================Khách hàng=====================================
+
+// =====================================Khách hàng=====================================
 // GetTopActiveUsers godoc
 // @Summary Lấy top người dùng hoạt động nhiều nhất (theo số booking)
 // @Description Lấy top người dùng hoạt động nhiều nhất (theo số booking)
@@ -907,5 +909,294 @@ func (s *Server) AdminCustomerGrowthMonthlyReport(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Admin customer growth monthly report fetched successfully",
 		"data":    report,
+	})
+}
+
+// GetAdminBookingStatistics godoc
+// @Summary Lấy thống kê đặt chỗ chi tiết cho admin
+// @Description Lấy thống kê đặt chỗ với nhiều filter: thời gian, nhà cung cấp, trạng thái
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param start_date query string false "Ngày bắt đầu (YYYY-MM-DD)"
+// @Param end_date query string false "Ngày kết thúc (YYYY-MM-DD)"
+// @Param supplier_id query string false "ID Nhà cung cấp (UUID)"
+// @Param trang_thai query string false "Trạng thái booking (cho_xac_nhan, da_xac_nhan, da_thanh_toan, hoan_thanh, da_huy)"
+// @Success 200 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Security ApiKeyAuth
+// @Router /admin/bookings/statistics [get]
+func (s *Server) GetAdminBookingStatistics(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Parse query parameters
+	var startDate, endDate pgtype.Timestamp
+	var supplierID pgtype.UUID
+	trangThai := c.Query("trang_thai")
+
+	// Parse start_date
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	// Parse end_date
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			// Set to end of day
+			t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			endDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	// Parse supplier_id
+	if supplierIDStr := c.Query("supplier_id"); supplierIDStr != "" {
+		if err := supplierID.Scan(supplierIDStr); err == nil {
+			supplierID.Valid = true
+		}
+	}
+
+	// Parse trang_thai (pointer to string)
+	var trangThaiPtr *string
+	if trangThai != "" {
+		trangThaiPtr = &trangThai
+	}
+
+	// Get statistics
+	stats, err := s.z.GetAdminBookingStatistics(ctx, db.GetAdminBookingStatisticsParams{
+		StartDate:  startDate,
+		EndDate:    endDate,
+		SupplierID: supplierID,
+		TrangThai:  trangThaiPtr,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to get booking statistics",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Convert pgtype.Numeric to float64
+	var tongTien, tongDoanhThu, tongTienDaHuy, giaTriTrungBinh, giaTriTrungBinhThanhCong float64
+
+	if stats.TongTien.Valid {
+		floatVal, _ := stats.TongTien.Float64Value()
+		if floatVal.Valid {
+			tongTien = floatVal.Float64
+		}
+	}
+
+	if stats.TongDoanhThu.Valid {
+		floatVal, _ := stats.TongDoanhThu.Float64Value()
+		if floatVal.Valid {
+			tongDoanhThu = floatVal.Float64
+		}
+	}
+
+	if stats.TongTienDaHuy.Valid {
+		floatVal, _ := stats.TongTienDaHuy.Float64Value()
+		if floatVal.Valid {
+			tongTienDaHuy = floatVal.Float64
+		}
+	}
+
+	if stats.GiaTriTrungBinh.Valid {
+		floatVal, _ := stats.GiaTriTrungBinh.Float64Value()
+		if floatVal.Valid {
+			giaTriTrungBinh = floatVal.Float64
+		}
+	}
+
+	if stats.GiaTriTrungBinhThanhCong.Valid {
+		floatVal, _ := stats.GiaTriTrungBinhThanhCong.Float64Value()
+		if floatVal.Valid {
+			giaTriTrungBinhThanhCong = floatVal.Float64
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Booking statistics fetched successfully",
+		"data": gin.H{
+			"tong_so_booking":              stats.TongSoBooking,
+			"cho_xac_nhan":                 stats.ChoXacNhan,
+			"da_xac_nhan":                  stats.DaXacNhan,
+			"da_thanh_toan":                stats.DaThanhToan,
+			"hoan_thanh":                   stats.HoanThanh,
+			"da_huy":                       stats.DaHuy,
+			"tong_tien":                    tongTien,
+			"tong_doanh_thu":               tongDoanhThu,
+			"tong_tien_da_huy":             tongTienDaHuy,
+			"tong_so_khach_hang":           stats.TongSoKhachHang,
+			"tong_so_tour":                 stats.TongSoTour,
+			"tong_so_nha_cung_cap":         stats.TongSoNhaCungCap,
+			"tong_so_khach":                stats.TongSoKhach,
+			"tong_so_khach_thanh_cong":     stats.TongSoKhachThanhCong,
+			"gia_tri_trung_binh":           giaTriTrungBinh,
+			"gia_tri_trung_binh_thanh_cong": giaTriTrungBinhThanhCong,
+		},
+	})
+}
+
+// GetAllBookingsForAdmin godoc
+// @Summary Lấy danh sách tất cả booking cho admin
+// @Description Lấy danh sách booking với filter và pagination
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param start_date query string false "Ngày bắt đầu (YYYY-MM-DD)"
+// @Param end_date query string false "Ngày kết thúc (YYYY-MM-DD)"
+// @Param supplier_id query string false "ID Nhà cung cấp (UUID)"
+// @Param trang_thai query string false "Trạng thái booking"
+// @Param search query string false "Tìm kiếm"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Success 200 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Security ApiKeyAuth
+// @Router /admin/bookings [get]
+func (s *Server) GetAllBookingsForAdmin(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Parse query parameters
+	var startDate, endDate pgtype.Timestamp
+	var supplierID pgtype.UUID
+	trangThai := c.Query("trang_thai")
+	searchKeyword := c.DefaultQuery("search", "")
+
+	// Parse start_date
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	// Parse end_date
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			// Set to end of day
+			t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			endDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	// Parse supplier_id
+	if supplierIDStr := c.Query("supplier_id"); supplierIDStr != "" {
+		if err := supplierID.Scan(supplierIDStr); err == nil {
+			supplierID.Valid = true
+		}
+	}
+
+	// Parse pagination
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	// Parse trang_thai (pointer to string)
+	var trangThaiPtr *string
+	if trangThai != "" {
+		trangThaiPtr = &trangThai
+	}
+
+	// Parse search (pointer to string)
+	var searchPtr *string
+	if searchKeyword != "" {
+		searchPtr = &searchKeyword
+	}
+
+	// Get bookings
+	bookings, err := s.z.GetAllBookingsForAdmin(ctx, db.GetAllBookingsForAdminParams{
+		StartDate:  startDate,
+		EndDate:     endDate,
+		SupplierID:  supplierID,
+		TrangThai:   trangThaiPtr,
+		Search:      searchPtr,
+		Limit:       int32(limit),
+		Offset:      int32(offset),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to get bookings",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Get total count
+	totalCount, err := s.z.CountAllBookingsForAdmin(ctx, db.CountAllBookingsForAdminParams{
+		StartDate:  startDate,
+		EndDate:    endDate,
+		SupplierID: supplierID,
+		TrangThai:  trangThaiPtr,
+		Search:     searchPtr,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to count bookings",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Convert bookings to response format
+	var bookingList []gin.H
+	for _, booking := range bookings {
+		var tongTien float64
+		if booking.TongTien.Valid {
+			floatVal, _ := booking.TongTien.Float64Value()
+			if floatVal.Valid {
+				tongTien = floatVal.Float64
+			}
+		}
+
+		bookingList = append(bookingList, gin.H{
+			"id":                 booking.ID,
+			"booking_id":         booking.ID,
+			"customer_id":        booking.CustomerID,
+			"customer_name":      booking.CustomerName,
+			"user_name":          booking.CustomerName,
+			"customer_email":     booking.CustomerEmail,
+			"customer_phone":     booking.CustomerPhone,
+			"tour_id":            booking.TourID,
+			"tour_title":         booking.TourTitle,
+			"supplier_id":        booking.SupplierID,
+			"supplier_name":      booking.SupplierName,
+			"departure_id":       booking.DepartureID,
+			"ngay_khoi_hanh":     booking.NgayKhoiHanh,
+			"ngay_ket_thuc":      booking.NgayKetThuc,
+			"departure_status":   booking.DepartureStatus,
+			"so_nguoi_lon":       booking.SoNguoiLon,
+			"so_tre_em":          booking.SoTreEm,
+			"tong_tien":          tongTien,
+			"tong_gia":           tongTien,
+			"total_amount":       tongTien,
+			"don_vi_tien_te":     booking.DonViTienTe,
+			"trang_thai":         booking.TrangThai,
+			"status":             booking.TrangThai,
+			"phuong_thuc_thanh_toan": booking.PhuongThucThanhToan,
+			"ngay_dat":           booking.NgayDat,
+			"ngay_cap_nhat":      booking.NgayCapNhat,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Bookings fetched successfully",
+		"data":       bookingList,
+		"total":      totalCount,
+		"page":       page,
+		"limit":      limit,
+		"total_pages": (int(totalCount) + limit - 1) / limit,
 	})
 }

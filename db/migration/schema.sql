@@ -96,12 +96,27 @@ CREATE TABLE phien_dang_nhap (
     ngay_cap_nhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
 -- Indexes cho bảng phien_dang_nhap
 CREATE INDEX idx_phien_dang_nhap_nguoi_dung_id ON phien_dang_nhap(nguoi_dung_id);
 CREATE INDEX idx_phien_dang_nhap_dang_hoat_dong ON phien_dang_nhap(dang_hoat_dong);
 CREATE INDEX idx_phien_dang_nhap_thoi_han ON phien_dang_nhap(thoi_han_token);
 CREATE INDEX idx_phien_dang_nhap_active ON phien_dang_nhap(nguoi_dung_id, thoi_han_token) WHERE dang_hoat_dong = TRUE;
 
+CREATE TABLE IF NOT EXISTS otp_dat_lai_mat_khau (
+    id SERIAL PRIMARY KEY,
+    nguoi_dung_id UUID NOT NULL REFERENCES nguoi_dung(id) ON DELETE CASCADE,
+    ma_otp VARCHAR(6) NOT NULL,
+    da_xac_thuc BOOLEAN DEFAULT FALSE,
+    thoi_han TIMESTAMP NOT NULL,
+    ngay_tao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ngay_xac_thuc TIMESTAMP
+);
+
+-- Indexes cho bảng otp_dat_lai_mat_khau
+CREATE INDEX idx_otp_dat_lai_mat_khau_nguoi_dung_id ON otp_dat_lai_mat_khau(nguoi_dung_id);
+CREATE INDEX idx_otp_dat_lai_mat_khau_nguoi_dung_id_da_xac_thuc ON otp_dat_lai_mat_khau(nguoi_dung_id, da_xac_thuc);
+CREATE INDEX idx_otp_dat_lai_mat_khau_thoi_han ON otp_dat_lai_mat_khau(thoi_han);
 -- ===========================================
 -- DESTINATION & CATEGORY TABLES
 -- ===========================================
@@ -444,3 +459,70 @@ END $$;
 ALTER TABLE lien_he 
 ADD CONSTRAINT lien_he_trang_thai_check 
 CHECK (trang_thai IN ('moi', 'dang_xu_ly', 'da_phan_hoi', 'da_dong'));
+
+
+CREATE TABLE blog (
+    id SERIAL PRIMARY KEY,
+    tieu_de VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL, -- URL-friendly title
+    tom_tat TEXT, -- Tóm tắt ngắn gọn
+    noi_dung TEXT NOT NULL, -- Nội dung đầy đủ của blog
+    anh_dai_dien TEXT, -- URL ảnh đại diện
+    tac_gia_id UUID REFERENCES nguoi_dung(id) ON DELETE SET NULL, -- Người viết blog
+    danh_muc VARCHAR(100), -- Danh mục blog: 'kinh_nghiem', 'dia_diem', 'huong_dan', 'tin_tuc', etc.
+    tu_khoa TEXT[], -- Mảng từ khóa/tags
+    luot_xem INT DEFAULT 0,
+    luot_thich INT DEFAULT 0,
+    trang_thai VARCHAR(20) DEFAULT 'nhap' CHECK (trang_thai IN ('nhap', 'cong_bo', 'luu_tru')), -- Trạng thái: nháp, công bố, lưu trữ
+    noi_bat BOOLEAN DEFAULT FALSE, -- Bài viết nổi bật
+    ngay_dang TIMESTAMP, -- Ngày đăng bài (NULL nếu chưa đăng)
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes cho bảng blog
+CREATE INDEX idx_blog_tac_gia_id ON blog(tac_gia_id);
+CREATE INDEX idx_blog_trang_thai ON blog(trang_thai);
+CREATE INDEX idx_blog_danh_muc ON blog(danh_muc);
+CREATE INDEX idx_blog_noi_bat ON blog(noi_bat);
+CREATE INDEX idx_blog_ngay_dang ON blog(ngay_dang DESC);
+CREATE INDEX idx_blog_ngay_tao ON blog(ngay_tao DESC);
+CREATE INDEX idx_blog_slug ON blog(slug);
+CREATE INDEX idx_blog_trang_thai_ngay_dang ON blog(trang_thai, ngay_dang DESC) WHERE trang_thai = 'cong_bo';
+CREATE INDEX idx_blog_noi_bat_trang_thai ON blog(noi_bat, trang_thai) WHERE noi_bat = TRUE AND trang_thai = 'cong_bo';
+
+-- Full-text search index cho tìm kiếm blog
+CREATE INDEX idx_blog_tieu_de_gin ON blog USING gin(to_tsvector('vietnamese', tieu_de));
+CREATE INDEX idx_blog_tom_tat_gin ON blog USING gin(to_tsvector('vietnamese', tom_tat));
+CREATE INDEX idx_blog_noi_dung_gin ON blog USING gin(to_tsvector('vietnamese', noi_dung));
+
+-- Bảng lưu lịch sử tạo blog với AI (để theo dõi và cải thiện)
+CREATE TABLE lich_su_ai_blog (
+    id SERIAL PRIMARY KEY,
+    blog_id INT REFERENCES blog(id) ON DELETE CASCADE,
+    prompt TEXT NOT NULL, -- Câu lệnh đã gửi cho AI
+    phan_hoi_ai TEXT, -- Phản hồi từ AI
+    mo_hinh_ai VARCHAR(50), -- Mô hình AI đã sử dụng (gpt-3.5-turbo, gpt-4, v.v.)
+    so_luong_token INT, -- Số lượng token đã sử dụng
+    ngay_tao TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_lich_su_ai_blog_blog_id ON lich_su_ai_blog(blog_id);
+CREATE INDEX idx_lich_su_ai_blog_ngay_tao ON lich_su_ai_blog(ngay_tao DESC);
+
+-- Bảng bình luận blog
+CREATE TABLE binh_luan_blog (
+    id SERIAL PRIMARY KEY,
+    blog_id INT NOT NULL REFERENCES blog(id) ON DELETE CASCADE,
+    nguoi_dung_id UUID REFERENCES nguoi_dung(id) ON DELETE CASCADE,
+    noi_dung TEXT NOT NULL,
+    binh_luan_cha_id INT REFERENCES binh_luan_blog(id) ON DELETE CASCADE, -- Để hỗ trợ reply comment
+    da_duyet BOOLEAN DEFAULT FALSE, -- Admin cần duyệt comment
+    ngay_tao TIMESTAMP DEFAULT NOW(),
+    ngay_cap_nhat TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_binh_luan_blog_blog_id ON binh_luan_blog(blog_id);
+CREATE INDEX idx_binh_luan_blog_nguoi_dung_id ON binh_luan_blog(nguoi_dung_id);
+CREATE INDEX idx_binh_luan_blog_da_duyet ON binh_luan_blog(da_duyet);
+CREATE INDEX idx_binh_luan_blog_ngay_tao ON binh_luan_blog(ngay_tao DESC);

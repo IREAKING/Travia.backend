@@ -1,6 +1,6 @@
 -- name: CreateSupplier :one
-insert into nha_cung_cap (id, ten, dia_chi, website, mo_ta, logo)
-values ($1, $2, $3, $4, $5, $6)
+insert into nha_cung_cap (id, ten, dia_chi, website, mo_ta, logo, nam_thanh_lap, thanh_pho, quoc_gia, ma_so_thue, so_nhan_vien, giay_to_kinh_doanh)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 returning *;
 
 -- name: GetSupplierByID :one
@@ -194,8 +194,6 @@ WHERE ncc.id = $1;
 
 -- name: GetSupplierRevenueByTimeRange :many
 -- Doanh thu theo khoảng thời gian (ngày, tuần, tháng)
--- name: GetSupplierRevenueChart :many
--- name: GetSupplierRevenueChart :many
 SELECT 
     -- Đổi 'date' thành 'period' và ép kiểu 2 lần để sqlc không thể nhận nhầm
     (DATE_TRUNC($2::text, dc.ngay_dat::timestamp))::timestamp AS period,
@@ -251,8 +249,6 @@ LIMIT $5;
 
 -- name: GetSupplierBookingStatsByStatus :many
 -- Thống kê booking theo trạng thái và thời gian
--- name: GetSupplierBookingStatsByStatusAndTime :many
--- Thống kê booking theo trạng thái phân bổ qua thời gian
 SELECT 
     DATE_TRUNC($2::text, dc.ngay_dat)::timestamp AS ngay_trong_thang,
     dc.trang_thai,
@@ -347,26 +343,6 @@ GROUP BY dmt.id, dmt.ten
 HAVING COUNT(t.id) > 0
 ORDER BY tong_tour DESC;
 
--- name: GetSupplierCancellationAnalysis :one
--- Phân tích tỷ lệ hủy booking
-SELECT 
-    COUNT(DISTINCT dc.id)::int AS total_bookings,
-    COUNT(DISTINCT CASE WHEN dc.trang_thai = 'da_huy' THEN dc.id END)::int AS cancelled_bookings,
-    CASE 
-        WHEN COUNT(DISTINCT dc.id) > 0 THEN 
-            (COUNT(DISTINCT CASE WHEN dc.trang_thai = 'da_huy' THEN dc.id END)::float / COUNT(DISTINCT dc.id)::float * 100)
-        ELSE 0 
-    END::float AS cancellation_rate,
-    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai = 'da_huy'), 0)::numeric AS lost_revenue,
-    COUNT(DISTINCT CASE WHEN dc.trang_thai = 'da_huy' AND dc.ngay_dat >= CURRENT_DATE - INTERVAL '30 days' THEN dc.id END)::int AS cancelled_last_30_days
-FROM nha_cung_cap ncc
-JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
-JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
-JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
-WHERE ncc.id = $1
-    AND ($2::timestamp IS NULL OR dc.ngay_dat >= $2)
-    AND ($3::timestamp IS NULL OR dc.ngay_dat <= $3);
-
 -- name: GetSupplierRatingAnalysis :one
 -- Phân tích đánh giá tour
 SELECT 
@@ -437,39 +413,6 @@ JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
 WHERE ncc.id = $1
 ORDER BY dc.ngay_dat DESC
 LIMIT $2;
-
--- name: GetSupplierMonthlyComparison :one
--- So sánh tháng hiện tại với tháng trước
-SELECT 
-    -- Tháng hiện tại
-    COUNT(DISTINCT dc.id) FILTER (WHERE DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE))::int AS current_month_bookings,
-    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh') AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)), 0)::numeric AS current_month_revenue,
-    
-    -- Tháng trước
-    COUNT(DISTINCT dc.id) FILTER (WHERE DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month'))::int AS previous_month_bookings,
-    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh') AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')), 0)::numeric AS previous_month_revenue,
-    
-    -- Tính phần trăm thay đổi
-    CASE 
-        WHEN COUNT(DISTINCT dc.id) FILTER (WHERE DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) > 0 THEN
-            ((COUNT(DISTINCT dc.id) FILTER (WHERE DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE))::float - 
-              COUNT(DISTINCT dc.id) FILTER (WHERE DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month'))::float) /
-             COUNT(DISTINCT dc.id) FILTER (WHERE DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month'))::float * 100)
-        ELSE 0
-    END::float AS booking_change_percent,
-    
-    CASE 
-        WHEN COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh') AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')), 0) > 0 THEN
-            ((COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh') AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)), 0)::float - 
-              COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh') AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')), 0)::float) /
-             COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh') AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')), 0)::float * 100)
-        ELSE 0
-    END::float AS revenue_change_percent
-FROM nha_cung_cap ncc
-JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
-JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
-JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
-WHERE ncc.id = $1;
 
 -- name: GetSupplierBookingsByStatusAdvanced :many
 -- Lấy danh sách đặt chỗ theo trạng thái với nhiều filter nâng cao
@@ -687,3 +630,74 @@ RETURNING id;
 SELECT * FROM phan_hoi_danh_gia
 WHERE danh_gia_id = $1
 ORDER BY ngay_cap_nhat DESC;
+
+-- name: GetSupplierRevenueStatistics :one
+-- Thống kê doanh thu tổng hợp cho supplier
+SELECT 
+    -- Tổng doanh thu (tất cả thời gian)
+    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS tong_doanh_thu,
+    
+    -- Doanh thu tháng này
+    COALESCE(SUM(dc.tong_tien) FILTER (
+        WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+        AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE)
+    ), 0)::numeric AS doanh_thu_thang_nay,
+    
+    -- Doanh thu tháng trước
+    COALESCE(SUM(dc.tong_tien) FILTER (
+        WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+        AND DATE_TRUNC('month', dc.ngay_dat) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+    ), 0)::numeric AS doanh_thu_thang_truoc,
+    
+    -- Số đặt chỗ trong kỳ (theo period filter)
+    COUNT(DISTINCT dc.id) FILTER (
+        WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+        AND ($2::timestamp IS NULL OR dc.ngay_dat >= $2)
+        AND ($3::timestamp IS NULL OR dc.ngay_dat <= $3)
+    )::int AS so_dat_cho,
+    
+    -- Doanh thu trong kỳ (theo period filter)
+    COALESCE(SUM(dc.tong_tien) FILTER (
+        WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+        AND ($2::timestamp IS NULL OR dc.ngay_dat >= $2)
+        AND ($3::timestamp IS NULL OR dc.ngay_dat <= $3)
+    ), 0)::numeric AS doanh_thu_trong_ky
+FROM nha_cung_cap ncc
+JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
+JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
+JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
+WHERE ncc.id = $1;
+
+-- name: GetSupplierTransactions :many
+-- Lấy danh sách giao dịch (bookings đã thanh toán) với thông tin chi tiết
+SELECT 
+    dc.id AS id,
+    CONCAT('BK-', TO_CHAR(dc.ngay_dat, 'YYYY'), '-', LPAD(dc.id::text, 3, '0')) AS ma_dat_cho,
+    t.tieu_de AS tour_tieu_de,
+    nd.ho_ten AS nguoi_dung_ten,
+    dc.tong_tien AS so_tien,
+    -- Tính phí dịch vụ (5% của tổng tiền, có thể điều chỉnh)
+    (dc.tong_tien * 0.05)::numeric AS phi_dich_vu,
+    -- Số tiền thực nhận = tổng tiền - phí dịch vụ
+    (dc.tong_tien * 0.95)::numeric AS so_tien_thuc_nhan,
+    -- Lấy ngày thanh toán từ lịch sử giao dịch (nếu có)
+    COALESCE(
+        (SELECT MAX(lsgd.ngay_tao)
+         FROM lich_su_giao_dich lsgd
+         WHERE lsgd.dat_cho_id = dc.id
+         AND lsgd.trang_thai = 'thanh_cong'
+         LIMIT 1),
+        dc.ngay_dat
+    ) AS ngay_thanh_toan,
+    dc.trang_thai AS trang_thai
+FROM nha_cung_cap ncc
+JOIN tour t ON t.nha_cung_cap_id = ncc.id AND t.dang_hoat_dong = TRUE
+JOIN khoi_hanh_tour kh ON kh.tour_id = t.id
+JOIN dat_cho dc ON dc.khoi_hanh_id = kh.id
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+WHERE ncc.id = $1
+    AND dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')
+    AND ($2::timestamp IS NULL OR dc.ngay_dat >= $2)
+    AND ($3::timestamp IS NULL OR dc.ngay_dat <= $3)
+ORDER BY ngay_thanh_toan DESC
+LIMIT $4 OFFSET $5;

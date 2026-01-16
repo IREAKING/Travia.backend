@@ -11,27 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addTourDestination = `-- name: AddTourDestination :exec
-INSERT INTO tour_diem_den (
-    tour_id,
-    diem_den_id,
-    thu_tu_tham_quan
-) VALUES (
-    $1, $2, $3
-)
-`
-
-type AddTourDestinationParams struct {
-	TourID        int32  `json:"tour_id"`
-	DiemDenID     int32  `json:"diem_den_id"`
-	ThuTuThamQuan *int32 `json:"thu_tu_tham_quan"`
-}
-
-func (q *Queries) AddTourDestination(ctx context.Context, arg AddTourDestinationParams) error {
-	_, err := q.db.Exec(ctx, addTourDestination, arg.TourID, arg.DiemDenID, arg.ThuTuThamQuan)
-	return err
-}
-
 const addTourImage = `-- name: AddTourImage :one
 INSERT INTO anh_tour (
     tour_id,
@@ -166,6 +145,38 @@ func (q *Queries) CountToursBySupplier(ctx context.Context, nhaCungCapID pgtype.
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const createCategoryTour = `-- name: CreateCategoryTour :one
+INSERT INTO danh_muc_tour (ten, mo_ta, anh, dang_hoat_dong, ngay_tao) VALUES ($1, $2, $3, $4, $5) RETURNING id, ten, mo_ta, anh, dang_hoat_dong, ngay_tao
+`
+
+type CreateCategoryTourParams struct {
+	Ten          string           `json:"ten"`
+	MoTa         *string          `json:"mo_ta"`
+	Anh          *string          `json:"anh"`
+	DangHoatDong *bool            `json:"dang_hoat_dong"`
+	NgayTao      pgtype.Timestamp `json:"ngay_tao"`
+}
+
+func (q *Queries) CreateCategoryTour(ctx context.Context, arg CreateCategoryTourParams) (DanhMucTour, error) {
+	row := q.db.QueryRow(ctx, createCategoryTour,
+		arg.Ten,
+		arg.MoTa,
+		arg.Anh,
+		arg.DangHoatDong,
+		arg.NgayTao,
+	)
+	var i DanhMucTour
+	err := row.Scan(
+		&i.ID,
+		&i.Ten,
+		&i.MoTa,
+		&i.Anh,
+		&i.DangHoatDong,
+		&i.NgayTao,
+	)
+	return i, err
 }
 
 const createDiscountTour = `-- name: CreateDiscountTour :one
@@ -806,6 +817,7 @@ WITH tour_info AS (
         t.id,
         t.tieu_de,
         t.mo_ta,
+        t.danh_muc_id,
         t.so_ngay,
         t.so_dem,
         t.gia_nguoi_lon,
@@ -813,6 +825,7 @@ WITH tour_info AS (
         t.don_vi_tien_te,
         t.trang_thai,
         t.noi_bat,
+        t.nha_cung_cap_id,
         t.ngay_tao,
         t.ngay_cap_nhat,
         dm.ten as ten_danh_muc,
@@ -941,7 +954,7 @@ tour_config AS (
     WHERE tour_id = $1
 )
 SELECT 
-    ti.id, ti.tieu_de, ti.mo_ta, ti.so_ngay, ti.so_dem, ti.gia_nguoi_lon, ti.gia_tre_em, ti.don_vi_tien_te, ti.trang_thai, ti.noi_bat, ti.ngay_tao, ti.ngay_cap_nhat, ti.ten_danh_muc, ti.ten_nha_cung_cap, ti.logo_ncc,
+    ti.id, ti.tieu_de, ti.mo_ta, ti.danh_muc_id, ti.so_ngay, ti.so_dem, ti.gia_nguoi_lon, ti.gia_tre_em, ti.don_vi_tien_te, ti.trang_thai, ti.noi_bat, ti.nha_cung_cap_id, ti.ngay_tao, ti.ngay_cap_nhat, ti.ten_danh_muc, ti.ten_nha_cung_cap, ti.logo_ncc,
     COALESCE(timg.images, '[]'::json) as images,
     COALESCE(td.destinations, '[]'::json) as destinations,
     COALESCE(tit.itinerary, '[]'::json) as itinerary,
@@ -964,6 +977,7 @@ type GetTourDetailByIDRow struct {
 	ID              int32            `json:"id"`
 	TieuDe          string           `json:"tieu_de"`
 	MoTa            *string          `json:"mo_ta"`
+	DanhMucID       *int32           `json:"danh_muc_id"`
 	SoNgay          int32            `json:"so_ngay"`
 	SoDem           int32            `json:"so_dem"`
 	GiaNguoiLon     pgtype.Numeric   `json:"gia_nguoi_lon"`
@@ -971,6 +985,7 @@ type GetTourDetailByIDRow struct {
 	DonViTienTe     *string          `json:"don_vi_tien_te"`
 	TrangThai       *string          `json:"trang_thai"`
 	NoiBat          *bool            `json:"noi_bat"`
+	NhaCungCapID    pgtype.UUID      `json:"nha_cung_cap_id"`
 	NgayTao         pgtype.Timestamp `json:"ngay_tao"`
 	NgayCapNhat     pgtype.Timestamp `json:"ngay_cap_nhat"`
 	TenDanhMuc      *string          `json:"ten_danh_muc"`
@@ -994,6 +1009,7 @@ func (q *Queries) GetTourDetailByID(ctx context.Context, id int32) (GetTourDetai
 		&i.ID,
 		&i.TieuDe,
 		&i.MoTa,
+		&i.DanhMucID,
 		&i.SoNgay,
 		&i.SoDem,
 		&i.GiaNguoiLon,
@@ -1001,6 +1017,7 @@ func (q *Queries) GetTourDetailByID(ctx context.Context, id int32) (GetTourDetai
 		&i.DonViTienTe,
 		&i.TrangThai,
 		&i.NoiBat,
+		&i.NhaCungCapID,
 		&i.NgayTao,
 		&i.NgayCapNhat,
 		&i.TenDanhMuc,
@@ -1558,7 +1575,6 @@ func (q *Queries) SetPrimaryTourImage(ctx context.Context, arg SetPrimaryTourIma
 }
 
 const toggleTourActive = `-- name: ToggleTourActive :one
-
 UPDATE tour
 SET 
     dang_hoat_dong = NOT dang_hoat_dong,

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -68,44 +69,215 @@ func (s *Server) CreateSupplier(c *gin.Context) {
 
 // Đăng ký đối tác (công khai, không cần auth)
 // @Summary Đăng ký đối tác
-// @Description Đăng ký đối tác và chờ admin duyệt (endpoint công khai)
+// @Description Đăng ký đối tác và chờ admin duyệt (endpoint công khai). Upload logo (ảnh) và giấy phép kinh doanh (PDF)
 // @Tags Supplier
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param supplier body models.CreateSupplierRequest true "Thông tin đối tác"
+// @Param nguoi_dai_dien formData string true "Họ tên người đại diện"
+// @Param email formData string true "Email"
+// @Param mat_khau formData string true "Mật khẩu"
+// @Param so_dien_thoai formData string false "Số điện thoại"
+// @Param ten formData string true "Tên nhà cung cấp"
+// @Param dia_chi formData string false "Địa chỉ"
+// @Param website formData string false "Website"
+// @Param mo_ta formData string false "Mô tả"
+// @Param logo formData file false "Logo (ảnh)"
+// @Param nam_thanh_lap formData string true "Năm thành lập (YYYY-MM-DD)"
+// @Param thanh_pho formData string false "Thành phố"
+// @Param quoc_gia formData string false "Quốc gia"
+// @Param ma_so_thue formData string false "Mã số thuế"
+// @Param so_nhan_vien formData string false "Số nhân viên"
+// @Param giay_to_kinh_doanh formData file false "Giấy phép kinh doanh (PDF)"
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
 // @Router /supplier/register [post]
 func (s *Server) RegisterPartner(c *gin.Context) {
-	var req models.CreateSupplierRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Parse form data
+	hoTen := c.PostForm("nguoi_dai_dien")
+	email := c.PostForm("email")
+	matKhau := c.PostForm("mat_khau")
+	soDienThoai := c.PostForm("so_dien_thoai")
+	ten := c.PostForm("ten")
+	diaChi := c.PostForm("dia_chi")
+	website := c.PostForm("website")
+	moTa := c.PostForm("mo_ta")
+	namThanhLapStr := c.PostForm("nam_thanh_lap")
+	thanhPho := c.PostForm("thanh_pho")
+	quocGia := c.PostForm("quoc_gia")
+	maSoThue := c.PostForm("ma_so_thue")
+	soNhanVien := c.PostForm("so_nhan_vien")
+
+	// Validate required fields
+	if hoTen == "" || email == "" || matKhau == "" || ten == "" || namThanhLapStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Các trường bắt buộc: nguoi_dai_dien, email, mat_khau, ten, nam_thanh_lap"})
 		return
 	}
-	hashedPassword, err := utils.HashPassword(req.ThongTinDangNhap.MatKhau)
+
+	// Hash password
+	hashedPassword, err := utils.HashPassword(matKhau)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
+
+	// Parse nam thanh lap
+	namThanhLap, err := time.Parse(time.DateOnly, namThanhLapStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Định dạng năm thành lập không hợp lệ. Sử dụng YYYY-MM-DD"})
+		return
+	}
+
+	// Handle logo upload (image)
+	var logoURL *string
+	logoFile, err := c.FormFile("logo")
+	if err == nil && logoFile != nil {
+		// Validate image type
+		allowedImageTypes := map[string]bool{
+			"image/jpeg": true,
+			"image/jpg":  true,
+			"image/png":  true,
+			"image/gif":  true,
+			"image/webp": true,
+			"image/bmp":  true,
+		}
+
+		contentType := logoFile.Header.Get("Content-Type")
+		if !allowedImageTypes[contentType] {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Logo phải là file ảnh (JPEG, PNG, GIF, WebP, BMP)"})
+			return
+		}
+
+		// Open and read logo file
+		logoReader, err := logoFile.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Không thể đọc file logo: " + err.Error()})
+			return
+		}
+		defer logoReader.Close()
+
+		logoContent, err := io.ReadAll(logoReader)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Không thể đọc nội dung logo: " + err.Error()})
+			return
+		}
+
+		// Upload logo to default bucket
+		bucketName := s.config.SupabaseConfig.Bucket
+		if bucketName == "" {
+			bucketName = "images"
+		}
+		uploadedLogoURL, err := s.uploadFileToSupabase(ctx, logoContent, logoFile.Filename, bucketName, "supplier-logos", contentType)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Không thể upload logo: " + err.Error()})
+			return
+		}
+		logoURL = &uploadedLogoURL
+	}
+
+	// Handle business license upload (PDF)
+	var giayToKinhDoanhURL *string
+	giayToFile, err := c.FormFile("giay_to_kinh_doanh")
+	if err == nil && giayToFile != nil {
+		// Validate PDF type
+		contentType := giayToFile.Header.Get("Content-Type")
+		if contentType != "application/pdf" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Giấy phép kinh doanh phải là file PDF"})
+			return
+		}
+
+		// Open and read PDF file
+		pdfReader, err := giayToFile.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Không thể đọc file giấy phép kinh doanh: " + err.Error()})
+			return
+		}
+		defer pdfReader.Close()
+
+		pdfContent, err := io.ReadAll(pdfReader)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Không thể đọc nội dung giấy phép kinh doanh: " + err.Error()})
+			return
+		}
+
+		// Upload PDF to giay_phep_kinh_doanh bucket
+		uploadedPDFURL, err := s.uploadFileToSupabase(ctx, pdfContent, giayToFile.Filename, "giay_phep_kinh_doanh", "", contentType)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Không thể upload giấy phép kinh doanh: " + err.Error()})
+			return
+		}
+		giayToKinhDoanhURL = &uploadedPDFURL
+	}
+
+	// Prepare optional string pointers
+	var soDienThoaiPtr *string
+	if soDienThoai != "" {
+		soDienThoaiPtr = &soDienThoai
+	}
+
+	var diaChiPtr *string
+	if diaChi != "" {
+		diaChiPtr = &diaChi
+	}
+
+	var websitePtr *string
+	if website != "" {
+		websitePtr = &website
+	}
+
+	var moTaPtr *string
+	if moTa != "" {
+		moTaPtr = &moTa
+	}
+
+	var thanhPhoPtr *string
+	if thanhPho != "" {
+		thanhPhoPtr = &thanhPho
+	}
+
+	var quocGiaPtr *string
+	if quocGia != "" {
+		quocGiaPtr = &quocGia
+	}
+
+	var maSoThuePtr *string
+	if maSoThue != "" {
+		maSoThuePtr = &maSoThue
+	}
+
+	var soNhanVienPtr *string
+	if soNhanVien != "" {
+		soNhanVienPtr = &soNhanVien
+	}
+
+	// Create supplier with user
 	result, err := s.z.CreateSupplierWithUser(context.Background(), db.CreateSupplierWithUserParams{
 		CreateUserParams: db.CreateUserParams{
-			HoTen:        req.ThongTinDangNhap.HoTen,
-			Email:        req.ThongTinDangNhap.Email,
+			HoTen:        hoTen,
+			Email:        email,
 			MatKhauMaHoa: hashedPassword,
-			SoDienThoai:  req.ThongTinDangNhap.SoDienThoai,
+			SoDienThoai:  soDienThoaiPtr,
 			VaiTro:       db.NullVaiTroNguoiDung{VaiTroNguoiDung: db.VaiTroNguoiDung(db.VaiTroNguoiDungNhaCungCap), Valid: true},
-			DangHoatDong: helpers.NewBool(false),
+			DangHoatDong: helpers.NewBool(true),
 			XacThuc:      helpers.NewBool(false),
 			NgayTao:      pgtype.Timestamp{Time: time.Now(), Valid: true},
 			NgayCapNhat:  pgtype.Timestamp{Time: time.Now(), Valid: true},
 		},
 		CreateSupplierParams: db.CreateSupplierParams{
-			Ten:     req.ThongTinNhaCungCap.Ten,
-			DiaChi:  req.ThongTinNhaCungCap.DiaChi,
-			Website: req.ThongTinNhaCungCap.Website,
-			MoTa:    req.ThongTinNhaCungCap.MoTa,
-			Logo:    req.ThongTinNhaCungCap.LogoUrl,
+			Ten:             ten,
+			DiaChi:          diaChiPtr,
+			Website:         websitePtr,
+			MoTa:            moTaPtr,
+			Logo:            logoURL,
+			NamThanhLap:     pgtype.Date{Time: namThanhLap, Valid: true},
+			ThanhPho:        thanhPhoPtr,
+			QuocGia:         quocGiaPtr,
+			MaSoThue:        maSoThuePtr,
+			SoNhanVien:      soNhanVienPtr,
+			GiayToKinhDoanh: giayToKinhDoanhURL,
 		},
 	})
 	if err != nil {
@@ -899,65 +1071,6 @@ func (s *Server) GetSupplierCustomerStats(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Customer stats fetched successfully", "data": data})
 }
-
-// Lấy phân tích tỷ lệ hủy booking
-// @Summary Lấy phân tích tỷ lệ hủy booking
-// @Description Lấy phân tích tỷ lệ hủy booking và doanh thu mất đi
-// @Tags Supplier
-// @Accept json
-// @Produce json
-// @Param start_date query string false "Start date (YYYY-MM-DD)"
-// @Param end_date query string false "End date (YYYY-MM-DD)"
-// @Security ApiKeyAuth
-// @Success 200 {object} gin.H
-// @Failure 400 {object} gin.H
-// @Failure 500 {object} gin.H
-// @Router /supplier/dashboard/cancellation-analysis [get]
-func (s *Server) GetSupplierCancellationAnalysis(c *gin.Context) {
-	claims, ok := c.Get("claims")
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
-		return
-	}
-	claimsMap, ok := claims.(*utils.JwtClams)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
-		return
-	}
-	if claimsMap.Vaitro != "nha_cung_cap" {
-		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
-		return
-	}
-	var startDate, endDate *time.Time
-	if startDateStr := c.Query("start_date"); startDateStr != "" {
-		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
-			startDate = &t
-		}
-	}
-	if endDateStr := c.Query("end_date"); endDateStr != "" {
-		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
-			endDate = &t
-		}
-	}
-	var startDatePg, endDatePg pgtype.Timestamp
-	if startDate != nil {
-		startDatePg = pgtype.Timestamp{Time: *startDate, Valid: true}
-	}
-	if endDate != nil {
-		endDatePg = pgtype.Timestamp{Time: *endDate, Valid: true}
-	}
-	data, err := s.z.GetSupplierCancellationAnalysis(context.Background(), db.GetSupplierCancellationAnalysisParams{
-		ID:      claimsMap.Id,
-		Column2: startDatePg,
-		Column3: endDatePg,
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Cancellation analysis fetched successfully", "data": data})
-}
-
 // Lấy phân tích đánh giá
 // @Summary Lấy phân tích đánh giá
 // @Description Lấy phân tích đánh giá tour với số lượng theo từng sao
@@ -1076,18 +1189,20 @@ func (s *Server) GetSupplierRecentBookings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Recent bookings fetched successfully", "data": data})
 }
 
-// So sánh tháng hiện tại với tháng trước
-// @Summary So sánh tháng hiện tại với tháng trước
-// @Description So sánh số booking và doanh thu tháng hiện tại với tháng trước
+// Lấy thống kê doanh thu tổng hợp
+// @Summary Lấy thống kê doanh thu tổng hợp
+// @Description Lấy thống kê doanh thu tổng hợp: tổng doanh thu, doanh thu tháng này, tháng trước, số đặt chỗ, trung bình/đơn
 // @Tags Supplier
 // @Accept json
 // @Produce json
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
 // @Security ApiKeyAuth
 // @Success 200 {object} gin.H
 // @Failure 400 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /supplier/dashboard/monthly-comparison [get]
-func (s *Server) GetSupplierMonthlyComparison(c *gin.Context) {
+// @Router /supplier/revenue/statistics [get]
+func (s *Server) GetSupplierRevenueStatistics(c *gin.Context) {
 	claims, ok := c.Get("claims")
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
@@ -1102,12 +1217,167 @@ func (s *Server) GetSupplierMonthlyComparison(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
 		return
 	}
-	data, err := s.z.GetSupplierMonthlyComparison(context.Background(), claimsMap.Id)
+
+	var startDate, endDate *time.Time
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = &t
+		}
+	}
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			endDate = &t
+		}
+	}
+	var startDatePg, endDatePg pgtype.Timestamp
+	if startDate != nil {
+		startDatePg = pgtype.Timestamp{Time: *startDate, Valid: true}
+	}
+	if endDate != nil {
+		endDatePg = pgtype.Timestamp{Time: *endDate, Valid: true}
+	}
+
+	data, err := s.z.GetSupplierRevenueStatistics(context.Background(), db.GetSupplierRevenueStatisticsParams{
+		ID:      claimsMap.Id,
+		Column2: startDatePg,
+		Column3: endDatePg,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Monthly comparison fetched successfully", "data": data})
+
+	// Tính tỷ lệ tăng trưởng
+	var tyLeTangTruong float64
+	if data.DoanhThuThangTruoc.Valid {
+		prevRevenue, _ := data.DoanhThuThangTruoc.Float64Value()
+		if prevRevenue.Float64 > 0 {
+			currentRevenue := float64(0)
+			if data.DoanhThuThangNay.Valid {
+				current, _ := data.DoanhThuThangNay.Float64Value()
+				currentRevenue = current.Float64
+			}
+			tyLeTangTruong = ((currentRevenue - prevRevenue.Float64) / prevRevenue.Float64) * 100
+		}
+	}
+
+	// Tính doanh thu trung bình/đơn
+	var doanhThuTrungBinhDon float64
+	if data.SoDatCho > 0 && data.DoanhThuTrongKy.Valid {
+		revenue, _ := data.DoanhThuTrongKy.Float64Value()
+		doanhThuTrungBinhDon = revenue.Float64 / float64(data.SoDatCho)
+	}
+
+	// Format response
+	response := gin.H{
+		"tong_doanh_thu":              getNumericValue(data.TongDoanhThu),
+		"doanh_thu_thang_nay":         getNumericValue(data.DoanhThuThangNay),
+		"doanh_thu_thang_truoc":       getNumericValue(data.DoanhThuThangTruoc),
+		"ty_le_tang_truong":           tyLeTangTruong,
+		"so_dat_cho":                  data.SoDatCho,
+		"doanh_thu_trung_binh_don":    doanhThuTrungBinhDon,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Revenue statistics fetched successfully", "data": response})
+}
+
+// Helper function để lấy giá trị numeric
+func getNumericValue(n pgtype.Numeric) float64 {
+	if n.Valid {
+		val, _ := n.Float64Value()
+		return val.Float64
+	}
+	return 0
+}
+
+// Lấy danh sách giao dịch (transactions)
+// @Summary Lấy danh sách giao dịch
+// @Description Lấy danh sách giao dịch đã thanh toán với thông tin chi tiết
+// @Tags Supplier
+// @Accept json
+// @Produce json
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
+// @Param limit query int false "Limit" default(50)
+// @Param offset query int false "Offset" default(0)
+// @Security ApiKeyAuth
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /supplier/revenue/transactions [get]
+func (s *Server) GetSupplierTransactions(c *gin.Context) {
+	claims, ok := c.Get("claims")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	claimsMap, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	if claimsMap.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
+		return
+	}
+
+	var startDate, endDate *time.Time
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = &t
+		}
+	}
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			endDate = &t
+		}
+	}
+	var startDatePg, endDatePg pgtype.Timestamp
+	if startDate != nil {
+		startDatePg = pgtype.Timestamp{Time: *startDate, Valid: true}
+	}
+	if endDate != nil {
+		endDatePg = pgtype.Timestamp{Time: *endDate, Valid: true}
+	}
+
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	if limit == 0 {
+		limit = 50
+	}
+	offset, _ := strconv.Atoi(c.Query("offset"))
+	if offset < 0 {
+		offset = 0
+	}
+
+	data, err := s.z.GetSupplierTransactions(context.Background(), db.GetSupplierTransactionsParams{
+		ID:      claimsMap.Id,
+		Column2: startDatePg,
+		Column3: endDatePg,
+		Limit:   int32(limit),
+		Offset:  int32(offset),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	// Format response
+	transactions := make([]gin.H, 0, len(data))
+	for _, item := range data {
+		transactions = append(transactions, gin.H{
+			"id":                 item.ID,
+			"ma_dat_cho":         item.MaDatCho,
+			"tour_tieu_de":       item.TourTieuDe,
+			"nguoi_dung_ten":     item.NguoiDungTen,
+			"so_tien":            getNumericValue(item.SoTien),
+			"phi_dich_vu":        getNumericValue(item.PhiDichVu),
+			"so_tien_thuc_nhan":  getNumericValue(item.SoTienThucNhan),
+			"ngay_thanh_toan":    item.NgayThanhToan,
+			"trang_thai":         item.TrangThai,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Transactions fetched successfully", "data": transactions})
 }
 
 // Lấy danh sách đặt chỗ theo trạng thái với filter nâng cao

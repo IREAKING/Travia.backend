@@ -300,6 +300,54 @@ func (q *Queries) ApproveSupplier(ctx context.Context, id pgtype.UUID) (NguoiDun
 	return i, err
 }
 
+const countAllBookingsForAdmin = `-- name: CountAllBookingsForAdmin :one
+SELECT COUNT(*)::int AS total
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN nha_cung_cap ncc ON ncc.id = t.nha_cung_cap_id
+WHERE 
+    -- Filter theo thời gian đặt chỗ
+    ($1::timestamp IS NULL OR dc.ngay_dat >= $1::timestamp)
+    AND ($2::timestamp IS NULL OR dc.ngay_dat <= $2::timestamp)
+    -- Filter theo nhà cung cấp
+    AND ($3::uuid IS NULL OR t.nha_cung_cap_id = $3::uuid)
+    -- Filter theo trạng thái
+    AND ($4::text IS NULL OR dc.trang_thai::text = $4::text)
+    -- Filter theo tìm kiếm
+    AND (
+        $5::text IS NULL 
+        OR $5::text = ''
+        OR nd.ho_ten ILIKE '%' || $5::text || '%'
+        OR nd.email ILIKE '%' || $5::text || '%'
+        OR t.tieu_de ILIKE '%' || $5::text || '%'
+        OR dc.id::text = $5::text
+    )
+`
+
+type CountAllBookingsForAdminParams struct {
+	StartDate  pgtype.Timestamp `json:"start_date"`
+	EndDate    pgtype.Timestamp `json:"end_date"`
+	SupplierID pgtype.UUID      `json:"supplier_id"`
+	TrangThai  *string          `json:"trang_thai"`
+	Search     *string          `json:"search"`
+}
+
+// Đếm tổng số booking cho admin với filter
+func (q *Queries) CountAllBookingsForAdmin(ctx context.Context, arg CountAllBookingsForAdminParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countAllBookingsForAdmin,
+		arg.StartDate,
+		arg.EndDate,
+		arg.SupplierID,
+		arg.TrangThai,
+		arg.Search,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const deleteSupplier = `-- name: DeleteSupplier :exec
 DELETE FROM nha_cung_cap
 WHERE id = $1 AND nha_cung_cap.dang_hoat_dong = TRUE
@@ -308,6 +356,108 @@ WHERE id = $1 AND nha_cung_cap.dang_hoat_dong = TRUE
 func (q *Queries) DeleteSupplier(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSupplier, id)
 	return err
+}
+
+const getAdminBookingStatistics = `-- name: GetAdminBookingStatistics :one
+SELECT 
+    -- Tổng số booking
+    COUNT(*)::int AS tong_so_booking,
+    
+    -- Thống kê theo trạng thái
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'cho_xac_nhan')::int AS cho_xac_nhan,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'da_xac_nhan')::int AS da_xac_nhan,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'da_thanh_toan')::int AS da_thanh_toan,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'hoan_thanh')::int AS hoan_thanh,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'da_huy')::int AS da_huy,
+    
+    -- Tổng tiền
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS tong_tien,
+    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS tong_doanh_thu,
+    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai = 'da_huy'), 0)::numeric AS tong_tien_da_huy,
+    
+    -- Tổng số khách hàng
+    COUNT(DISTINCT dc.nguoi_dung_id)::int AS tong_so_khach_hang,
+    
+    -- Tổng số tour
+    COUNT(DISTINCT t.id)::int AS tong_so_tour,
+    
+    -- Tổng số nhà cung cấp
+    COUNT(DISTINCT t.nha_cung_cap_id)::int AS tong_so_nha_cung_cap,
+    
+    -- Tổng số khách (người lớn + trẻ em)
+    COALESCE(SUM(COALESCE(dc.so_nguoi_lon, 0) + COALESCE(dc.so_tre_em, 0)), 0)::int AS tong_so_khach,
+    COALESCE(SUM(COALESCE(dc.so_nguoi_lon, 0) + COALESCE(dc.so_tre_em, 0)) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS tong_so_khach_thanh_cong,
+    
+    -- Trung bình giá trị booking
+    COALESCE(AVG(dc.tong_tien), 0)::numeric AS gia_tri_trung_binh,
+    COALESCE(AVG(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS gia_tri_trung_binh_thanh_cong
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+WHERE 
+    -- Filter theo thời gian đặt chỗ
+    ($1::timestamp IS NULL OR dc.ngay_dat >= $1::timestamp)
+    AND ($2::timestamp IS NULL OR dc.ngay_dat <= $2::timestamp)
+    -- Filter theo nhà cung cấp
+    AND ($3::uuid IS NULL OR t.nha_cung_cap_id = $3::uuid)
+    -- Filter theo trạng thái (có thể filter nhiều trạng thái)
+    AND ($4::text IS NULL OR dc.trang_thai::text = $4::text)
+`
+
+type GetAdminBookingStatisticsParams struct {
+	StartDate  pgtype.Timestamp `json:"start_date"`
+	EndDate    pgtype.Timestamp `json:"end_date"`
+	SupplierID pgtype.UUID      `json:"supplier_id"`
+	TrangThai  *string          `json:"trang_thai"`
+}
+
+type GetAdminBookingStatisticsRow struct {
+	TongSoBooking            int32          `json:"tong_so_booking"`
+	ChoXacNhan               int32          `json:"cho_xac_nhan"`
+	DaXacNhan                int32          `json:"da_xac_nhan"`
+	DaThanhToan              int32          `json:"da_thanh_toan"`
+	HoanThanh                int32          `json:"hoan_thanh"`
+	DaHuy                    int32          `json:"da_huy"`
+	TongTien                 pgtype.Numeric `json:"tong_tien"`
+	TongDoanhThu             pgtype.Numeric `json:"tong_doanh_thu"`
+	TongTienDaHuy            pgtype.Numeric `json:"tong_tien_da_huy"`
+	TongSoKhachHang          int32          `json:"tong_so_khach_hang"`
+	TongSoTour               int32          `json:"tong_so_tour"`
+	TongSoNhaCungCap         int32          `json:"tong_so_nha_cung_cap"`
+	TongSoKhach              int32          `json:"tong_so_khach"`
+	TongSoKhachThanhCong     int32          `json:"tong_so_khach_thanh_cong"`
+	GiaTriTrungBinh          pgtype.Numeric `json:"gia_tri_trung_binh"`
+	GiaTriTrungBinhThanhCong pgtype.Numeric `json:"gia_tri_trung_binh_thanh_cong"`
+}
+
+// Thống kê đặt chỗ chi tiết cho admin với nhiều filter
+func (q *Queries) GetAdminBookingStatistics(ctx context.Context, arg GetAdminBookingStatisticsParams) (GetAdminBookingStatisticsRow, error) {
+	row := q.db.QueryRow(ctx, getAdminBookingStatistics,
+		arg.StartDate,
+		arg.EndDate,
+		arg.SupplierID,
+		arg.TrangThai,
+	)
+	var i GetAdminBookingStatisticsRow
+	err := row.Scan(
+		&i.TongSoBooking,
+		&i.ChoXacNhan,
+		&i.DaXacNhan,
+		&i.DaThanhToan,
+		&i.HoanThanh,
+		&i.DaHuy,
+		&i.TongTien,
+		&i.TongDoanhThu,
+		&i.TongTienDaHuy,
+		&i.TongSoKhachHang,
+		&i.TongSoTour,
+		&i.TongSoNhaCungCap,
+		&i.TongSoKhach,
+		&i.TongSoKhachThanhCong,
+		&i.GiaTriTrungBinh,
+		&i.GiaTriTrungBinhThanhCong,
+	)
+	return i, err
 }
 
 const getAdminSupplierByID = `-- name: GetAdminSupplierByID :one
@@ -365,6 +515,152 @@ func (q *Queries) GetAdminSupplierByID(ctx context.Context, id pgtype.UUID) (Get
 		&i.XacThuc,
 	)
 	return i, err
+}
+
+const getAllBookingsForAdmin = `-- name: GetAllBookingsForAdmin :many
+SELECT 
+    dc.id,
+    dc.nguoi_dung_id,
+    dc.khoi_hanh_id,
+    dc.so_nguoi_lon,
+    dc.so_tre_em,
+    dc.tong_tien,
+    dc.don_vi_tien_te,
+    dc.trang_thai,
+    dc.phuong_thuc_thanh_toan,
+    dc.ngay_dat,
+    dc.ngay_cap_nhat,
+    
+    -- Thông tin khách hàng
+    nd.id AS customer_id,
+    nd.ho_ten AS customer_name,
+    nd.email AS customer_email,
+    nd.so_dien_thoai AS customer_phone,
+    
+    -- Thông tin tour
+    t.id AS tour_id,
+    t.tieu_de AS tour_title,
+    ncc.id AS supplier_id,
+    ncc.ten AS supplier_name,
+    
+    -- Thông tin khởi hành
+    kh.id AS departure_id,
+    kh.ngay_khoi_hanh,
+    kh.ngay_ket_thuc,
+    kh.trang_thai AS departure_status
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN nha_cung_cap ncc ON ncc.id = t.nha_cung_cap_id
+WHERE 
+    -- Filter theo thời gian đặt chỗ
+    ($1::timestamp IS NULL OR dc.ngay_dat >= $1::timestamp)
+    AND ($2::timestamp IS NULL OR dc.ngay_dat <= $2::timestamp)
+    -- Filter theo nhà cung cấp
+    AND ($3::uuid IS NULL OR t.nha_cung_cap_id = $3::uuid)
+    -- Filter theo trạng thái
+    AND ($4::text IS NULL OR dc.trang_thai::text = $4::text)
+    -- Filter theo tìm kiếm
+    AND (
+        $5::text IS NULL 
+        OR $5::text = ''
+        OR nd.ho_ten ILIKE '%' || $5::text || '%'
+        OR nd.email ILIKE '%' || $5::text || '%'
+        OR t.tieu_de ILIKE '%' || $5::text || '%'
+        OR dc.id::text = $5::text
+    )
+ORDER BY dc.ngay_dat DESC
+LIMIT $7::int OFFSET $6::int
+`
+
+type GetAllBookingsForAdminParams struct {
+	StartDate  pgtype.Timestamp `json:"start_date"`
+	EndDate    pgtype.Timestamp `json:"end_date"`
+	SupplierID pgtype.UUID      `json:"supplier_id"`
+	TrangThai  *string          `json:"trang_thai"`
+	Search     *string          `json:"search"`
+	Offset     int32            `json:"offset"`
+	Limit      int32            `json:"limit"`
+}
+
+type GetAllBookingsForAdminRow struct {
+	ID                  int32                 `json:"id"`
+	NguoiDungID         pgtype.UUID           `json:"nguoi_dung_id"`
+	KhoiHanhID          int32                 `json:"khoi_hanh_id"`
+	SoNguoiLon          *int32                `json:"so_nguoi_lon"`
+	SoTreEm             *int32                `json:"so_tre_em"`
+	TongTien            pgtype.Numeric        `json:"tong_tien"`
+	DonViTienTe         *string               `json:"don_vi_tien_te"`
+	TrangThai           NullTrangThaiDatCho   `json:"trang_thai"`
+	PhuongThucThanhToan *string               `json:"phuong_thuc_thanh_toan"`
+	NgayDat             pgtype.Timestamp      `json:"ngay_dat"`
+	NgayCapNhat         pgtype.Timestamp      `json:"ngay_cap_nhat"`
+	CustomerID          pgtype.UUID           `json:"customer_id"`
+	CustomerName        string                `json:"customer_name"`
+	CustomerEmail       string                `json:"customer_email"`
+	CustomerPhone       *string               `json:"customer_phone"`
+	TourID              int32                 `json:"tour_id"`
+	TourTitle           string                `json:"tour_title"`
+	SupplierID          pgtype.UUID           `json:"supplier_id"`
+	SupplierName        string                `json:"supplier_name"`
+	DepartureID         int32                 `json:"departure_id"`
+	NgayKhoiHanh        pgtype.Date           `json:"ngay_khoi_hanh"`
+	NgayKetThuc         pgtype.Date           `json:"ngay_ket_thuc"`
+	DepartureStatus     NullTrangThaiKhoiHanh `json:"departure_status"`
+}
+
+// Lấy tất cả booking cho admin với filter và pagination
+func (q *Queries) GetAllBookingsForAdmin(ctx context.Context, arg GetAllBookingsForAdminParams) ([]GetAllBookingsForAdminRow, error) {
+	rows, err := q.db.Query(ctx, getAllBookingsForAdmin,
+		arg.StartDate,
+		arg.EndDate,
+		arg.SupplierID,
+		arg.TrangThai,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllBookingsForAdminRow
+	for rows.Next() {
+		var i GetAllBookingsForAdminRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NguoiDungID,
+			&i.KhoiHanhID,
+			&i.SoNguoiLon,
+			&i.SoTreEm,
+			&i.TongTien,
+			&i.DonViTienTe,
+			&i.TrangThai,
+			&i.PhuongThucThanhToan,
+			&i.NgayDat,
+			&i.NgayCapNhat,
+			&i.CustomerID,
+			&i.CustomerName,
+			&i.CustomerEmail,
+			&i.CustomerPhone,
+			&i.TourID,
+			&i.TourTitle,
+			&i.SupplierID,
+			&i.SupplierName,
+			&i.DepartureID,
+			&i.NgayKhoiHanh,
+			&i.NgayKetThuc,
+			&i.DepartureStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAllSuppliers = `-- name: GetAllSuppliers :many

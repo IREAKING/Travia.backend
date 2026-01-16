@@ -96,6 +96,66 @@ func (q *Queries) AutoCompleteBookings(ctx context.Context) error {
 	return err
 }
 
+const calculateRefundAmount = `-- name: CalculateRefundAmount :one
+WITH booking_info AS (
+    SELECT 
+        dc.tong_tien,
+        kh.ngay_khoi_hanh,
+        (kh.ngay_khoi_hanh - CURRENT_DATE)::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    WHERE dc.id = $1::int
+),
+refund_calc AS (
+    SELECT 
+        bi.tong_tien,
+        bi.so_ngay_truoc_khoi_hanh,
+        CASE 
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END::DECIMAL(5,2) AS phan_tram_hoan,
+        CASE 
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 15 THEN 'Hủy trước 15 ngày - hoàn 100%'
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 7 THEN 'Hủy trước 7 ngày - hoàn 90%'
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 3 THEN 'Hủy trước 3 ngày - hoàn 70%'
+            WHEN bi.so_ngay_truoc_khoi_hanh >= 1 THEN 'Hủy trước 24 giờ - hoàn 50%'
+            ELSE 'Hủy trong 24 giờ - không hoàn tiền'
+        END::TEXT AS ly_do
+    FROM booking_info bi
+)
+SELECT 
+    rc.tong_tien,
+    (rc.tong_tien * rc.phan_tram_hoan / 100.00)::DECIMAL(12,2) AS so_tien_hoan,
+    rc.phan_tram_hoan,
+    rc.so_ngay_truoc_khoi_hanh,
+    rc.ly_do
+FROM refund_calc rc
+`
+
+type CalculateRefundAmountRow struct {
+	TongTien            pgtype.Numeric `json:"tong_tien"`
+	SoTienHoan          pgtype.Numeric `json:"so_tien_hoan"`
+	PhanTramHoan        pgtype.Numeric `json:"phan_tram_hoan"`
+	SoNgayTruocKhoiHanh int32          `json:"so_ngay_truoc_khoi_hanh"`
+	LyDo                string         `json:"ly_do"`
+}
+
+func (q *Queries) CalculateRefundAmount(ctx context.Context, bookingID int32) (CalculateRefundAmountRow, error) {
+	row := q.db.QueryRow(ctx, calculateRefundAmount, bookingID)
+	var i CalculateRefundAmountRow
+	err := row.Scan(
+		&i.TongTien,
+		&i.SoTienHoan,
+		&i.PhanTramHoan,
+		&i.SoNgayTruocKhoiHanh,
+		&i.LyDo,
+	)
+	return i, err
+}
+
 const calculateTourPrice = `-- name: CalculateTourPrice :one
 SELECT  FROM tinh_gia_tour(
     $1::int, 
@@ -121,13 +181,33 @@ func (q *Queries) CalculateTourPrice(ctx context.Context, arg CalculateTourPrice
 	return i, err
 }
 
-const cancelBooking = `-- name: CancelBooking :exec
-SELECT cancel_booking($1::int)
+const cancelBooking = `-- name: CancelBooking :one
+SELECT 
+    so_tien_hoan::DECIMAL(12,2) as so_tien_hoan,
+    phan_tram_hoan::DECIMAL(5,2) as phan_tram_hoan,
+    so_ngay_truoc_khoi_hanh::INT as so_ngay_truoc_khoi_hanh,
+    ly_do::TEXT as ly_do
+FROM cancel_booking($1::int)
+LIMIT 1
 `
 
-func (q *Queries) CancelBooking(ctx context.Context, bookingID int32) error {
-	_, err := q.db.Exec(ctx, cancelBooking, bookingID)
-	return err
+type CancelBookingRow struct {
+	SoTienHoan          pgtype.Numeric `json:"so_tien_hoan"`
+	PhanTramHoan        pgtype.Numeric `json:"phan_tram_hoan"`
+	SoNgayTruocKhoiHanh int32          `json:"so_ngay_truoc_khoi_hanh"`
+	LyDo                string         `json:"ly_do"`
+}
+
+func (q *Queries) CancelBooking(ctx context.Context, bookingID int32) (CancelBookingRow, error) {
+	row := q.db.QueryRow(ctx, cancelBooking, bookingID)
+	var i CancelBookingRow
+	err := row.Scan(
+		&i.SoTienHoan,
+		&i.PhanTramHoan,
+		&i.SoNgayTruocKhoiHanh,
+		&i.LyDo,
+	)
+	return i, err
 }
 
 const checkDepartureAvailability = `-- name: CheckDepartureAvailability :one
@@ -351,6 +431,26 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 	return i, err
 }
 
+const deleteBooking = `-- name: DeleteBooking :exec
+DELETE FROM dat_cho WHERE id = $1
+`
+
+// Xóa đặt chỗ
+func (q *Queries) DeleteBooking(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteBooking, id)
+	return err
+}
+
+const deleteBookings = `-- name: DeleteBookings :exec
+DELETE FROM dat_cho WHERE id IN (SELECT unnest($1::int[]))
+`
+
+// Xóa nhiều đặt chỗ
+func (q *Queries) DeleteBookings(ctx context.Context, ids []int32) error {
+	_, err := q.db.Exec(ctx, deleteBookings, ids)
+	return err
+}
+
 const deletePassenger = `-- name: DeletePassenger :exec
 DELETE FROM hanh_khach WHERE id = $1
 `
@@ -359,6 +459,178 @@ DELETE FROM hanh_khach WHERE id = $1
 func (q *Queries) DeletePassenger(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deletePassenger, id)
 	return err
+}
+
+const getAllRefunds = `-- name: GetAllRefunds :many
+
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        kh.ngay_khoi_hanh,
+        -- Tính số ngày trước khởi hành tại thời điểm hủy (ngay_cap_nhat)
+        (kh.ngay_khoi_hanh - DATE(dc.ngay_cap_nhat))::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    WHERE dc.trang_thai = 'da_huy'
+)
+SELECT 
+    dc.id AS booking_id,
+    dc.ngay_dat,
+    dc.ngay_cap_nhat AS ngay_huy,
+    dc.tong_tien,
+    dc.don_vi_tien_te,
+    dc.so_nguoi_lon,
+    dc.so_tre_em,
+    dc.phuong_thuc_thanh_toan,
+    dc.trang_thai,
+    
+    -- Thông tin khách hàng
+    nd.id AS customer_id,
+    nd.ho_ten AS customer_name,
+    nd.email AS customer_email,
+    nd.so_dien_thoai AS customer_phone,
+    
+    -- Thông tin tour
+    t.id AS tour_id,
+    t.tieu_de AS tour_title,
+    ncc.id AS supplier_id,
+    ncc.ten AS supplier_name,
+    
+    -- Thông tin khởi hành
+    kh.id AS departure_id,
+    kh.ngay_khoi_hanh,
+    kh.ngay_ket_thuc,
+    
+    -- Thông tin refund
+    ri.so_ngay_truoc_khoi_hanh,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+        ELSE 0.00
+    END::DECIMAL(5,2) AS phan_tram_hoan,
+    (ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00)::DECIMAL(12,2) AS so_tien_hoan,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 'Hủy trước 15 ngày - hoàn 100%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 'Hủy trước 7 ngày - hoàn 90%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 'Hủy trước 3 ngày - hoàn 70%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 'Hủy trước 24 giờ - hoàn 50%'
+        ELSE 'Hủy trong 24 giờ - không hoàn tiền'
+    END::TEXT AS ly_do
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN nha_cung_cap ncc ON ncc.id = t.nha_cung_cap_id
+JOIN refund_info ri ON ri.booking_id = dc.id
+WHERE dc.trang_thai = 'da_huy'
+    AND ($1::timestamp IS NULL OR dc.ngay_cap_nhat >= $1::timestamp)
+    AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat <= $2::timestamp)
+    AND ($3::uuid IS NULL OR ncc.id = $3::uuid)
+    AND ($4::text IS NULL OR nd.ho_ten ILIKE '%' || $4::text || '%' OR nd.email ILIKE '%' || $4::text || '%' OR t.tieu_de ILIKE '%' || $4::text || '%')
+ORDER BY dc.ngay_cap_nhat DESC
+LIMIT $5 OFFSET $6
+`
+
+type GetAllRefundsParams struct {
+	Column1 pgtype.Timestamp `json:"column_1"`
+	Column2 pgtype.Timestamp `json:"column_2"`
+	Column3 pgtype.UUID      `json:"column_3"`
+	Column4 string           `json:"column_4"`
+	Limit   int32            `json:"limit"`
+	Offset  int32            `json:"offset"`
+}
+
+type GetAllRefundsRow struct {
+	BookingID           int32               `json:"booking_id"`
+	NgayDat             pgtype.Timestamp    `json:"ngay_dat"`
+	NgayHuy             pgtype.Timestamp    `json:"ngay_huy"`
+	TongTien            pgtype.Numeric      `json:"tong_tien"`
+	DonViTienTe         *string             `json:"don_vi_tien_te"`
+	SoNguoiLon          *int32              `json:"so_nguoi_lon"`
+	SoTreEm             *int32              `json:"so_tre_em"`
+	PhuongThucThanhToan *string             `json:"phuong_thuc_thanh_toan"`
+	TrangThai           NullTrangThaiDatCho `json:"trang_thai"`
+	CustomerID          pgtype.UUID         `json:"customer_id"`
+	CustomerName        string              `json:"customer_name"`
+	CustomerEmail       string              `json:"customer_email"`
+	CustomerPhone       *string             `json:"customer_phone"`
+	TourID              int32               `json:"tour_id"`
+	TourTitle           string              `json:"tour_title"`
+	SupplierID          pgtype.UUID         `json:"supplier_id"`
+	SupplierName        string              `json:"supplier_name"`
+	DepartureID         int32               `json:"departure_id"`
+	NgayKhoiHanh        pgtype.Date         `json:"ngay_khoi_hanh"`
+	NgayKetThuc         pgtype.Date         `json:"ngay_ket_thuc"`
+	SoNgayTruocKhoiHanh int32               `json:"so_ngay_truoc_khoi_hanh"`
+	PhanTramHoan        pgtype.Numeric      `json:"phan_tram_hoan"`
+	SoTienHoan          pgtype.Numeric      `json:"so_tien_hoan"`
+	LyDo                string              `json:"ly_do"`
+}
+
+// ===========================================
+// QUẢN LÝ HOÀN TIỀN (REFUND MANAGEMENT)
+// ===========================================
+// Lấy tất cả refund cho admin (tất cả booking đã hủy với thông tin refund)
+func (q *Queries) GetAllRefunds(ctx context.Context, arg GetAllRefundsParams) ([]GetAllRefundsRow, error) {
+	rows, err := q.db.Query(ctx, getAllRefunds,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllRefundsRow
+	for rows.Next() {
+		var i GetAllRefundsRow
+		if err := rows.Scan(
+			&i.BookingID,
+			&i.NgayDat,
+			&i.NgayHuy,
+			&i.TongTien,
+			&i.DonViTienTe,
+			&i.SoNguoiLon,
+			&i.SoTreEm,
+			&i.PhuongThucThanhToan,
+			&i.TrangThai,
+			&i.CustomerID,
+			&i.CustomerName,
+			&i.CustomerEmail,
+			&i.CustomerPhone,
+			&i.TourID,
+			&i.TourTitle,
+			&i.SupplierID,
+			&i.SupplierName,
+			&i.DepartureID,
+			&i.NgayKhoiHanh,
+			&i.NgayKetThuc,
+			&i.SoNgayTruocKhoiHanh,
+			&i.PhanTramHoan,
+			&i.SoTienHoan,
+			&i.LyDo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAvailableDepartures = `-- name: GetAvailableDepartures :many
@@ -1069,6 +1341,338 @@ func (q *Queries) GetPendingBookings(ctx context.Context, arg GetPendingBookings
 			&i.NgayKhoiHanh,
 			&i.TenTour,
 			&i.NhaCungCapID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRefundStats = `-- name: GetRefundStats :one
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        dc.ngay_cap_nhat AS ngay_huy,
+        kh.ngay_khoi_hanh,
+        (kh.ngay_khoi_hanh - CURRENT_DATE)::INT AS so_ngay_truoc_khoi_hanh,
+        t.nha_cung_cap_id
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    JOIN tour t ON t.id = kh.tour_id
+    WHERE dc.trang_thai = 'da_huy'
+        AND ($1::timestamp IS NULL OR dc.ngay_cap_nhat >= $1::timestamp)
+        AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat <= $2::timestamp)
+)
+SELECT 
+    COUNT(*)::int AS tong_so_refund,
+    COALESCE(SUM(ri.tong_tien), 0)::numeric AS tong_tien_goc,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00
+    ), 0)::numeric AS tong_tien_hoan,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        (100.00 - 
+            CASE 
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+                ELSE 0.00
+            END
+        ) / 100.00
+    ), 0)::numeric AS tong_tien_phat,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 15)::int AS hoan_100_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 7 AND ri.so_ngay_truoc_khoi_hanh < 15)::int AS hoan_90_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 3 AND ri.so_ngay_truoc_khoi_hanh < 7)::int AS hoan_70_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 1 AND ri.so_ngay_truoc_khoi_hanh < 3)::int AS hoan_50_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh < 1)::int AS khong_hoan
+FROM refund_info ri
+`
+
+type GetRefundStatsParams struct {
+	Column1 pgtype.Timestamp `json:"column_1"`
+	Column2 pgtype.Timestamp `json:"column_2"`
+}
+
+type GetRefundStatsRow struct {
+	TongSoRefund   int32          `json:"tong_so_refund"`
+	TongTienGoc    pgtype.Numeric `json:"tong_tien_goc"`
+	TongTienHoan   pgtype.Numeric `json:"tong_tien_hoan"`
+	TongTienPhat   pgtype.Numeric `json:"tong_tien_phat"`
+	Hoan100Percent int32          `json:"hoan_100_percent"`
+	Hoan90Percent  int32          `json:"hoan_90_percent"`
+	Hoan70Percent  int32          `json:"hoan_70_percent"`
+	Hoan50Percent  int32          `json:"hoan_50_percent"`
+	KhongHoan      int32          `json:"khong_hoan"`
+}
+
+// Thống kê refund cho admin
+func (q *Queries) GetRefundStats(ctx context.Context, arg GetRefundStatsParams) (GetRefundStatsRow, error) {
+	row := q.db.QueryRow(ctx, getRefundStats, arg.Column1, arg.Column2)
+	var i GetRefundStatsRow
+	err := row.Scan(
+		&i.TongSoRefund,
+		&i.TongTienGoc,
+		&i.TongTienHoan,
+		&i.TongTienPhat,
+		&i.Hoan100Percent,
+		&i.Hoan90Percent,
+		&i.Hoan70Percent,
+		&i.Hoan50Percent,
+		&i.KhongHoan,
+	)
+	return i, err
+}
+
+const getSupplierRefundStats = `-- name: GetSupplierRefundStats :one
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        dc.ngay_cap_nhat AS ngay_huy,
+        kh.ngay_khoi_hanh,
+        (kh.ngay_khoi_hanh - CURRENT_DATE)::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    JOIN tour t ON t.id = kh.tour_id
+    WHERE dc.trang_thai = 'da_huy'
+        AND t.nha_cung_cap_id = $1::uuid
+        AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat >= $2::timestamp)
+        AND ($3::timestamp IS NULL OR dc.ngay_cap_nhat <= $3::timestamp)
+)
+SELECT 
+    COUNT(*)::int AS tong_so_refund,
+    COALESCE(SUM(ri.tong_tien), 0)::numeric AS tong_tien_goc,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00
+    ), 0)::numeric AS tong_tien_hoan,
+    COALESCE(SUM(
+        ri.tong_tien * 
+        (100.00 - 
+            CASE 
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+                WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+                ELSE 0.00
+            END
+        ) / 100.00
+    ), 0)::numeric AS tong_tien_phat,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 15)::int AS hoan_100_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 7 AND ri.so_ngay_truoc_khoi_hanh < 15)::int AS hoan_90_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 3 AND ri.so_ngay_truoc_khoi_hanh < 7)::int AS hoan_70_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh >= 1 AND ri.so_ngay_truoc_khoi_hanh < 3)::int AS hoan_50_percent,
+    COUNT(*) FILTER (WHERE ri.so_ngay_truoc_khoi_hanh < 1)::int AS khong_hoan
+FROM refund_info ri
+`
+
+type GetSupplierRefundStatsParams struct {
+	Column1 pgtype.UUID      `json:"column_1"`
+	Column2 pgtype.Timestamp `json:"column_2"`
+	Column3 pgtype.Timestamp `json:"column_3"`
+}
+
+type GetSupplierRefundStatsRow struct {
+	TongSoRefund   int32          `json:"tong_so_refund"`
+	TongTienGoc    pgtype.Numeric `json:"tong_tien_goc"`
+	TongTienHoan   pgtype.Numeric `json:"tong_tien_hoan"`
+	TongTienPhat   pgtype.Numeric `json:"tong_tien_phat"`
+	Hoan100Percent int32          `json:"hoan_100_percent"`
+	Hoan90Percent  int32          `json:"hoan_90_percent"`
+	Hoan70Percent  int32          `json:"hoan_70_percent"`
+	Hoan50Percent  int32          `json:"hoan_50_percent"`
+	KhongHoan      int32          `json:"khong_hoan"`
+}
+
+// Thống kê refund cho supplier
+func (q *Queries) GetSupplierRefundStats(ctx context.Context, arg GetSupplierRefundStatsParams) (GetSupplierRefundStatsRow, error) {
+	row := q.db.QueryRow(ctx, getSupplierRefundStats, arg.Column1, arg.Column2, arg.Column3)
+	var i GetSupplierRefundStatsRow
+	err := row.Scan(
+		&i.TongSoRefund,
+		&i.TongTienGoc,
+		&i.TongTienHoan,
+		&i.TongTienPhat,
+		&i.Hoan100Percent,
+		&i.Hoan90Percent,
+		&i.Hoan70Percent,
+		&i.Hoan50Percent,
+		&i.KhongHoan,
+	)
+	return i, err
+}
+
+const getSupplierRefunds = `-- name: GetSupplierRefunds :many
+WITH refund_info AS (
+    SELECT 
+        dc.id AS booking_id,
+        dc.tong_tien,
+        kh.ngay_khoi_hanh,
+        -- Tính số ngày trước khởi hành tại thời điểm hủy (ngay_cap_nhat)
+        (kh.ngay_khoi_hanh - DATE(dc.ngay_cap_nhat))::INT AS so_ngay_truoc_khoi_hanh
+    FROM dat_cho dc
+    JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+    JOIN tour t ON t.id = kh.tour_id
+    WHERE dc.trang_thai = 'da_huy'
+        AND t.nha_cung_cap_id = $1::uuid
+)
+SELECT 
+    dc.id AS booking_id,
+    dc.ngay_dat,
+    dc.ngay_cap_nhat AS ngay_huy,
+    dc.tong_tien,
+    dc.don_vi_tien_te,
+    dc.so_nguoi_lon,
+    dc.so_tre_em,
+    dc.phuong_thuc_thanh_toan,
+    dc.trang_thai,
+    
+    -- Thông tin khách hàng
+    nd.id AS customer_id,
+    nd.ho_ten AS customer_name,
+    nd.email AS customer_email,
+    nd.so_dien_thoai AS customer_phone,
+    
+    -- Thông tin tour
+    t.id AS tour_id,
+    t.tieu_de AS tour_title,
+    
+    -- Thông tin khởi hành
+    kh.id AS departure_id,
+    kh.ngay_khoi_hanh,
+    kh.ngay_ket_thuc,
+    
+    -- Thông tin refund
+    ri.so_ngay_truoc_khoi_hanh,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+        ELSE 0.00
+    END::DECIMAL(5,2) AS phan_tram_hoan,
+    (ri.tong_tien * 
+        CASE 
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 100.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 90.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 70.00
+            WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 50.00
+            ELSE 0.00
+        END / 100.00)::DECIMAL(12,2) AS so_tien_hoan,
+    CASE 
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 15 THEN 'Hủy trước 15 ngày - hoàn 100%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 7 THEN 'Hủy trước 7 ngày - hoàn 90%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 3 THEN 'Hủy trước 3 ngày - hoàn 70%'
+        WHEN ri.so_ngay_truoc_khoi_hanh >= 1 THEN 'Hủy trước 24 giờ - hoàn 50%'
+        ELSE 'Hủy trong 24 giờ - không hoàn tiền'
+    END::TEXT AS ly_do
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN refund_info ri ON ri.booking_id = dc.id
+WHERE dc.trang_thai = 'da_huy'
+    AND t.nha_cung_cap_id = $1::uuid
+    AND ($2::timestamp IS NULL OR dc.ngay_cap_nhat >= $2::timestamp)
+    AND ($3::timestamp IS NULL OR dc.ngay_cap_nhat <= $3::timestamp)
+    AND ($4::text IS NULL OR nd.ho_ten ILIKE '%' || $4::text || '%' OR nd.email ILIKE '%' || $4::text || '%' OR t.tieu_de ILIKE '%' || $4::text || '%')
+ORDER BY dc.ngay_cap_nhat DESC
+LIMIT $5 OFFSET $6
+`
+
+type GetSupplierRefundsParams struct {
+	Column1 pgtype.UUID      `json:"column_1"`
+	Column2 pgtype.Timestamp `json:"column_2"`
+	Column3 pgtype.Timestamp `json:"column_3"`
+	Column4 string           `json:"column_4"`
+	Limit   int32            `json:"limit"`
+	Offset  int32            `json:"offset"`
+}
+
+type GetSupplierRefundsRow struct {
+	BookingID           int32               `json:"booking_id"`
+	NgayDat             pgtype.Timestamp    `json:"ngay_dat"`
+	NgayHuy             pgtype.Timestamp    `json:"ngay_huy"`
+	TongTien            pgtype.Numeric      `json:"tong_tien"`
+	DonViTienTe         *string             `json:"don_vi_tien_te"`
+	SoNguoiLon          *int32              `json:"so_nguoi_lon"`
+	SoTreEm             *int32              `json:"so_tre_em"`
+	PhuongThucThanhToan *string             `json:"phuong_thuc_thanh_toan"`
+	TrangThai           NullTrangThaiDatCho `json:"trang_thai"`
+	CustomerID          pgtype.UUID         `json:"customer_id"`
+	CustomerName        string              `json:"customer_name"`
+	CustomerEmail       string              `json:"customer_email"`
+	CustomerPhone       *string             `json:"customer_phone"`
+	TourID              int32               `json:"tour_id"`
+	TourTitle           string              `json:"tour_title"`
+	DepartureID         int32               `json:"departure_id"`
+	NgayKhoiHanh        pgtype.Date         `json:"ngay_khoi_hanh"`
+	NgayKetThuc         pgtype.Date         `json:"ngay_ket_thuc"`
+	SoNgayTruocKhoiHanh int32               `json:"so_ngay_truoc_khoi_hanh"`
+	PhanTramHoan        pgtype.Numeric      `json:"phan_tram_hoan"`
+	SoTienHoan          pgtype.Numeric      `json:"so_tien_hoan"`
+	LyDo                string              `json:"ly_do"`
+}
+
+// Lấy refund cho supplier (chỉ tour của họ)
+func (q *Queries) GetSupplierRefunds(ctx context.Context, arg GetSupplierRefundsParams) ([]GetSupplierRefundsRow, error) {
+	rows, err := q.db.Query(ctx, getSupplierRefunds,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSupplierRefundsRow
+	for rows.Next() {
+		var i GetSupplierRefundsRow
+		if err := rows.Scan(
+			&i.BookingID,
+			&i.NgayDat,
+			&i.NgayHuy,
+			&i.TongTien,
+			&i.DonViTienTe,
+			&i.SoNguoiLon,
+			&i.SoTreEm,
+			&i.PhuongThucThanhToan,
+			&i.TrangThai,
+			&i.CustomerID,
+			&i.CustomerName,
+			&i.CustomerEmail,
+			&i.CustomerPhone,
+			&i.TourID,
+			&i.TourTitle,
+			&i.DepartureID,
+			&i.NgayKhoiHanh,
+			&i.NgayKetThuc,
+			&i.SoNgayTruocKhoiHanh,
+			&i.PhanTramHoan,
+			&i.SoTienHoan,
+			&i.LyDo,
 		); err != nil {
 			return nil, err
 		}

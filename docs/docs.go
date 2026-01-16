@@ -20,6 +20,146 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/bookings": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy danh sách booking với filter và pagination",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy danh sách tất cả booking cho admin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Ngày bắt đầu (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ngày kết thúc (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID Nhà cung cấp (UUID)",
+                        "name": "supplier_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trạng thái booking",
+                        "name": "trang_thai",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Tìm kiếm",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/bookings/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lấy thống kê đặt chỗ với nhiều filter: thời gian, nhà cung cấp, trạng thái",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Lấy thống kê đặt chỗ chi tiết cho admin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Ngày bắt đầu (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ngày kết thúc (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID Nhà cung cấp (UUID)",
+                        "name": "supplier_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trạng thái booking (cho_xac_nhan, da_xac_nhan, da_thanh_toan, hoan_thanh, da_huy)",
+                        "name": "trang_thai",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/chartBookingStatusStats": {
             "get": {
                 "security": [
@@ -642,6 +782,140 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/refunds": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lấy danh sách tất cả refund trong hệ thống với filter",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Lấy tất cả refund cho admin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Supplier ID (UUID)",
+                        "name": "supplier_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search keyword",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/refunds/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lấy thống kê refund trong hệ thống",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Thống kê refund cho admin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/supplierOptions": {
             "get": {
                 "security": [
@@ -910,6 +1184,11 @@ const docTemplate = `{
         },
         "/admin/suppliers/{id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Lấy nhà cung cấp theo ID",
                 "consumes": [
                     "application/json"
@@ -923,7 +1202,7 @@ const docTemplate = `{
                 "summary": "Lấy nhà cung cấp theo ID",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "ID",
                         "name": "id",
                         "in": "path",
@@ -1195,6 +1474,162 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Lỗi server",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/forgot-password/request": {
+            "post": {
+                "description": "Gửi OTP đến email để đặt lại mật khẩu",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Yêu cầu đặt lại mật khẩu",
+                "parameters": [
+                    {
+                        "description": "Email",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RequestPasswordResetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/forgot-password/reset": {
+            "post": {
+                "description": "Đặt lại mật khẩu mới sau khi đã xác thực OTP",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Đặt lại mật khẩu",
+                "parameters": [
+                    {
+                        "description": "Email, OTP và mật khẩu mới",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/forgot-password/verify": {
+            "post": {
+                "description": "Xác thực mã OTP để đặt lại mật khẩu",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Xác thực OTP",
+                "parameters": [
+                    {
+                        "description": "Email và OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.VerifyOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
                         }
@@ -1511,52 +1946,6 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Refresh token không hợp lệ",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Lỗi server",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/resetPassword/{email}": {
-            "put": {
-                "description": "Đặt lại mật khẩu",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Đặt lại mật khẩu",
-                "parameters": [
-                    {
-                        "description": "Thông tin đặt lại mật khẩu",
-                        "name": "req",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/db.ResetPasswordParams"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Thành công",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Lỗi yêu cầu không hợp lệ",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
                         }
@@ -1936,6 +2325,122 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/booking/{id}/calculate-refund": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Tính số tiền hoàn lại dựa trên chính sách hoàn tiền (không hủy booking)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Tính số tiền hoàn lại",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Booking ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/booking/{id}/cancel": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hủy đặt chỗ và tính số tiền hoàn lại theo chính sách hoàn tiền",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Hủy đặt chỗ",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Booking ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
                         }
@@ -2545,6 +3050,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/departure/add-hinh-anh/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Thêm hình ảnh tour",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "departure"
+                ],
+                "summary": "Thêm hình ảnh tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Tour ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Add data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AddHinhAnhTourRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/departure/add-tour-destination/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Thêm một điểm đến tour",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "departure"
+                ],
+                "summary": "Thêm điểm đến tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Tour ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Add data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AddTourDestinationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/departure/create": {
             "post": {
                 "security": [
@@ -2577,6 +3176,177 @@ const docTemplate = `{
                 "responses": {
                     "201": {
                         "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/departure/delete-hinh-anh/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Xóa một hình ảnh tour (cả trong database và Supabase storage)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "departure"
+                ],
+                "summary": "Xóa hình ảnh tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Hình ảnh tour ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/departure/delete-tour-destination/{tour_id}/{diem_den_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Xóa một điểm đến tour",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "departure"
+                ],
+                "summary": "Xóa điểm đến tour",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Tour ID",
+                        "name": "tour_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Diem den ID",
+                        "name": "diem_den_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/departure/hoat-dong-trong-ngay/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cập nhật hoạt động trong ngày",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "departure"
+                ],
+                "summary": "Cập nhật hoạt động trong ngày",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Hoạt động trong ngày ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateHoatDongTrongNgayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/departure/lich-trinh/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cập nhật lịch trình",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "departure"
+                ],
+                "summary": "Cập nhật lịch trình",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Lịch trình ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateLichTrinhRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2913,131 +3683,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/destination/for-tour-creation": {
-            "get": {
-                "description": "Lấy điểm đến với pagination và search, tối ưu cho create tour",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Destination"
-                ],
-                "summary": "Lấy điểm đến với pagination và search cho create tour",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Limit (default: 20)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset (default: 0)",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search term",
-                        "name": "search",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/destination/getAllDestination": {
-            "get": {
-                "description": "Lấy tất cả điểm đến",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Destination"
-                ],
-                "summary": "Lấy tất cả điểm đến",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.DiemDen"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/destination/hierarchical": {
-            "get": {
-                "description": "Lấy tất cả điểm đến được nhóm theo quốc gia, tỉnh thành và thành phố",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Destination"
-                ],
-                "summary": "Lấy tất cả điểm đến theo cấu trúc phân cấp",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
         "/destination/province/{country}": {
             "get": {
                 "description": "Lấy danh sách tỉnh thành theo quốc gia",
@@ -3065,50 +3710,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/destination/{id}": {
-            "get": {
-                "description": "Lấy điểm đến theo ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Destination"
-                ],
-                "summary": "Lấy điểm đến theo ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.DiemDen"
                         }
                     },
                     "400": {
@@ -4385,6 +4986,54 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "ID tour",
                         "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/storage/get-signed-pdf/{filename}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "lấy URL signed của file PDF",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Storage"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tên file",
+                        "name": "filename",
                         "in": "path",
                         "required": true
                     }
@@ -5918,11 +6567,139 @@ const docTemplate = `{
                 }
             }
         },
-        "/supplier/register": {
-            "post": {
-                "description": "Đăng ký đối tác và chờ admin duyệt (endpoint công khai)",
+        "/supplier/refunds": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lấy danh sách refund cho các tour của supplier",
                 "consumes": [
                     "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Lấy refund cho supplier",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search keyword",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/supplier/refunds/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lấy thống kê refund cho các tour của supplier",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Thống kê refund cho supplier",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/supplier/register": {
+            "post": {
+                "description": "Đăng ký đối tác và chờ admin duyệt (endpoint công khai). Upload logo (ảnh) và giấy phép kinh doanh (PDF)",
+                "consumes": [
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -5933,13 +6710,99 @@ const docTemplate = `{
                 "summary": "Đăng ký đối tác",
                 "parameters": [
                     {
-                        "description": "Thông tin đối tác",
-                        "name": "supplier",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.CreateSupplierRequest"
-                        }
+                        "type": "string",
+                        "description": "Họ tên người đại diện",
+                        "name": "nguoi_dai_dien",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email",
+                        "name": "email",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mật khẩu",
+                        "name": "mat_khau",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Số điện thoại",
+                        "name": "so_dien_thoai",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Tên nhà cung cấp",
+                        "name": "ten",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Địa chỉ",
+                        "name": "dia_chi",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Website",
+                        "name": "website",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mô tả",
+                        "name": "mo_ta",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Logo (ảnh)",
+                        "name": "logo",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Năm thành lập (YYYY-MM-DD)",
+                        "name": "nam_thanh_lap",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Thành phố",
+                        "name": "thanh_pho",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quốc gia",
+                        "name": "quoc_gia",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mã số thuế",
+                        "name": "ma_so_thue",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Số nhân viên",
+                        "name": "so_nhan_vien",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Giấy phép kinh doanh (PDF)",
+                        "name": "giay_to_kinh_doanh",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -6704,6 +7567,49 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Cập nhật tour",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tour"
+                ],
+                "summary": "Cập nhật tour",
+                "parameters": [
+                    {
+                        "description": "Tour",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateTourRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thành công",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Lỗi server",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
             }
         }
     },
@@ -6828,50 +7734,6 @@ const docTemplate = `{
                 },
                 "tour_id": {
                     "type": "integer"
-                }
-            }
-        },
-        "db.DiemDen": {
-            "type": "object",
-            "properties": {
-                "anh": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "iso2": {
-                    "type": "string"
-                },
-                "iso3": {
-                    "type": "string"
-                },
-                "khu_vuc": {
-                    "type": "string"
-                },
-                "kinh_do": {
-                    "$ref": "#/definitions/pgtype.Numeric"
-                },
-                "mo_ta": {
-                    "type": "string"
-                },
-                "ngay_cap_nhat": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "ngay_tao": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "quoc_gia": {
-                    "type": "string"
-                },
-                "ten": {
-                    "type": "string"
-                },
-                "tinh": {
-                    "type": "string"
-                },
-                "vi_do": {
-                    "$ref": "#/definitions/pgtype.Numeric"
                 }
             }
         },
@@ -7204,6 +8066,9 @@ const docTemplate = `{
         "db.GetTourDetailByIDRow": {
             "type": "object",
             "properties": {
+                "danh_muc_id": {
+                    "type": "integer"
+                },
                 "departures": {
                     "type": "array",
                     "items": {
@@ -7260,6 +8125,9 @@ const docTemplate = `{
                 },
                 "ngay_tao": {
                     "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "nha_cung_cap_id": {
+                    "type": "string"
                 },
                 "noi_bat": {
                     "type": "boolean"
@@ -7380,17 +8248,6 @@ const docTemplate = `{
                 "valid": {
                     "description": "Valid is true if VaiTroNguoiDung is not NULL",
                     "type": "boolean"
-                }
-            }
-        },
-        "db.ResetPasswordParams": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "mat_khau_ma_hoa": {
-                    "type": "string"
                 }
             }
         },
@@ -7625,6 +8482,26 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AddHinhAnhTourRequest": {
+            "type": "object",
+            "required": [
+                "duong_dan"
+            ],
+            "properties": {
+                "duong_dan": {
+                    "type": "string"
+                },
+                "la_anh_chinh": {
+                    "type": "boolean"
+                },
+                "mo_ta": {
+                    "type": "string"
+                },
+                "thu_tu_hien_thi": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.AddPassengersParams": {
             "type": "object",
             "properties": {
@@ -7651,6 +8528,20 @@ const docTemplate = `{
                 },
                 "so_giay_to_tuy_thanh": {
                     "type": "string"
+                }
+            }
+        },
+        "models.AddTourDestinationRequest": {
+            "type": "object",
+            "required": [
+                "diem_den_id"
+            ],
+            "properties": {
+                "diem_den_id": {
+                    "type": "integer"
+                },
+                "thu_tu_tham_quan": {
+                    "type": "integer"
                 }
             }
         },
@@ -7731,13 +8622,31 @@ const docTemplate = `{
                         "dia_chi": {
                             "type": "string"
                         },
+                        "giay_to_kinh_doanh": {
+                            "type": "string"
+                        },
                         "logo_url": {
+                            "type": "string"
+                        },
+                        "ma_so_thue": {
                             "type": "string"
                         },
                         "mo_ta": {
                             "type": "string"
                         },
+                        "nam_thanh_lap": {
+                            "type": "string"
+                        },
+                        "quoc_gia": {
+                            "type": "string"
+                        },
+                        "so_nhan_vien": {
+                            "type": "string"
+                        },
                         "ten": {
+                            "type": "string"
+                        },
+                        "thanh_pho": {
                             "type": "string"
                         },
                         "website": {
@@ -8037,6 +8946,37 @@ const docTemplate = `{
                 }
             }
         },
+        "models.RequestPasswordResetRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "new_password",
+                "otp"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "otp": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ResponseContact_Swagger": {
             "type": "object",
             "required": [
@@ -8068,6 +9008,110 @@ const docTemplate = `{
                 }
             }
         },
+        "models.UpdateHoatDongTrongNgayRequest": {
+            "type": "object",
+            "required": [
+                "ten"
+            ],
+            "properties": {
+                "gio_bat_dau": {
+                    "description": "Format: \"HH:MM:SS\"",
+                    "type": "string"
+                },
+                "gio_ket_thuc": {
+                    "description": "Format: \"HH:MM:SS\"",
+                    "type": "string"
+                },
+                "mo_ta": {
+                    "type": "string"
+                },
+                "ten": {
+                    "type": "string"
+                },
+                "thu_tu": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.UpdateLichTrinhRequest": {
+            "type": "object",
+            "required": [
+                "ngay_thu",
+                "tieu_de"
+            ],
+            "properties": {
+                "dia_diem": {
+                    "type": "string"
+                },
+                "gio_bat_dau": {
+                    "description": "Format: \"HH:MM:SS\"",
+                    "type": "string"
+                },
+                "gio_ket_thuc": {
+                    "description": "Format: \"HH:MM:SS\"",
+                    "type": "string"
+                },
+                "mo_ta": {
+                    "type": "string"
+                },
+                "ngay_thu": {
+                    "type": "integer"
+                },
+                "thong_tin_luu_tru": {
+                    "type": "string"
+                },
+                "tieu_de": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UpdateTourRequest": {
+            "type": "object",
+            "required": [
+                "gia_nguoi_lon",
+                "gia_tre_em",
+                "nha_cung_cap_id",
+                "so_ngay",
+                "tieu_de"
+            ],
+            "properties": {
+                "danh_muc_id": {
+                    "type": "integer"
+                },
+                "don_vi_tien_te": {
+                    "type": "string"
+                },
+                "gia_nguoi_lon": {
+                    "type": "number"
+                },
+                "gia_tre_em": {
+                    "type": "number"
+                },
+                "mo_ta": {
+                    "type": "string"
+                },
+                "nha_cung_cap_id": {
+                    "type": "string"
+                },
+                "noi_bat": {
+                    "type": "boolean"
+                },
+                "so_dem": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "so_ngay": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "tieu_de": {
+                    "type": "string"
+                },
+                "trang_thai": {
+                    "type": "string"
+                }
+            }
+        },
         "models.UpdateUser": {
             "type": "object",
             "properties": {
@@ -8081,6 +9125,21 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.VerifyOTPRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "otp"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "otp": {
                     "type": "string"
                 }
             }

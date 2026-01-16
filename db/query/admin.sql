@@ -179,6 +179,89 @@ WHERE trang_thai IN ('da_thanh_toan', 'hoan_thanh')
 GROUP BY EXTRACT(DOW FROM ngay_dat)
 ORDER BY ngay_trong_tuan;
 
+-- name: GetAllBookingsForAdmin :many
+-- Lấy tất cả booking cho admin với filter và pagination
+SELECT 
+    dc.id,
+    dc.nguoi_dung_id,
+    dc.khoi_hanh_id,
+    dc.so_nguoi_lon,
+    dc.so_tre_em,
+    dc.tong_tien,
+    dc.don_vi_tien_te,
+    dc.trang_thai,
+    dc.phuong_thuc_thanh_toan,
+    dc.ngay_dat,
+    dc.ngay_cap_nhat,
+    
+    -- Thông tin khách hàng
+    nd.id AS customer_id,
+    nd.ho_ten AS customer_name,
+    nd.email AS customer_email,
+    nd.so_dien_thoai AS customer_phone,
+    
+    -- Thông tin tour
+    t.id AS tour_id,
+    t.tieu_de AS tour_title,
+    ncc.id AS supplier_id,
+    ncc.ten AS supplier_name,
+    
+    -- Thông tin khởi hành
+    kh.id AS departure_id,
+    kh.ngay_khoi_hanh,
+    kh.ngay_ket_thuc,
+    kh.trang_thai AS departure_status
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN nha_cung_cap ncc ON ncc.id = t.nha_cung_cap_id
+WHERE 
+    -- Filter theo thời gian đặt chỗ
+    (sqlc.narg('start_date')::timestamp IS NULL OR dc.ngay_dat >= sqlc.narg('start_date')::timestamp)
+    AND (sqlc.narg('end_date')::timestamp IS NULL OR dc.ngay_dat <= sqlc.narg('end_date')::timestamp)
+    -- Filter theo nhà cung cấp
+    AND (sqlc.narg('supplier_id')::uuid IS NULL OR t.nha_cung_cap_id = sqlc.narg('supplier_id')::uuid)
+    -- Filter theo trạng thái
+    AND (sqlc.narg('trang_thai')::text IS NULL OR dc.trang_thai::text = sqlc.narg('trang_thai')::text)
+    -- Filter theo tìm kiếm
+    AND (
+        sqlc.narg('search')::text IS NULL 
+        OR sqlc.narg('search')::text = ''
+        OR nd.ho_ten ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR nd.email ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR t.tieu_de ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR dc.id::text = sqlc.narg('search')::text
+    )
+ORDER BY dc.ngay_dat DESC
+LIMIT sqlc.arg('limit')::int OFFSET sqlc.arg('offset')::int;
+
+-- name: CountAllBookingsForAdmin :one
+-- Đếm tổng số booking cho admin với filter
+SELECT COUNT(*)::int AS total
+FROM dat_cho dc
+JOIN nguoi_dung nd ON nd.id = dc.nguoi_dung_id
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+JOIN nha_cung_cap ncc ON ncc.id = t.nha_cung_cap_id
+WHERE 
+    -- Filter theo thời gian đặt chỗ
+    (sqlc.narg('start_date')::timestamp IS NULL OR dc.ngay_dat >= sqlc.narg('start_date')::timestamp)
+    AND (sqlc.narg('end_date')::timestamp IS NULL OR dc.ngay_dat <= sqlc.narg('end_date')::timestamp)
+    -- Filter theo nhà cung cấp
+    AND (sqlc.narg('supplier_id')::uuid IS NULL OR t.nha_cung_cap_id = sqlc.narg('supplier_id')::uuid)
+    -- Filter theo trạng thái
+    AND (sqlc.narg('trang_thai')::text IS NULL OR dc.trang_thai::text = sqlc.narg('trang_thai')::text)
+    -- Filter theo tìm kiếm
+    AND (
+        sqlc.narg('search')::text IS NULL 
+        OR sqlc.narg('search')::text = ''
+        OR nd.ho_ten ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR nd.email ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR t.tieu_de ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR dc.id::text = sqlc.narg('search')::text
+    );
+
 -- name: GetRecentBookings :many
 -- Booking gần đây
 SELECT 
@@ -431,6 +514,52 @@ WHERE
     (sqlc.arg('nam')::int = 0 OR EXTRACT(YEAR FROM ngay_dat)::int = sqlc.arg('nam')::int)
     AND (sqlc.arg('thang')::int = 0 OR EXTRACT(MONTH FROM ngay_dat)::int = sqlc.arg('thang')::int)
 GROUP BY trang_thai;
+
+-- name: GetAdminBookingStatistics :one
+-- Thống kê đặt chỗ chi tiết cho admin với nhiều filter
+SELECT 
+    -- Tổng số booking
+    COUNT(*)::int AS tong_so_booking,
+    
+    -- Thống kê theo trạng thái
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'cho_xac_nhan')::int AS cho_xac_nhan,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'da_xac_nhan')::int AS da_xac_nhan,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'da_thanh_toan')::int AS da_thanh_toan,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'hoan_thanh')::int AS hoan_thanh,
+    COUNT(*) FILTER (WHERE dc.trang_thai = 'da_huy')::int AS da_huy,
+    
+    -- Tổng tiền
+    COALESCE(SUM(dc.tong_tien), 0)::numeric AS tong_tien,
+    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS tong_doanh_thu,
+    COALESCE(SUM(dc.tong_tien) FILTER (WHERE dc.trang_thai = 'da_huy'), 0)::numeric AS tong_tien_da_huy,
+    
+    -- Tổng số khách hàng
+    COUNT(DISTINCT dc.nguoi_dung_id)::int AS tong_so_khach_hang,
+    
+    -- Tổng số tour
+    COUNT(DISTINCT t.id)::int AS tong_so_tour,
+    
+    -- Tổng số nhà cung cấp
+    COUNT(DISTINCT t.nha_cung_cap_id)::int AS tong_so_nha_cung_cap,
+    
+    -- Tổng số khách (người lớn + trẻ em)
+    COALESCE(SUM(COALESCE(dc.so_nguoi_lon, 0) + COALESCE(dc.so_tre_em, 0)), 0)::int AS tong_so_khach,
+    COALESCE(SUM(COALESCE(dc.so_nguoi_lon, 0) + COALESCE(dc.so_tre_em, 0)) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::int AS tong_so_khach_thanh_cong,
+    
+    -- Trung bình giá trị booking
+    COALESCE(AVG(dc.tong_tien), 0)::numeric AS gia_tri_trung_binh,
+    COALESCE(AVG(dc.tong_tien) FILTER (WHERE dc.trang_thai IN ('da_thanh_toan', 'hoan_thanh')), 0)::numeric AS gia_tri_trung_binh_thanh_cong
+FROM dat_cho dc
+JOIN khoi_hanh_tour kh ON kh.id = dc.khoi_hanh_id
+JOIN tour t ON t.id = kh.tour_id
+WHERE 
+    -- Filter theo thời gian đặt chỗ
+    (sqlc.narg('start_date')::timestamp IS NULL OR dc.ngay_dat >= sqlc.narg('start_date')::timestamp)
+    AND (sqlc.narg('end_date')::timestamp IS NULL OR dc.ngay_dat <= sqlc.narg('end_date')::timestamp)
+    -- Filter theo nhà cung cấp
+    AND (sqlc.narg('supplier_id')::uuid IS NULL OR t.nha_cung_cap_id = sqlc.narg('supplier_id')::uuid)
+    -- Filter theo trạng thái (có thể filter nhiều trạng thái)
+    AND (sqlc.narg('trang_thai')::text IS NULL OR dc.trang_thai::text = sqlc.narg('trang_thai')::text);
 
 --=====================================Nhà cung cấp=====================================
 -- name: GetAllSuppliers :many

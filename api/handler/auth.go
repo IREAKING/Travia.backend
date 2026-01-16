@@ -766,50 +766,6 @@ func (s *Server) UpdateUserById(c *gin.Context) {
 	})
 }
 
-// đặt lại mật khẩu
-// @summary Đặt lại mật khẩu
-// @description Đặt lại mật khẩu
-// @tags auth
-// @accept json
-// @produce json
-// @param req body db.ResetPasswordParams true "Thông tin đặt lại mật khẩu"
-// @success 200 {object} gin.H "Thành công"
-// @failure 400 {object} gin.H "Lỗi yêu cầu không hợp lệ"
-// @failure 500 {object} gin.H "Lỗi server"
-// @router /auth/resetPassword/{email} [put]
-func (s *Server) ResetPassword(c *gin.Context) {
-	var req db.ResetPasswordParams
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Dữ liệu đầu vào không hợp lệ",
-			"message": err.Error(),
-		})
-		return
-	}
-	hashedPassword, err := utils.HashPassword(req.MatKhauMaHoa)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Không thể mã hóa mật khẩu",
-		})
-		return
-	}
-	user, err := s.z.ResetPassword(context.Background(), db.ResetPasswordParams{
-		Email:        req.Email,
-		MatKhauMaHoa: hashedPassword,
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Không thể đặt lại mật khẩu",
-			"message": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Đặt lại mật khẩu thành công",
-		"data":    user,
-	})
-}
-
 // cập nhật thông tin user
 // @summary Cập nhật thông tin user
 // @description Cập nhật thông tin user
@@ -923,5 +879,223 @@ func (s *Server) ChangePassword(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Đổi mật khẩu thành công",
+	})
+}
+
+// RequestPasswordReset handles step 1: User requests password reset by email
+// @Summary Yêu cầu đặt lại mật khẩu
+// @Description Gửi OTP đến email để đặt lại mật khẩu
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body models.RequestPasswordResetRequest true "Email"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /auth/forgot-password/request [post]
+func (s *Server) RequestPasswordReset(c *gin.Context) {
+	var req models.RequestPasswordResetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Dữ liệu đầu vào không hợp lệ",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Check if user exists
+	user, err := s.z.GetUserByEmail(context.Background(), req.Email)
+	if err != nil {
+		// Don't reveal if email exists or not for security
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Nếu email tồn tại, chúng tôi đã gửi mã OTP đến email của bạn",
+		})
+		return
+	}
+
+	if user.Email == "" {
+		// Don't reveal if email exists or not for security
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Nếu email tồn tại, chúng tôi đã gửi mã OTP đến email của bạn",
+		})
+		return
+	}
+
+	// Invalidate all previous OTPs for this email
+	err = s.z.InvalidateAllOTPsForEmail(context.Background(), req.Email)
+	if err != nil {
+		// Log error but continue
+		fmt.Printf("Warning: Failed to invalidate previous OTPs: %v\n", err)
+	}
+
+	// Generate OTP
+	otpCode := helpers.GenerateVerificationCode()
+
+	// Set expiration time (10 minutes)
+	expiresAt := time.Now().Add(10 * time.Minute)
+	var expiresAtPg pgtype.Timestamp
+	if err := expiresAtPg.Scan(expiresAt); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Không thể tạo mã OTP",
+		})
+		return
+	}
+
+	// Get user ID
+	var userID pgtype.UUID
+	if err := userID.Scan(user.ID.String()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Không thể tạo mã OTP",
+		})
+		return
+	}
+
+	// Save OTP to database
+	_, err = s.z.CreatePasswordResetOTP(context.Background(), db.CreatePasswordResetOTPParams{
+		NguoiDungID: userID,
+		MaOtp:       otpCode,
+		ThoiHan:     expiresAtPg,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Không thể tạo mã OTP",
+		})
+		return
+	}
+
+	// Send OTP email asynchronously
+	helpers.SendPasswordResetOTPAsync(req.Email, otpCode, s.config.EmailConfig)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Nếu email tồn tại, chúng tôi đã gửi mã OTP đến email của bạn",
+	})
+}
+
+// VerifyOTP handles step 2: User verifies OTP
+// @Summary Xác thực OTP
+// @Description Xác thực mã OTP để đặt lại mật khẩu
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body models.VerifyOTPRequest true "Email và OTP"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /auth/forgot-password/verify [post]
+func (s *Server) VerifyOTP(c *gin.Context) {
+	var req models.VerifyOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Dữ liệu đầu vào không hợp lệ",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Get unverified OTP from database
+	otp, err := s.z.GetUnverifiedPasswordResetOTP(context.Background(), db.GetUnverifiedPasswordResetOTPParams{
+		Email: req.Email,
+		MaOtp: req.OTP,
+	})
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Mã OTP không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	// Verify OTP
+	err = s.z.VerifyPasswordResetOTP(context.Background(), db.VerifyPasswordResetOTPParams{
+		Email: req.Email,
+		MaOtp: req.OTP,
+	})
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Mã OTP không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Xác thực OTP thành công",
+		"verified": true,
+		"otp_id":   otp.ID,
+	})
+}
+
+// ResetPassword handles step 3: User resets password with verified OTP
+// @Summary Đặt lại mật khẩu
+// @Description Đặt lại mật khẩu mới sau khi đã xác thực OTP
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body models.ResetPasswordRequest true "Email, OTP và mật khẩu mới"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /auth/forgot-password/reset [post]
+func (s *Server) ResetPassword(c *gin.Context) {
+	var req models.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Dữ liệu đầu vào không hợp lệ",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Verify OTP is valid and verified
+	otp, err := s.z.GetPasswordResetOTP(context.Background(), db.GetPasswordResetOTPParams{
+		Email: req.Email,
+		MaOtp: req.OTP,
+	})
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã OTP mới",
+		})
+		return
+	}
+
+	// Check if OTP is verified
+	if otp.DaXacThuc == nil || !*otp.DaXacThuc {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Mã OTP chưa được xác thực. Vui lòng xác thực OTP trước",
+		})
+		return
+	}
+
+	// Hash new password
+	hashedPassword, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Không thể mã hóa mật khẩu",
+		})
+		return
+	}
+
+	// Update password using existing ForgotPassword query
+	err = s.z.ForgotPassword(context.Background(), db.ForgotPasswordParams{
+		Email:        req.Email,
+		MatKhauMaHoa: hashedPassword,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Không thể đặt lại mật khẩu",
+		})
+		return
+	}
+
+	// Invalidate all OTPs for this email after successful password reset
+	err = s.z.InvalidateAllOTPsForEmail(context.Background(), req.Email)
+	if err != nil {
+		// Log but don't fail
+		fmt.Printf("Warning: Failed to invalidate OTPs after password reset: %v\n", err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Đặt lại mật khẩu thành công",
 	})
 }

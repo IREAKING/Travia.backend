@@ -11,80 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const bulkDeleteDestinations = `-- name: BulkDeleteDestinations :exec
-DELETE FROM diem_den
-WHERE id = ANY($1::int[])
-`
-
-func (q *Queries) BulkDeleteDestinations(ctx context.Context, dollar_1 []int32) error {
-	_, err := q.db.Exec(ctx, bulkDeleteDestinations, dollar_1)
-	return err
-}
-
-const checkDestinationExists = `-- name: CheckDestinationExists :one
-SELECT EXISTS(
-    SELECT 1 FROM diem_den
-    WHERE ten = $1 AND quoc_gia = $2
-) AS exists
-`
-
-type CheckDestinationExistsParams struct {
-	Ten     string  `json:"ten"`
-	QuocGia *string `json:"quoc_gia"`
-}
-
-func (q *Queries) CheckDestinationExists(ctx context.Context, arg CheckDestinationExistsParams) (bool, error) {
-	row := q.db.QueryRow(ctx, checkDestinationExists, arg.Ten, arg.QuocGia)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const countDestinations = `-- name: CountDestinations :one
-SELECT COUNT(*)::int FROM diem_den
-`
-
-func (q *Queries) CountDestinations(ctx context.Context) (int32, error) {
-	row := q.db.QueryRow(ctx, countDestinations)
-	var column_1 int32
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const countDestinationsByCountry = `-- name: CountDestinationsByCountry :many
-SELECT
-    quoc_gia,
-    COUNT(*)::int AS total
-FROM diem_den
-GROUP BY quoc_gia
-ORDER BY total DESC
-`
-
-type CountDestinationsByCountryRow struct {
-	QuocGia *string `json:"quoc_gia"`
-	Total   int32   `json:"total"`
-}
-
-func (q *Queries) CountDestinationsByCountry(ctx context.Context) ([]CountDestinationsByCountryRow, error) {
-	rows, err := q.db.Query(ctx, countDestinationsByCountry)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []CountDestinationsByCountryRow
-	for rows.Next() {
-		var i CountDestinationsByCountryRow
-		if err := rows.Scan(&i.QuocGia, &i.Total); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const createDestination = `-- name: CreateDestination :one
 INSERT INTO diem_den (
     ten,
@@ -139,45 +65,27 @@ func (q *Queries) CreateDestination(ctx context.Context, arg CreateDestinationPa
 	return i, err
 }
 
-const deleteDestination = `-- name: DeleteDestination :exec
-DELETE FROM diem_den
-WHERE id = $1
+const getCityByProvince = `-- name: GetCityByProvince :many
+SELECT id, ten FROM diem_den
+WHERE tinh = $1
+GROUP BY ten, id
 `
 
-func (q *Queries) DeleteDestination(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, deleteDestination, id)
-	return err
+type GetCityByProvinceRow struct {
+	ID  int32  `json:"id"`
+	Ten string `json:"ten"`
 }
 
-const getAllDestinations = `-- name: GetAllDestinations :many
-SELECT id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat FROM diem_den
-ORDER BY ngay_tao DESC
-`
-
-func (q *Queries) GetAllDestinations(ctx context.Context) ([]DiemDen, error) {
-	rows, err := q.db.Query(ctx, getAllDestinations)
+func (q *Queries) GetCityByProvince(ctx context.Context, tinh *string) ([]GetCityByProvinceRow, error) {
+	rows, err := q.db.Query(ctx, getCityByProvince, tinh)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DiemDen
+	var items []GetCityByProvinceRow
 	for rows.Next() {
-		var i DiemDen
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.Tinh,
-			&i.QuocGia,
-			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
-			&i.MoTa,
-			&i.Anh,
-			&i.ViDo,
-			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-		); err != nil {
+		var i GetCityByProvinceRow
+		if err := rows.Scan(&i.ID, &i.Ten); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -188,50 +96,29 @@ func (q *Queries) GetAllDestinations(ctx context.Context) ([]DiemDen, error) {
 	return items, nil
 }
 
-const getCityByProvince = `-- name: GetCityByProvince :many
-SELECT ten FROM diem_den
-WHERE tinh = $1
-GROUP BY ten
+const getCountry = `-- name: GetCountry :many
+SELECT id, quoc_gia FROM diem_den
+GROUP BY quoc_gia, id
 `
 
-func (q *Queries) GetCityByProvince(ctx context.Context, tinh *string) ([]string, error) {
-	rows, err := q.db.Query(ctx, getCityByProvince, tinh)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var ten string
-		if err := rows.Scan(&ten); err != nil {
-			return nil, err
-		}
-		items = append(items, ten)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type GetCountryRow struct {
+	ID      int32   `json:"id"`
+	QuocGia *string `json:"quoc_gia"`
 }
 
-const getCountry = `-- name: GetCountry :many
-SELECT quoc_gia FROM diem_den
-GROUP BY quoc_gia
-`
-
-func (q *Queries) GetCountry(ctx context.Context) ([]*string, error) {
+func (q *Queries) GetCountry(ctx context.Context) ([]GetCountryRow, error) {
 	rows, err := q.db.Query(ctx, getCountry)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*string
+	var items []GetCountryRow
 	for rows.Next() {
-		var quoc_gia *string
-		if err := rows.Scan(&quoc_gia); err != nil {
+		var i GetCountryRow
+		if err := rows.Scan(&i.ID, &i.QuocGia); err != nil {
 			return nil, err
 		}
-		items = append(items, quoc_gia)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -240,10 +127,25 @@ func (q *Queries) GetCountry(ctx context.Context) ([]*string, error) {
 }
 
 const getDestinationByID = `-- name: GetDestinationByID :one
-SELECT id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat FROM diem_den
+SELECT 
+    id,
+    ten,
+    tinh,
+    quoc_gia,
+    khu_vuc,
+    iso2,
+    iso3,
+    mo_ta,
+    anh,
+    vi_do,
+    kinh_do,
+    ngay_tao,
+    ngay_cap_nhat
+FROM diem_den
 WHERE id = $1
 `
 
+// Lấy thông tin chi tiết điểm đến theo ID
 func (q *Queries) GetDestinationByID(ctx context.Context, id int32) (DiemDen, error) {
 	row := q.db.QueryRow(ctx, getDestinationByID, id)
 	var i DiemDen
@@ -265,409 +167,41 @@ func (q *Queries) GetDestinationByID(ctx context.Context, id int32) (DiemDen, er
 	return i, err
 }
 
-const getDestinationWithTourCount = `-- name: GetDestinationWithTourCount :many
-SELECT
-    d.id, d.ten, d.tinh, d.quoc_gia, d.khu_vuc, d.iso2, d.iso3, d.mo_ta, d.anh, d.vi_do, d.kinh_do, d.ngay_tao, d.ngay_cap_nhat,
-    COUNT(td.tour_id)::int AS total_tours
-FROM diem_den d
-LEFT JOIN tour_diem_den td ON td.diem_den_id = d.id
-GROUP BY d.id
-ORDER BY total_tours DESC, d.ngay_tao DESC
-`
-
-type GetDestinationWithTourCountRow struct {
-	ID          int32            `json:"id"`
-	Ten         string           `json:"ten"`
-	Tinh        *string          `json:"tinh"`
-	QuocGia     *string          `json:"quoc_gia"`
-	KhuVuc      *string          `json:"khu_vuc"`
-	Iso2        *string          `json:"iso2"`
-	Iso3        *string          `json:"iso3"`
-	MoTa        *string          `json:"mo_ta"`
-	Anh         *string          `json:"anh"`
-	ViDo        pgtype.Numeric   `json:"vi_do"`
-	KinhDo      pgtype.Numeric   `json:"kinh_do"`
-	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
-	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
-	TotalTours  int32            `json:"total_tours"`
-}
-
-func (q *Queries) GetDestinationWithTourCount(ctx context.Context) ([]GetDestinationWithTourCountRow, error) {
-	rows, err := q.db.Query(ctx, getDestinationWithTourCount)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetDestinationWithTourCountRow
-	for rows.Next() {
-		var i GetDestinationWithTourCountRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.Tinh,
-			&i.QuocGia,
-			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
-			&i.MoTa,
-			&i.Anh,
-			&i.ViDo,
-			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-			&i.TotalTours,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDestinationWithTourCountByID = `-- name: GetDestinationWithTourCountByID :one
-SELECT
-    d.id, d.ten, d.tinh, d.quoc_gia, d.khu_vuc, d.iso2, d.iso3, d.mo_ta, d.anh, d.vi_do, d.kinh_do, d.ngay_tao, d.ngay_cap_nhat,
-    COUNT(td.tour_id)::int AS total_tours
-FROM diem_den d
-LEFT JOIN tour_diem_den td ON td.diem_den_id = d.id
-WHERE d.id = $1
-GROUP BY d.id
-`
-
-type GetDestinationWithTourCountByIDRow struct {
-	ID          int32            `json:"id"`
-	Ten         string           `json:"ten"`
-	Tinh        *string          `json:"tinh"`
-	QuocGia     *string          `json:"quoc_gia"`
-	KhuVuc      *string          `json:"khu_vuc"`
-	Iso2        *string          `json:"iso2"`
-	Iso3        *string          `json:"iso3"`
-	MoTa        *string          `json:"mo_ta"`
-	Anh         *string          `json:"anh"`
-	ViDo        pgtype.Numeric   `json:"vi_do"`
-	KinhDo      pgtype.Numeric   `json:"kinh_do"`
-	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
-	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
-	TotalTours  int32            `json:"total_tours"`
-}
-
-func (q *Queries) GetDestinationWithTourCountByID(ctx context.Context, id int32) (GetDestinationWithTourCountByIDRow, error) {
-	row := q.db.QueryRow(ctx, getDestinationWithTourCountByID, id)
-	var i GetDestinationWithTourCountByIDRow
-	err := row.Scan(
-		&i.ID,
-		&i.Ten,
-		&i.Tinh,
-		&i.QuocGia,
-		&i.KhuVuc,
-		&i.Iso2,
-		&i.Iso3,
-		&i.MoTa,
-		&i.Anh,
-		&i.ViDo,
-		&i.KinhDo,
-		&i.NgayTao,
-		&i.NgayCapNhat,
-		&i.TotalTours,
-	)
-	return i, err
-}
-
-const getDestinationsByCountry = `-- name: GetDestinationsByCountry :many
-SELECT id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat FROM diem_den
-WHERE quoc_gia = $1
-ORDER BY ten ASC
-`
-
-func (q *Queries) GetDestinationsByCountry(ctx context.Context, quocGia *string) ([]DiemDen, error) {
-	rows, err := q.db.Query(ctx, getDestinationsByCountry, quocGia)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DiemDen
-	for rows.Next() {
-		var i DiemDen
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.Tinh,
-			&i.QuocGia,
-			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
-			&i.MoTa,
-			&i.Anh,
-			&i.ViDo,
-			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDestinationsByCountryAndRegion = `-- name: GetDestinationsByCountryAndRegion :many
-SELECT id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat FROM diem_den
-WHERE quoc_gia = $1 AND khu_vuc = $2
-ORDER BY ten ASC
-`
-
-type GetDestinationsByCountryAndRegionParams struct {
-	QuocGia *string `json:"quoc_gia"`
-	KhuVuc  *string `json:"khu_vuc"`
-}
-
-func (q *Queries) GetDestinationsByCountryAndRegion(ctx context.Context, arg GetDestinationsByCountryAndRegionParams) ([]DiemDen, error) {
-	rows, err := q.db.Query(ctx, getDestinationsByCountryAndRegion, arg.QuocGia, arg.KhuVuc)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DiemDen
-	for rows.Next() {
-		var i DiemDen
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.Tinh,
-			&i.QuocGia,
-			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
-			&i.MoTa,
-			&i.Anh,
-			&i.ViDo,
-			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDestinationsByRegion = `-- name: GetDestinationsByRegion :many
-SELECT id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat FROM diem_den
-WHERE khu_vuc = $1
-ORDER BY ten ASC
-`
-
-func (q *Queries) GetDestinationsByRegion(ctx context.Context, khuVuc *string) ([]DiemDen, error) {
-	rows, err := q.db.Query(ctx, getDestinationsByRegion, khuVuc)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DiemDen
-	for rows.Next() {
-		var i DiemDen
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.Tinh,
-			&i.QuocGia,
-			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
-			&i.MoTa,
-			&i.Anh,
-			&i.ViDo,
-			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDestinationsByTourID = `-- name: GetDestinationsByTourID :many
-SELECT 
-    d.id,
-    d.ten,
-    d.quoc_gia,
-    d.khu_vuc,
-    d.mo_ta,
-    d.anh,
-    d.vi_do,
-    d.kinh_do,
-    td.thu_tu_tham_quan
-FROM diem_den d
-JOIN tour_diem_den td ON td.diem_den_id = d.id
-WHERE td.tour_id = $1
-ORDER BY td.thu_tu_tham_quan ASC
-`
-
-type GetDestinationsByTourIDRow struct {
-	ID            int32          `json:"id"`
-	Ten           string         `json:"ten"`
-	QuocGia       *string        `json:"quoc_gia"`
-	KhuVuc        *string        `json:"khu_vuc"`
-	MoTa          *string        `json:"mo_ta"`
-	Anh           *string        `json:"anh"`
-	ViDo          pgtype.Numeric `json:"vi_do"`
-	KinhDo        pgtype.Numeric `json:"kinh_do"`
-	ThuTuThamQuan *int32         `json:"thu_tu_tham_quan"`
-}
-
-func (q *Queries) GetDestinationsByTourID(ctx context.Context, tourID int32) ([]GetDestinationsByTourIDRow, error) {
-	rows, err := q.db.Query(ctx, getDestinationsByTourID, tourID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetDestinationsByTourIDRow
-	for rows.Next() {
-		var i GetDestinationsByTourIDRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.QuocGia,
-			&i.KhuVuc,
-			&i.MoTa,
-			&i.Anh,
-			&i.ViDo,
-			&i.KinhDo,
-			&i.ThuTuThamQuan,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDestinationsWithPagination = `-- name: GetDestinationsWithPagination :many
-SELECT id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat FROM diem_den
-ORDER BY ngay_tao DESC
-LIMIT $1 OFFSET $2
-`
-
-type GetDestinationsWithPaginationParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
-}
-
-func (q *Queries) GetDestinationsWithPagination(ctx context.Context, arg GetDestinationsWithPaginationParams) ([]DiemDen, error) {
-	rows, err := q.db.Query(ctx, getDestinationsWithPagination, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DiemDen
-	for rows.Next() {
-		var i DiemDen
-		if err := rows.Scan(
-			&i.ID,
-			&i.Ten,
-			&i.Tinh,
-			&i.QuocGia,
-			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
-			&i.MoTa,
-			&i.Anh,
-			&i.ViDo,
-			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDestinationsWithoutImage = `-- name: GetDestinationsWithoutImage :many
-SELECT id, tinh
-FROM diem_den
-WHERE (anh IS NULL OR anh = '')
-LIMIT $1
-`
-
-type GetDestinationsWithoutImageRow struct {
-	ID   int32   `json:"id"`
-	Tinh *string `json:"tinh"`
-}
-
-func (q *Queries) GetDestinationsWithoutImage(ctx context.Context, limit int32) ([]GetDestinationsWithoutImageRow, error) {
-	rows, err := q.db.Query(ctx, getDestinationsWithoutImage, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetDestinationsWithoutImageRow
-	for rows.Next() {
-		var i GetDestinationsWithoutImageRow
-		if err := rows.Scan(&i.ID, &i.Tinh); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getPopularDestinations = `-- name: GetPopularDestinations :many
-SELECT
-    d.id, d.ten, d.tinh, d.quoc_gia, d.khu_vuc, d.iso2, d.iso3, d.mo_ta, d.anh, d.vi_do, d.kinh_do, d.ngay_tao, d.ngay_cap_nhat,
-    COUNT(td.tour_id)::int AS total_tours
-FROM diem_den d
-LEFT JOIN tour_diem_den td ON td.diem_den_id = d.id
-LEFT JOIN tour t ON t.id = td.tour_id AND t.dang_hoat_dong = TRUE
-where d.anh is not null
-GROUP BY d.id
-HAVING COUNT(td.tour_id) > 0
-ORDER BY total_tours DESC
+SELECT 
+    dd.id,
+    dd.ten,
+    dd.tinh,
+    dd.quoc_gia,
+    dd.khu_vuc,
+    dd.mo_ta,
+    dd.anh,
+    dd.vi_do,
+    dd.kinh_do,
+    COUNT(DISTINCT CASE WHEN t.trang_thai = 'cong_bo' AND t.dang_hoat_dong = TRUE THEN tdd.tour_id END) as so_luong_tour
+FROM diem_den dd
+LEFT JOIN tour_diem_den tdd ON dd.id = tdd.diem_den_id
+LEFT JOIN tour t ON tdd.tour_id = t.id
+GROUP BY dd.id, dd.ten, dd.tinh, dd.quoc_gia, dd.khu_vuc, dd.mo_ta, dd.anh, dd.vi_do, dd.kinh_do
+HAVING COUNT(DISTINCT CASE WHEN t.trang_thai = 'cong_bo' AND t.dang_hoat_dong = TRUE THEN tdd.tour_id END) > 0
+ORDER BY so_luong_tour DESC, dd.ten ASC
 LIMIT $1
 `
 
 type GetPopularDestinationsRow struct {
-	ID          int32            `json:"id"`
-	Ten         string           `json:"ten"`
-	Tinh        *string          `json:"tinh"`
-	QuocGia     *string          `json:"quoc_gia"`
-	KhuVuc      *string          `json:"khu_vuc"`
-	Iso2        *string          `json:"iso2"`
-	Iso3        *string          `json:"iso3"`
-	MoTa        *string          `json:"mo_ta"`
-	Anh         *string          `json:"anh"`
-	ViDo        pgtype.Numeric   `json:"vi_do"`
-	KinhDo      pgtype.Numeric   `json:"kinh_do"`
-	NgayTao     pgtype.Timestamp `json:"ngay_tao"`
-	NgayCapNhat pgtype.Timestamp `json:"ngay_cap_nhat"`
-	TotalTours  int32            `json:"total_tours"`
+	ID          int32          `json:"id"`
+	Ten         string         `json:"ten"`
+	Tinh        *string        `json:"tinh"`
+	QuocGia     *string        `json:"quoc_gia"`
+	KhuVuc      *string        `json:"khu_vuc"`
+	MoTa        *string        `json:"mo_ta"`
+	Anh         *string        `json:"anh"`
+	ViDo        pgtype.Numeric `json:"vi_do"`
+	KinhDo      pgtype.Numeric `json:"kinh_do"`
+	SoLuongTour int64          `json:"so_luong_tour"`
 }
 
+// Lấy các điểm đến phổ biến nhất (được nhiều tour sử dụng nhất)
 func (q *Queries) GetPopularDestinations(ctx context.Context, limit int32) ([]GetPopularDestinationsRow, error) {
 	rows, err := q.db.Query(ctx, getPopularDestinations, limit)
 	if err != nil {
@@ -683,15 +217,11 @@ func (q *Queries) GetPopularDestinations(ctx context.Context, limit int32) ([]Ge
 			&i.Tinh,
 			&i.QuocGia,
 			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
 			&i.MoTa,
 			&i.Anh,
 			&i.ViDo,
 			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
-			&i.TotalTours,
+			&i.SoLuongTour,
 		); err != nil {
 			return nil, err
 		}
@@ -704,24 +234,29 @@ func (q *Queries) GetPopularDestinations(ctx context.Context, limit int32) ([]Ge
 }
 
 const getProvinceByCountry = `-- name: GetProvinceByCountry :many
-SELECT tinh FROM diem_den
+SELECT id, tinh FROM diem_den
 WHERE quoc_gia = $1
-GROUP BY tinh
+GROUP BY tinh, id
 `
 
-func (q *Queries) GetProvinceByCountry(ctx context.Context, quocGia *string) ([]*string, error) {
+type GetProvinceByCountryRow struct {
+	ID   int32   `json:"id"`
+	Tinh *string `json:"tinh"`
+}
+
+func (q *Queries) GetProvinceByCountry(ctx context.Context, quocGia *string) ([]GetProvinceByCountryRow, error) {
 	rows, err := q.db.Query(ctx, getProvinceByCountry, quocGia)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*string
+	var items []GetProvinceByCountryRow
 	for rows.Next() {
-		var tinh *string
-		if err := rows.Scan(&tinh); err != nil {
+		var i GetProvinceByCountryRow
+		if err := rows.Scan(&i.ID, &i.Tinh); err != nil {
 			return nil, err
 		}
-		items = append(items, tinh)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -729,66 +264,66 @@ func (q *Queries) GetProvinceByCountry(ctx context.Context, quocGia *string) ([]
 	return items, nil
 }
 
-const getUniqueCountries = `-- name: GetUniqueCountries :many
-SELECT DISTINCT quoc_gia
-FROM diem_den
-WHERE quoc_gia IS NOT NULL
-ORDER BY quoc_gia ASC
+const getTopPopularDestinations = `-- name: GetTopPopularDestinations :many
+SELECT 
+    dd.id,
+    dd.ten,
+    dd.tinh,
+    dd.quoc_gia,
+    dd.khu_vuc,
+    dd.mo_ta,
+    dd.anh,
+    dd.vi_do,
+    dd.kinh_do,
+    COUNT(DISTINCT tdd.tour_id) as so_luong_tour,
+    COUNT(DISTINCT CASE WHEN t.noi_bat = TRUE THEN t.id END) as so_tour_noi_bat
+FROM diem_den dd
+INNER JOIN tour_diem_den tdd ON dd.id = tdd.diem_den_id
+INNER JOIN tour t ON tdd.tour_id = t.id
+WHERE t.trang_thai = 'cong_bo' 
+    AND t.dang_hoat_dong = TRUE
+GROUP BY dd.id, dd.ten, dd.tinh, dd.quoc_gia, dd.khu_vuc, dd.mo_ta, dd.anh, dd.vi_do, dd.kinh_do
+HAVING COUNT(DISTINCT tdd.tour_id) > 0
+ORDER BY so_luong_tour DESC, so_tour_noi_bat DESC, dd.ten ASC
+LIMIT $1
 `
 
-func (q *Queries) GetUniqueCountries(ctx context.Context) ([]*string, error) {
-	rows, err := q.db.Query(ctx, getUniqueCountries)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*string
-	for rows.Next() {
-		var quoc_gia *string
-		if err := rows.Scan(&quoc_gia); err != nil {
-			return nil, err
-		}
-		items = append(items, quoc_gia)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type GetTopPopularDestinationsRow struct {
+	ID           int32          `json:"id"`
+	Ten          string         `json:"ten"`
+	Tinh         *string        `json:"tinh"`
+	QuocGia      *string        `json:"quoc_gia"`
+	KhuVuc       *string        `json:"khu_vuc"`
+	MoTa         *string        `json:"mo_ta"`
+	Anh          *string        `json:"anh"`
+	ViDo         pgtype.Numeric `json:"vi_do"`
+	KinhDo       pgtype.Numeric `json:"kinh_do"`
+	SoLuongTour  int64          `json:"so_luong_tour"`
+	SoTourNoiBat int64          `json:"so_tour_noi_bat"`
 }
 
-const searchDestinations = `-- name: SearchDestinations :many
-SELECT id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat FROM diem_den
-WHERE 
-    ten ILIKE '%' || $1 || '%'
-    OR quoc_gia ILIKE '%' || $1 || '%'
-    OR khu_vuc ILIKE '%' || $1 || '%'
-    OR mo_ta ILIKE '%' || $1 || '%'
-ORDER BY ten ASC
-`
-
-func (q *Queries) SearchDestinations(ctx context.Context, dollar_1 *string) ([]DiemDen, error) {
-	rows, err := q.db.Query(ctx, searchDestinations, dollar_1)
+// Lấy top N điểm đến phổ biến nhất với thông tin chi tiết (có số tour nổi bật)
+func (q *Queries) GetTopPopularDestinations(ctx context.Context, limit int32) ([]GetTopPopularDestinationsRow, error) {
+	rows, err := q.db.Query(ctx, getTopPopularDestinations, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DiemDen
+	var items []GetTopPopularDestinationsRow
 	for rows.Next() {
-		var i DiemDen
+		var i GetTopPopularDestinationsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Ten,
 			&i.Tinh,
 			&i.QuocGia,
 			&i.KhuVuc,
-			&i.Iso2,
-			&i.Iso3,
 			&i.MoTa,
 			&i.Anh,
 			&i.ViDo,
 			&i.KinhDo,
-			&i.NgayTao,
-			&i.NgayCapNhat,
+			&i.SoLuongTour,
+			&i.SoTourNoiBat,
 		); err != nil {
 			return nil, err
 		}
@@ -800,43 +335,22 @@ func (q *Queries) SearchDestinations(ctx context.Context, dollar_1 *string) ([]D
 	return items, nil
 }
 
-const updateDestination = `-- name: UpdateDestination :one
+const updateDestinationImage = `-- name: UpdateDestinationImage :one
 UPDATE diem_den
-SET
-    ten = COALESCE($1, ten),
-    quoc_gia = COALESCE($2, quoc_gia),
-    khu_vuc = COALESCE($3, khu_vuc),
-    mo_ta = COALESCE($4, mo_ta),
-    anh = COALESCE($5, anh),
-    vi_do = COALESCE($6, vi_do),
-    kinh_do = COALESCE($7, kinh_do),
+SET anh = $2,
     ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = $8
+WHERE id = $1
 RETURNING id, ten, tinh, quoc_gia, khu_vuc, iso2, iso3, mo_ta, anh, vi_do, kinh_do, ngay_tao, ngay_cap_nhat
 `
 
-type UpdateDestinationParams struct {
-	Ten     *string        `json:"ten"`
-	QuocGia *string        `json:"quoc_gia"`
-	KhuVuc  *string        `json:"khu_vuc"`
-	MoTa    *string        `json:"mo_ta"`
-	Anh     *string        `json:"anh"`
-	ViDo    pgtype.Numeric `json:"vi_do"`
-	KinhDo  pgtype.Numeric `json:"kinh_do"`
-	ID      int32          `json:"id"`
+type UpdateDestinationImageParams struct {
+	ID  int32   `json:"id"`
+	Anh *string `json:"anh"`
 }
 
-func (q *Queries) UpdateDestination(ctx context.Context, arg UpdateDestinationParams) (DiemDen, error) {
-	row := q.db.QueryRow(ctx, updateDestination,
-		arg.Ten,
-		arg.QuocGia,
-		arg.KhuVuc,
-		arg.MoTa,
-		arg.Anh,
-		arg.ViDo,
-		arg.KinhDo,
-		arg.ID,
-	)
+// Cập nhật hình ảnh cho điểm đến
+func (q *Queries) UpdateDestinationImage(ctx context.Context, arg UpdateDestinationImageParams) (DiemDen, error) {
+	row := q.db.QueryRow(ctx, updateDestinationImage, arg.ID, arg.Anh)
 	var i DiemDen
 	err := row.Scan(
 		&i.ID,
@@ -854,20 +368,4 @@ func (q *Queries) UpdateDestination(ctx context.Context, arg UpdateDestinationPa
 		&i.NgayCapNhat,
 	)
 	return i, err
-}
-
-const updateDestinationImage = `-- name: UpdateDestinationImage :exec
-UPDATE diem_den
-SET anh = $1, ngay_cap_nhat = NOW()
-WHERE id = $2
-`
-
-type UpdateDestinationImageParams struct {
-	Anh *string `json:"anh"`
-	ID  int32   `json:"id"`
-}
-
-func (q *Queries) UpdateDestinationImage(ctx context.Context, arg UpdateDestinationImageParams) error {
-	_, err := q.db.Exec(ctx, updateDestinationImage, arg.Anh, arg.ID)
-	return err
 }

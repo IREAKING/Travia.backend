@@ -79,35 +79,6 @@ definitions:
       tour_id:
         type: integer
     type: object
-  db.DiemDen:
-    properties:
-      anh:
-        type: string
-      id:
-        type: integer
-      iso2:
-        type: string
-      iso3:
-        type: string
-      khu_vuc:
-        type: string
-      kinh_do:
-        $ref: '#/definitions/pgtype.Numeric'
-      mo_ta:
-        type: string
-      ngay_cap_nhat:
-        $ref: '#/definitions/pgtype.Timestamp'
-      ngay_tao:
-        $ref: '#/definitions/pgtype.Timestamp'
-      quoc_gia:
-        type: string
-      ten:
-        type: string
-      tinh:
-        type: string
-      vi_do:
-        $ref: '#/definitions/pgtype.Numeric'
-    type: object
   db.GetAllSuppliersRow:
     properties:
       dang_hoat_dong:
@@ -329,6 +300,8 @@ definitions:
     type: object
   db.GetTourDetailByIDRow:
     properties:
+      danh_muc_id:
+        type: integer
       departures:
         items:
           type: integer
@@ -367,6 +340,8 @@ definitions:
         $ref: '#/definitions/pgtype.Timestamp'
       ngay_tao:
         $ref: '#/definitions/pgtype.Timestamp'
+      nha_cung_cap_id:
+        type: string
       noi_bat:
         type: boolean
       so_dem:
@@ -446,13 +421,6 @@ definitions:
       valid:
         description: Valid is true if VaiTroNguoiDung is not NULL
         type: boolean
-    type: object
-  db.ResetPasswordParams:
-    properties:
-      email:
-        type: string
-      mat_khau_ma_hoa:
-        type: string
     type: object
   db.SupplierOptionsRow:
     properties:
@@ -610,6 +578,19 @@ definitions:
       trang_thai:
         type: string
     type: object
+  models.AddHinhAnhTourRequest:
+    properties:
+      duong_dan:
+        type: string
+      la_anh_chinh:
+        type: boolean
+      mo_ta:
+        type: string
+      thu_tu_hien_thi:
+        type: integer
+    required:
+    - duong_dan
+    type: object
   models.AddPassengersParams:
     properties:
       dat_cho_id:
@@ -628,6 +609,15 @@ definitions:
         type: string
       so_giay_to_tuy_thanh:
         type: string
+    type: object
+  models.AddTourDestinationRequest:
+    properties:
+      diem_den_id:
+        type: integer
+      thu_tu_tham_quan:
+        type: integer
+    required:
+    - diem_den_id
     type: object
   models.CreateDiscountTourRequest:
     properties:
@@ -682,11 +672,23 @@ definitions:
         properties:
           dia_chi:
             type: string
+          giay_to_kinh_doanh:
+            type: string
           logo_url:
+            type: string
+          ma_so_thue:
             type: string
           mo_ta:
             type: string
+          nam_thanh_lap:
+            type: string
+          quoc_gia:
+            type: string
+          so_nhan_vien:
+            type: string
           ten:
+            type: string
+          thanh_pho:
             type: string
           website:
             type: string
@@ -891,6 +893,27 @@ definitions:
     required:
     - refreshToken
     type: object
+  models.RequestPasswordResetRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  models.ResetPasswordRequest:
+    properties:
+      email:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - new_password
+    - otp
+    type: object
   models.ResponseContact_Swagger:
     properties:
       noi_dung:
@@ -911,6 +934,78 @@ definitions:
       tour_id:
         type: integer
     type: object
+  models.UpdateHoatDongTrongNgayRequest:
+    properties:
+      gio_bat_dau:
+        description: 'Format: "HH:MM:SS"'
+        type: string
+      gio_ket_thuc:
+        description: 'Format: "HH:MM:SS"'
+        type: string
+      mo_ta:
+        type: string
+      ten:
+        type: string
+      thu_tu:
+        type: integer
+    required:
+    - ten
+    type: object
+  models.UpdateLichTrinhRequest:
+    properties:
+      dia_diem:
+        type: string
+      gio_bat_dau:
+        description: 'Format: "HH:MM:SS"'
+        type: string
+      gio_ket_thuc:
+        description: 'Format: "HH:MM:SS"'
+        type: string
+      mo_ta:
+        type: string
+      ngay_thu:
+        type: integer
+      thong_tin_luu_tru:
+        type: string
+      tieu_de:
+        type: string
+    required:
+    - ngay_thu
+    - tieu_de
+    type: object
+  models.UpdateTourRequest:
+    properties:
+      danh_muc_id:
+        type: integer
+      don_vi_tien_te:
+        type: string
+      gia_nguoi_lon:
+        type: number
+      gia_tre_em:
+        type: number
+      mo_ta:
+        type: string
+      nha_cung_cap_id:
+        type: string
+      noi_bat:
+        type: boolean
+      so_dem:
+        minimum: 0
+        type: integer
+      so_ngay:
+        minimum: 1
+        type: integer
+      tieu_de:
+        type: string
+      trang_thai:
+        type: string
+    required:
+    - gia_nguoi_lon
+    - gia_tre_em
+    - nha_cung_cap_id
+    - so_ngay
+    - tieu_de
+    type: object
   models.UpdateUser:
     properties:
       email:
@@ -921,6 +1016,16 @@ definitions:
         type: string
       phone:
         type: string
+    type: object
+  models.VerifyOTPRequest:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - otp
     type: object
   pgtype.Date:
     properties:
@@ -976,6 +1081,98 @@ info:
   title: Travia API
   version: "1.0"
 paths:
+  /admin/bookings:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách booking với filter và pagination
+      parameters:
+      - description: Ngày bắt đầu (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Ngày kết thúc (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: ID Nhà cung cấp (UUID)
+        in: query
+        name: supplier_id
+        type: string
+      - description: Trạng thái booking
+        in: query
+        name: trang_thai
+        type: string
+      - description: Tìm kiếm
+        in: query
+        name: search
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy danh sách tất cả booking cho admin
+      tags:
+      - Admin
+  /admin/bookings/statistics:
+    get:
+      consumes:
+      - application/json
+      description: 'Lấy thống kê đặt chỗ với nhiều filter: thời gian, nhà cung cấp,
+        trạng thái'
+      parameters:
+      - description: Ngày bắt đầu (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Ngày kết thúc (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: ID Nhà cung cấp (UUID)
+        in: query
+        name: supplier_id
+        type: string
+      - description: Trạng thái booking (cho_xac_nhan, da_xac_nhan, da_thanh_toan,
+          hoan_thanh, da_huy)
+        in: query
+        name: trang_thai
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Lấy thống kê đặt chỗ chi tiết cho admin
+      tags:
+      - Admin
   /admin/chartBookingStatusStats:
     get:
       consumes:
@@ -1363,6 +1560,92 @@ paths:
       summary: Lấy thống kê người dùng theo vai trò
       tags:
       - Admin
+  /admin/refunds:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tất cả refund trong hệ thống với filter
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: Supplier ID (UUID)
+        in: query
+        name: supplier_id
+        type: string
+      - description: Search keyword
+        in: query
+        name: search
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy tất cả refund cho admin
+      tags:
+      - Booking
+  /admin/refunds/stats:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thống kê refund trong hệ thống
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Thống kê refund cho admin
+      tags:
+      - Booking
   /admin/supplierOptions:
     get:
       consumes:
@@ -1430,7 +1713,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -1446,6 +1729,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
       summary: Lấy nhà cung cấp theo ID
       tags:
       - Admin
@@ -1729,6 +2014,108 @@ paths:
       summary: Tạo tài khoản từ form
       tags:
       - auth
+  /auth/forgot-password/request:
+    post:
+      consumes:
+      - application/json
+      description: Gửi OTP đến email để đặt lại mật khẩu
+      parameters:
+      - description: Email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RequestPasswordResetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Yêu cầu đặt lại mật khẩu
+      tags:
+      - auth
+  /auth/forgot-password/reset:
+    post:
+      consumes:
+      - application/json
+      description: Đặt lại mật khẩu mới sau khi đã xác thực OTP
+      parameters:
+      - description: Email, OTP và mật khẩu mới
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Đặt lại mật khẩu
+      tags:
+      - auth
+  /auth/forgot-password/verify:
+    post:
+      consumes:
+      - application/json
+      description: Xác thực mã OTP để đặt lại mật khẩu
+      parameters:
+      - description: Email và OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Xác thực OTP
+      tags:
+      - auth
   /auth/getUserById/{id}:
     get:
       consumes:
@@ -1941,36 +2328,6 @@ paths:
       summary: Làm mới token
       tags:
       - auth
-  /auth/resetPassword/{email}:
-    put:
-      consumes:
-      - application/json
-      description: Đặt lại mật khẩu
-      parameters:
-      - description: Thông tin đặt lại mật khẩu
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/db.ResetPasswordParams'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Thành công
-          schema:
-            $ref: '#/definitions/gin.H'
-        "400":
-          description: Lỗi yêu cầu không hợp lệ
-          schema:
-            $ref: '#/definitions/gin.H'
-        "500":
-          description: Lỗi server
-          schema:
-            $ref: '#/definitions/gin.H'
-      summary: Đặt lại mật khẩu
-      tags:
-      - auth
   /auth/updateUser:
     put:
       consumes:
@@ -2069,6 +2426,81 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get booking by ID
+      tags:
+      - Booking
+  /booking/{id}/calculate-refund:
+    get:
+      consumes:
+      - application/json
+      description: Tính số tiền hoàn lại dựa trên chính sách hoàn tiền (không hủy
+        booking)
+      parameters:
+      - description: Booking ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Tính số tiền hoàn lại
+      tags:
+      - Booking
+  /booking/{id}/cancel:
+    put:
+      consumes:
+      - application/json
+      description: Hủy đặt chỗ và tính số tiền hoàn lại theo chính sách hoàn tiền
+      parameters:
+      - description: Booking ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Hủy đặt chỗ
       tags:
       - Booking
   /booking/add-passengers:
@@ -2694,6 +3126,66 @@ paths:
       summary: Hủy lịch khởi hành
       tags:
       - departure
+  /departure/add-hinh-anh/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Thêm hình ảnh tour
+      parameters:
+      - description: Tour ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Add data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddHinhAnhTourRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Thêm hình ảnh tour
+      tags:
+      - departure
+  /departure/add-tour-destination/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Thêm một điểm đến tour
+      parameters:
+      - description: Tour ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Add data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddTourDestinationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Thêm điểm đến tour
+      tags:
+      - departure
   /departure/create:
     post:
       consumes:
@@ -2717,6 +3209,115 @@ paths:
       security:
       - BearerAuth: []
       summary: Tạo lịch khởi hành
+      tags:
+      - departure
+  /departure/delete-hinh-anh/{id}:
+    delete:
+      description: Xóa một hình ảnh tour (cả trong database và Supabase storage)
+      parameters:
+      - description: Hình ảnh tour ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa hình ảnh tour
+      tags:
+      - departure
+  /departure/delete-tour-destination/{tour_id}/{diem_den_id}:
+    delete:
+      description: Xóa một điểm đến tour
+      parameters:
+      - description: Tour ID
+        in: path
+        name: tour_id
+        required: true
+        type: integer
+      - description: Diem den ID
+        in: path
+        name: diem_den_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa điểm đến tour
+      tags:
+      - departure
+  /departure/hoat-dong-trong-ngay/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật hoạt động trong ngày
+      parameters:
+      - description: Hoạt động trong ngày ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateHoatDongTrongNgayRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật hoạt động trong ngày
+      tags:
+      - departure
+  /departure/lich-trinh/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật lịch trình
+      parameters:
+      - description: Lịch trình ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateLichTrinhRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật lịch trình
       tags:
       - departure
   /departure/tour/{tour_id}:
@@ -2789,35 +3390,6 @@ paths:
       summary: Tạo điểm đến
       tags:
       - Destination
-  /destination/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Lấy điểm đến theo ID
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/db.DiemDen'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/gin.H'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/gin.H'
-      summary: Lấy điểm đến theo ID
-      tags:
-      - Destination
   /destination/city/{province}:
     get:
       consumes:
@@ -2868,89 +3440,6 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Lấy danh sách quốc gia
-      tags:
-      - Destination
-  /destination/for-tour-creation:
-    get:
-      consumes:
-      - application/json
-      description: Lấy điểm đến với pagination và search, tối ưu cho create tour
-      parameters:
-      - description: 'Limit (default: 20)'
-        in: query
-        name: limit
-        type: integer
-      - description: 'Offset (default: 0)'
-        in: query
-        name: offset
-        type: integer
-      - description: Search term
-        in: query
-        name: search
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/gin.H'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/gin.H'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/gin.H'
-      summary: Lấy điểm đến với pagination và search cho create tour
-      tags:
-      - Destination
-  /destination/getAllDestination:
-    get:
-      consumes:
-      - application/json
-      description: Lấy tất cả điểm đến
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/db.DiemDen'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/gin.H'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/gin.H'
-      summary: Lấy tất cả điểm đến
-      tags:
-      - Destination
-  /destination/hierarchical:
-    get:
-      consumes:
-      - application/json
-      description: Lấy tất cả điểm đến được nhóm theo quốc gia, tỉnh thành và thành
-        phố
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/gin.H'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/gin.H'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/gin.H'
-      summary: Lấy tất cả điểm đến theo cấu trúc phân cấp
       tags:
       - Destination
   /destination/province/{country}:
@@ -3830,6 +4319,36 @@ paths:
       summary: Lấy đánh giá tour
       tags:
       - Review
+  /storage/get-signed-pdf/{filename}:
+    get:
+      consumes:
+      - application/json
+      description: lấy URL signed của file PDF
+      parameters:
+      - description: Tên file
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      tags:
+      - Storage
   /storage/list:
     post:
       consumes:
@@ -4810,18 +5329,160 @@ paths:
       summary: Lấy thông tin nhà cung cấp
       tags:
       - Supplier
+  /supplier/refunds:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách refund cho các tour của supplier
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: Search keyword
+        in: query
+        name: search
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Lấy refund cho supplier
+      tags:
+      - Booking
+  /supplier/refunds/stats:
+    get:
+      consumes:
+      - application/json
+      description: Lấy thống kê refund cho các tour của supplier
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Thống kê refund cho supplier
+      tags:
+      - Booking
   /supplier/register:
     post:
       consumes:
-      - application/json
-      description: Đăng ký đối tác và chờ admin duyệt (endpoint công khai)
+      - multipart/form-data
+      description: Đăng ký đối tác và chờ admin duyệt (endpoint công khai). Upload
+        logo (ảnh) và giấy phép kinh doanh (PDF)
       parameters:
-      - description: Thông tin đối tác
-        in: body
-        name: supplier
+      - description: Họ tên người đại diện
+        in: formData
+        name: nguoi_dai_dien
         required: true
-        schema:
-          $ref: '#/definitions/models.CreateSupplierRequest'
+        type: string
+      - description: Email
+        in: formData
+        name: email
+        required: true
+        type: string
+      - description: Mật khẩu
+        in: formData
+        name: mat_khau
+        required: true
+        type: string
+      - description: Số điện thoại
+        in: formData
+        name: so_dien_thoai
+        type: string
+      - description: Tên nhà cung cấp
+        in: formData
+        name: ten
+        required: true
+        type: string
+      - description: Địa chỉ
+        in: formData
+        name: dia_chi
+        type: string
+      - description: Website
+        in: formData
+        name: website
+        type: string
+      - description: Mô tả
+        in: formData
+        name: mo_ta
+        type: string
+      - description: Logo (ảnh)
+        in: formData
+        name: logo
+        type: file
+      - description: Năm thành lập (YYYY-MM-DD)
+        in: formData
+        name: nam_thanh_lap
+        required: true
+        type: string
+      - description: Thành phố
+        in: formData
+        name: thanh_pho
+        type: string
+      - description: Quốc gia
+        in: formData
+        name: quoc_gia
+        type: string
+      - description: Mã số thuế
+        in: formData
+        name: ma_so_thue
+        type: string
+      - description: Số nhân viên
+        in: formData
+        name: so_nhan_vien
+        type: string
+      - description: Giấy phép kinh doanh (PDF)
+        in: formData
+        name: giay_to_kinh_doanh
+        type: file
       produces:
       - application/json
       responses:
@@ -5092,6 +5753,33 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Lấy chi tiết tour
+      tags:
+      - tour
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật tour
+      parameters:
+      - description: Tour
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateTourRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thành công
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Lỗi server
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - ApiKeyAuth: []
+      summary: Cập nhật tour
       tags:
       - tour
   /tour/categories:

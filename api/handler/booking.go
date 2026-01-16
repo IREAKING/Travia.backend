@@ -71,10 +71,24 @@ func (s *Server) HoldSeat(c *gin.Context) {
 				"details": errMsg,
 			})
 		} else if strings.Contains(errMsg, "Không đủ chỗ") {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error":   "Không đủ chỗ trống",
-				"details": errMsg,
+			totalPeople := so_nguoi_lon + so_tre_em
+			availability, availErr := s.z.CheckDepartureAvailability(ctx, db.CheckDepartureAvailabilityParams{
+				ID:      int32(khoi_hanh_id),
+				SucChua: int32(totalPeople),
 			})
+			if availErr == nil {
+				c.JSON(http.StatusConflict, gin.H{
+					"error":          "Không đủ chỗ trống",
+					"details":        errMsg,
+					"so_cho_trong":   availability.SoChoTrong,
+					"so_cho_yeu_cau": totalPeople,
+				})
+			} else {
+				c.JSON(http.StatusConflict, gin.H{
+					"error":   "Không đủ chỗ trống",
+					"details": errMsg,
+				})
+			}
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Failed to hold seat",
@@ -471,5 +485,761 @@ func (s *Server) GetBookingById(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Booking fetched successfully",
 		"data":    booking,
+	})
+}
+
+// CancelBooking godoc
+// @Summary Hủy đặt chỗ
+// @Description Hủy đặt chỗ và tính số tiền hoàn lại theo chính sách hoàn tiền
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param id path int true "Booking ID"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Security BearerAuth
+// @Router /booking/{id}/cancel [put]
+func (s *Server) CancelBooking(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Kiểm tra authentication
+	claims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	jwtClaims, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication claims"})
+		return
+	}
+	userUUID := jwtClaims.Id
+
+	bookingID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking ID"})
+		return
+	}
+
+	// Kiểm tra booking có thuộc về user này không
+	booking, err := s.z.GetBookingById(ctx, int32(bookingID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Booking not found"})
+		return
+	}
+
+	// Kiểm tra quyền sở hữu
+	if booking.NguoiDungID.String() != userUUID.String() {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Bạn không có quyền hủy booking này"})
+		return
+	}
+
+	// Hủy booking và tính số tiền hoàn lại
+	refundInfo, err := s.z.CancelBooking(ctx, int32(bookingID))
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "đã bị hủy") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Booking đã bị hủy trước đó"})
+		} else if strings.Contains(errorMsg, "đã hoàn thành") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Không thể hủy booking đã hoàn thành"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể hủy booking", "details": errorMsg})
+		}
+		return
+	}
+
+	// Convert pgtype.Numeric to float64
+	var soTienHoan float64
+	if refundInfo.SoTienHoan.Valid {
+		floatVal, _ := refundInfo.SoTienHoan.Float64Value()
+		if floatVal.Valid {
+			soTienHoan = floatVal.Float64
+		}
+	}
+
+	var phanTramHoan float64
+	if refundInfo.PhanTramHoan.Valid {
+		floatVal, _ := refundInfo.PhanTramHoan.Float64Value()
+		if floatVal.Valid {
+			phanTramHoan = floatVal.Float64
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Hủy booking thành công",
+		"data": gin.H{
+			"so_tien_hoan":            soTienHoan,
+			"phan_tram_hoan":          phanTramHoan,
+			"so_ngay_truoc_khoi_hanh": refundInfo.SoNgayTruocKhoiHanh,
+			"ly_do":                   refundInfo.LyDo,
+		},
+	})
+}
+
+// DeleteBooking godoc
+// @Summary Xóa đặt chỗ
+// @Description Xóa đặt chỗ và tất cả thông tin liên quan
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param id path int true "Booking ID"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Security BearerAuth
+// @Router /booking/{id} [delete]
+func (s *Server) DeleteBooking(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	bookingID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking ID"})
+		return
+	}
+
+	err = s.z.DeleteBooking(ctx, int32(bookingID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete booking", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Booking deleted successfully"})
+}
+
+// DeleteBookings godoc
+// @Summary Xóa nhiều đặt chỗ
+// @Description Xóa nhiều đặt chỗ
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param ids query []int true "Booking IDs"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Security BearerAuth
+// @Router /booking/delete-bookings [delete]
+func (s *Server) DeleteBookings(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	idsStr := c.Query("ids")
+	ids := strings.Split(idsStr, ",")
+	idsInt := make([]int32, len(ids))
+	for i, id := range ids {
+		idInt, err := strconv.Atoi(id)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking IDs"})
+			return
+		}
+		idsInt[i] = int32(idInt)
+	}
+	err := s.z.DeleteBookings(ctx, idsInt)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete bookings", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Bookings deleted successfully"})
+}
+
+// CalculateRefundAmount godoc
+// @Summary Tính số tiền hoàn lại
+// @Description Tính số tiền hoàn lại dựa trên chính sách hoàn tiền (không hủy booking)
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param id path int true "Booking ID"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Security BearerAuth
+// @Router /booking/{id}/calculate-refund [get]
+func (s *Server) CalculateRefundAmount(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Kiểm tra authentication
+	claims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	jwtClaims, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication claims"})
+		return
+	}
+	userUUID := jwtClaims.Id
+
+	bookingID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking ID"})
+		return
+	}
+
+	// Kiểm tra booking có thuộc về user này không
+	booking, err := s.z.GetBookingById(ctx, int32(bookingID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Booking not found"})
+		return
+	}
+
+	// Kiểm tra quyền sở hữu
+	if booking.NguoiDungID.String() != userUUID.String() {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Bạn không có quyền xem booking này"})
+		return
+	}
+
+	// Tính số tiền hoàn lại
+	refundInfo, err := s.z.CalculateRefundAmount(ctx, int32(bookingID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tính số tiền hoàn lại", "details": err.Error()})
+		return
+	}
+
+	// Convert pgtype.Numeric to float64
+	var tongTien float64
+	if refundInfo.TongTien.Valid {
+		floatVal, _ := refundInfo.TongTien.Float64Value()
+		if floatVal.Valid {
+			tongTien = floatVal.Float64
+		}
+	}
+
+	var soTienHoan float64
+	if refundInfo.SoTienHoan.Valid {
+		floatVal, _ := refundInfo.SoTienHoan.Float64Value()
+		if floatVal.Valid {
+			soTienHoan = floatVal.Float64
+		}
+	}
+
+	var phanTramHoan float64
+	if refundInfo.PhanTramHoan.Valid {
+		floatVal, _ := refundInfo.PhanTramHoan.Float64Value()
+		if floatVal.Valid {
+			phanTramHoan = floatVal.Float64
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Tính số tiền hoàn lại thành công",
+		"data": gin.H{
+			"tong_tien":               tongTien,
+			"so_tien_hoan":            soTienHoan,
+			"phan_tram_hoan":          phanTramHoan,
+			"so_ngay_truoc_khoi_hanh": refundInfo.SoNgayTruocKhoiHanh,
+			"ly_do":                   refundInfo.LyDo,
+		},
+	})
+}
+
+// ===========================================
+// QUẢN LÝ HOÀN TIỀN (REFUND MANAGEMENT)
+// ===========================================
+
+// GetAllRefunds godoc
+// @Summary Lấy tất cả refund cho admin
+// @Description Lấy danh sách tất cả refund trong hệ thống với filter
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
+// @Param supplier_id query string false "Supplier ID (UUID)"
+// @Param search query string false "Search keyword"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 403 {object} gin.H
+// @Security BearerAuth
+// @Router /admin/refunds [get]
+func (s *Server) GetAllRefunds(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Kiểm tra authentication và role admin
+	claims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	jwtClaims, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication claims"})
+		return
+	}
+
+	// Kiểm tra role admin
+	if jwtClaims.Vaitro != "quan_tri" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Chỉ admin mới có quyền xem tất cả refund"})
+		return
+	}
+
+	// Parse query parameters
+	var startDate, endDate pgtype.Timestamp
+	var supplierID pgtype.UUID
+	searchKeyword := c.DefaultQuery("search", "")
+
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			// Set to end of day
+			t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			endDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	if supplierIDStr := c.Query("supplier_id"); supplierIDStr != "" {
+		if err := supplierID.Scan(supplierIDStr); err == nil {
+			supplierID.Valid = true
+		}
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	// Lấy danh sách refund
+	refunds, err := s.z.GetAllRefunds(ctx, db.GetAllRefundsParams{
+		Column1: startDate,
+		Column2: endDate,
+		Column3: supplierID,
+		Column4: searchKeyword,
+		Limit:   int32(limit),
+		Offset:  int32(offset),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy danh sách refund", "details": err.Error()})
+		return
+	}
+
+	// Convert refunds to response format
+	var refundList []gin.H
+	for _, refund := range refunds {
+		var tongTien, soTienHoan, phanTramHoan float64
+
+		if refund.TongTien.Valid {
+			floatVal, _ := refund.TongTien.Float64Value()
+			if floatVal.Valid {
+				tongTien = floatVal.Float64
+			}
+		}
+
+		if refund.SoTienHoan.Valid {
+			floatVal, _ := refund.SoTienHoan.Float64Value()
+			if floatVal.Valid {
+				soTienHoan = floatVal.Float64
+			}
+		}
+
+		if refund.PhanTramHoan.Valid {
+			floatVal, _ := refund.PhanTramHoan.Float64Value()
+			if floatVal.Valid {
+				phanTramHoan = floatVal.Float64
+			}
+		}
+
+		refundList = append(refundList, gin.H{
+			"booking_id":              refund.BookingID,
+			"ngay_dat":                refund.NgayDat,
+			"ngay_huy":                refund.NgayHuy,
+			"tong_tien":               tongTien,
+			"don_vi_tien_te":          refund.DonViTienTe,
+			"so_nguoi_lon":            refund.SoNguoiLon,
+			"so_tre_em":               refund.SoTreEm,
+			"phuong_thuc_thanh_toan":  refund.PhuongThucThanhToan,
+			"trang_thai":              refund.TrangThai,
+			"customer_id":             refund.CustomerID,
+			"customer_name":           refund.CustomerName,
+			"customer_email":          refund.CustomerEmail,
+			"customer_phone":          refund.CustomerPhone,
+			"tour_id":                 refund.TourID,
+			"tour_title":              refund.TourTitle,
+			"supplier_id":             refund.SupplierID,
+			"supplier_name":           refund.SupplierName,
+			"departure_id":            refund.DepartureID,
+			"ngay_khoi_hanh":          refund.NgayKhoiHanh,
+			"ngay_ket_thuc":           refund.NgayKetThuc,
+			"so_ngay_truoc_khoi_hanh": refund.SoNgayTruocKhoiHanh,
+			"phan_tram_hoan":          phanTramHoan,
+			"so_tien_hoan":            soTienHoan,
+			"ly_do":                   refund.LyDo,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lấy danh sách refund thành công",
+		"data":    refundList,
+		"page":    page,
+		"limit":   limit,
+	})
+}
+
+// GetSupplierRefunds godoc
+// @Summary Lấy refund cho supplier
+// @Description Lấy danh sách refund cho các tour của supplier
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
+// @Param search query string false "Search keyword"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 403 {object} gin.H
+// @Security BearerAuth
+// @Router /supplier/refunds [get]
+func (s *Server) GetSupplierRefunds(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Kiểm tra authentication và role supplier
+	claims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	jwtClaims, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication claims"})
+		return
+	}
+
+	// Kiểm tra role supplier
+	if jwtClaims.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Chỉ supplier mới có quyền xem refund"})
+		return
+	}
+
+	supplierID := jwtClaims.Id
+
+	// Parse query parameters
+	var startDate, endDate pgtype.Timestamp
+	searchKeyword := c.DefaultQuery("search", "")
+
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			// Set to end of day
+			t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			endDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	// Lấy danh sách refund
+	refunds, err := s.z.GetSupplierRefunds(ctx, db.GetSupplierRefundsParams{
+		Column1: supplierID,
+		Column2: startDate,
+		Column3: endDate,
+		Column4: searchKeyword,
+		Limit:   int32(limit),
+		Offset:  int32(offset),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy danh sách refund", "details": err.Error()})
+		return
+	}
+
+	// Convert refunds to response format
+	var refundList []gin.H
+	for _, refund := range refunds {
+		var tongTien, soTienHoan, phanTramHoan float64
+
+		if refund.TongTien.Valid {
+			floatVal, _ := refund.TongTien.Float64Value()
+			if floatVal.Valid {
+				tongTien = floatVal.Float64
+			}
+		}
+
+		if refund.SoTienHoan.Valid {
+			floatVal, _ := refund.SoTienHoan.Float64Value()
+			if floatVal.Valid {
+				soTienHoan = floatVal.Float64
+			}
+		}
+
+		if refund.PhanTramHoan.Valid {
+			floatVal, _ := refund.PhanTramHoan.Float64Value()
+			if floatVal.Valid {
+				phanTramHoan = floatVal.Float64
+			}
+		}
+
+		refundList = append(refundList, gin.H{
+			"booking_id":              refund.BookingID,
+			"ngay_dat":                refund.NgayDat,
+			"ngay_huy":                refund.NgayHuy,
+			"tong_tien":               tongTien,
+			"don_vi_tien_te":          refund.DonViTienTe,
+			"so_nguoi_lon":            refund.SoNguoiLon,
+			"so_tre_em":               refund.SoTreEm,
+			"phuong_thuc_thanh_toan":  refund.PhuongThucThanhToan,
+			"trang_thai":              refund.TrangThai,
+			"customer_id":             refund.CustomerID,
+			"customer_name":           refund.CustomerName,
+			"customer_email":          refund.CustomerEmail,
+			"customer_phone":          refund.CustomerPhone,
+			"tour_id":                 refund.TourID,
+			"tour_title":              refund.TourTitle,
+			"departure_id":            refund.DepartureID,
+			"ngay_khoi_hanh":          refund.NgayKhoiHanh,
+			"ngay_ket_thuc":           refund.NgayKetThuc,
+			"so_ngay_truoc_khoi_hanh": refund.SoNgayTruocKhoiHanh,
+			"phan_tram_hoan":          phanTramHoan,
+			"so_tien_hoan":            soTienHoan,
+			"ly_do":                   refund.LyDo,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lấy danh sách refund thành công",
+		"data":    refundList,
+		"page":    page,
+		"limit":   limit,
+	})
+}
+
+// GetRefundStats godoc
+// @Summary Thống kê refund cho admin
+// @Description Lấy thống kê refund trong hệ thống
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 403 {object} gin.H
+// @Security BearerAuth
+// @Router /admin/refunds/stats [get]
+func (s *Server) GetRefundStats(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Kiểm tra authentication và role admin
+	claims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	jwtClaims, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication claims"})
+		return
+	}
+
+	// Kiểm tra role admin
+	if jwtClaims.Vaitro != "quan_tri" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Chỉ admin mới có quyền xem thống kê refund"})
+		return
+	}
+
+	// Parse query parameters
+	var startDate, endDate pgtype.Timestamp
+
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			// Set to end of day
+			t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			endDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	// Lấy thống kê refund
+	stats, err := s.z.GetRefundStats(ctx, db.GetRefundStatsParams{
+		Column1: startDate,
+		Column2: endDate,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy thống kê refund", "details": err.Error()})
+		return
+	}
+
+	// Convert stats to response format
+	var tongTienGoc, tongTienHoan, tongTienPhat float64
+
+	if stats.TongTienGoc.Valid {
+		floatVal, _ := stats.TongTienGoc.Float64Value()
+		if floatVal.Valid {
+			tongTienGoc = floatVal.Float64
+		}
+	}
+
+	if stats.TongTienHoan.Valid {
+		floatVal, _ := stats.TongTienHoan.Float64Value()
+		if floatVal.Valid {
+			tongTienHoan = floatVal.Float64
+		}
+	}
+
+	if stats.TongTienPhat.Valid {
+		floatVal, _ := stats.TongTienPhat.Float64Value()
+		if floatVal.Valid {
+			tongTienPhat = floatVal.Float64
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lấy thống kê refund thành công",
+		"data": gin.H{
+			"tong_so_refund":   stats.TongSoRefund,
+			"tong_tien_goc":    tongTienGoc,
+			"tong_tien_hoan":   tongTienHoan,
+			"tong_tien_phat":   tongTienPhat,
+			"hoan_100_percent": stats.Hoan100Percent,
+			"hoan_90_percent":  stats.Hoan90Percent,
+			"hoan_70_percent":  stats.Hoan70Percent,
+			"hoan_50_percent":  stats.Hoan50Percent,
+			"khong_hoan":       stats.KhongHoan,
+		},
+	})
+}
+
+// GetSupplierRefundStats godoc
+// @Summary Thống kê refund cho supplier
+// @Description Lấy thống kê refund cho các tour của supplier
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 403 {object} gin.H
+// @Security BearerAuth
+// @Router /supplier/refunds/stats [get]
+func (s *Server) GetSupplierRefundStats(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Kiểm tra authentication và role supplier
+	claims, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	jwtClaims, ok := claims.(*utils.JwtClams)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authentication claims"})
+		return
+	}
+
+	// Kiểm tra role supplier
+	if jwtClaims.Vaitro != "nha_cung_cap" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Chỉ supplier mới có quyền xem thống kê refund"})
+		return
+	}
+
+	supplierID := jwtClaims.Id
+
+	// Parse query parameters
+	var startDate, endDate pgtype.Timestamp
+
+	if startDateStr := c.Query("start_date"); startDateStr != "" {
+		if t, err := time.Parse("2006-01-02", startDateStr); err == nil {
+			startDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	if endDateStr := c.Query("end_date"); endDateStr != "" {
+		if t, err := time.Parse("2006-01-02", endDateStr); err == nil {
+			// Set to end of day
+			t = t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			endDate = pgtype.Timestamp{Time: t, Valid: true}
+		}
+	}
+
+	// Lấy thống kê refund
+	stats, err := s.z.GetSupplierRefundStats(ctx, db.GetSupplierRefundStatsParams{
+		Column1: supplierID,
+		Column2: startDate,
+		Column3: endDate,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy thống kê refund", "details": err.Error()})
+		return
+	}
+
+	// Convert stats to response format
+	var tongTienGoc, tongTienHoan, tongTienPhat float64
+
+	if stats.TongTienGoc.Valid {
+		floatVal, _ := stats.TongTienGoc.Float64Value()
+		if floatVal.Valid {
+			tongTienGoc = floatVal.Float64
+		}
+	}
+
+	if stats.TongTienHoan.Valid {
+		floatVal, _ := stats.TongTienHoan.Float64Value()
+		if floatVal.Valid {
+			tongTienHoan = floatVal.Float64
+		}
+	}
+
+	if stats.TongTienPhat.Valid {
+		floatVal, _ := stats.TongTienPhat.Float64Value()
+		if floatVal.Valid {
+			tongTienPhat = floatVal.Float64
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Lấy thống kê refund thành công",
+		"data": gin.H{
+			"tong_so_refund":   stats.TongSoRefund,
+			"tong_tien_goc":    tongTienGoc,
+			"tong_tien_hoan":   tongTienHoan,
+			"tong_tien_phat":   tongTienPhat,
+			"hoan_100_percent": stats.Hoan100Percent,
+			"hoan_90_percent":  stats.Hoan90Percent,
+			"hoan_70_percent":  stats.Hoan70Percent,
+			"hoan_50_percent":  stats.Hoan50Percent,
+			"khong_hoan":       stats.KhongHoan,
+		},
 	})
 }

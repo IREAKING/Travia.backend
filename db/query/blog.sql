@@ -1,165 +1,287 @@
--- Blog API endpoints structure
--- File: db/query/blog.sql
+-- ===========================================
+-- BLOG QUERIES
+-- ===========================================
 
--- ==================== BLOG CATEGORIES ====================
+-- name: CreateBlog :one
+INSERT INTO blog (
+    tieu_de,
+    slug,
+    tom_tat,
+    noi_dung,
+    anh_dai_dien,
+    tac_gia_id,
+    danh_muc,
+    tu_khoa,
+    trang_thai,
+    noi_bat,
+    ngay_dang
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+) RETURNING *;
 
--- Get all active blog categories
--- name: GetAllBlogCategories
--- SELECT id, ten, slug, mo_ta, anh, mau_sac 
--- FROM danh_muc_blog 
--- WHERE dang_hoat_dong = true 
--- ORDER BY ten;
+-- name: GetBlogByID :one
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.id = $1;
 
--- Get blog category by slug
--- name: GetBlogCategoryBySlug
--- SELECT id, ten, slug, mo_ta, anh, mau_sac 
--- FROM danh_muc_blog 
--- WHERE slug = $1 AND dang_hoat_dong = true;
+-- name: GetBlogBySlug :one
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.slug = $1;
 
--- ==================== BLOG POSTS ====================
+-- name: GetAllBlogs :many
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+ORDER BY 
+    CASE WHEN b.noi_bat = TRUE THEN 0 ELSE 1 END,
+    COALESCE(b.ngay_dang, b.ngay_tao) DESC
+LIMIT $1 OFFSET $2;
 
--- Get published blog posts with pagination
--- name: GetPublishedBlogPosts
--- SELECT 
---     b.id, b.tieu_de, b.slug, b.tom_tat, b.anh_dai_dien,
---     b.luot_xem, b.luot_thich, b.ngay_cong_bo,
---     c.ten as danh_muc_ten, c.slug as danh_muc_slug, c.mau_sac as danh_muc_mau,
---     u.ho_ten as tac_gia_ten
--- FROM bai_viet_blog b
--- LEFT JOIN danh_muc_blog c ON b.danh_muc_id = c.id
--- LEFT JOIN nguoi_dung u ON b.tac_gia_id = u.id
--- WHERE b.trang_thai = 'cong_bo'
--- ORDER BY b.ngay_cong_bo DESC
--- LIMIT $1 OFFSET $2;
+-- name: GetPublishedBlogs :many
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.trang_thai = 'cong_bo'
+    AND (b.ngay_dang IS NULL OR b.ngay_dang <= NOW())
+ORDER BY 
+    CASE WHEN b.noi_bat = TRUE THEN 0 ELSE 1 END,
+    COALESCE(b.ngay_dang, b.ngay_tao) DESC
+LIMIT $1 OFFSET $2;
 
--- Get featured blog posts
--- name: GetFeaturedBlogPosts
--- SELECT 
---     b.id, b.tieu_de, b.slug, b.tom_tat, b.anh_dai_dien,
---     b.luot_xem, b.luot_thich, b.ngay_cong_bo,
---     c.ten as danh_muc_ten, c.slug as danh_muc_slug,
---     u.ho_ten as tac_gia_ten
--- FROM bai_viet_blog b
--- LEFT JOIN danh_muc_blog c ON b.danh_mac_id = c.id
--- LEFT JOIN nguoi_dung u ON b.tac_gia_id = u.id
--- WHERE b.trang_thai = 'cong_bo' AND b.noi_bat = true
--- ORDER BY b.ngay_cong_bo DESC
--- LIMIT $1;
+-- name: GetBlogsByCategory :many
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.danh_muc = $1
+    AND b.trang_thai = 'cong_bo'
+    AND (b.ngay_dang IS NULL OR b.ngay_dang <= NOW())
+ORDER BY 
+    CASE WHEN b.noi_bat = TRUE THEN 0 ELSE 1 END,
+    COALESCE(b.ngay_dang, b.ngay_tao) DESC
+LIMIT $2 OFFSET $3;
 
--- Get blog post by slug with full details
--- name: GetBlogPostBySlug
--- SELECT 
---     b.id, b.tieu_de, b.slug, b.tom_tat, b.noi_dung, b.anh_dai_dien,
---     b.luot_xem, b.luot_thich, b.ngay_cong_bo,
---     c.id as danh_mac_id, c.ten as danh_mac_ten, c.slug as danh_mac_slug,
---     u.id as tac_gia_id, u.ho_ten as tac_gia_ten, u.email as tac_gia_email
--- FROM bai_viet_blog b
--- LEFT JOIN danh_muc_blog c ON b.danh_mac_id = c.id
--- LEFT JOIN nguoi_dung u ON b.tac_gia_id = u.id
--- WHERE b.slug = $1 AND b.trang_thai = 'cong_bo';
+-- name: GetFeaturedBlogs :many
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.noi_bat = TRUE
+    AND b.trang_thai = 'cong_bo'
+    AND (b.ngay_dang IS NULL OR b.ngay_dang <= NOW())
+ORDER BY COALESCE(b.ngay_dang, b.ngay_tao) DESC
+LIMIT $1;
 
--- Search blog posts
--- name: SearchBlogPosts
--- SELECT 
---     b.id, b.tieu_de, b.slug, b.tom_tat, b.anh_dai_dien,
---     b.luot_xem, b.luot_thich, b.ngay_cong_bo,
---     c.ten as danh_mac_ten, c.slug as danh_mac_slug,
---     u.ho_ten as tac_gia_ten,
---     ts_rank(b.search_vector, plainto_tsquery('vietnamese', $1)) as rank
--- FROM bai_viet_blog b
--- LEFT JOIN danh_mac_blog c ON b.danh_mac_id = c.id
--- LEFT JOIN nguoi_dung u ON b.tac_gia_id = u.id
--- WHERE b.trang_thai = 'cong_bo' 
---   AND b.search_vector @@ plainto_tsquery('vietnamese', $1)
--- ORDER BY rank DESC, b.ngay_cong_bo DESC
--- LIMIT $2 OFFSET $3;
+-- name: SearchBlogs :many
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia,
+    ts_rank(
+        to_tsvector('vietnamese', COALESCE(b.tieu_de, '') || ' ' || COALESCE(b.tom_tat, '') || ' ' || COALESCE(b.noi_dung, '')),
+        plainto_tsquery('vietnamese', $1)
+    ) AS rank
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.trang_thai = 'cong_bo'
+    AND (b.ngay_dang IS NULL OR b.ngay_dang <= NOW())
+    AND (
+        to_tsvector('vietnamese', COALESCE(b.tieu_de, '') || ' ' || COALESCE(b.tom_tat, '') || ' ' || COALESCE(b.noi_dung, '')) 
+        @@ plainto_tsquery('vietnamese', $1)
+        OR b.tieu_de ILIKE '%' || $1 || '%'
+        OR b.tom_tat ILIKE '%' || $1 || '%'
+    )
+ORDER BY rank DESC, COALESCE(b.ngay_dang, b.ngay_tao) DESC
+LIMIT $2 OFFSET $3;
 
--- Get blog posts by category
--- name: GetBlogPostsByCategory
--- SELECT 
---     b.id, b.tieu_de, b.slug, b.tom_tat, b.anh_dai_dien,
---     b.luot_xem, b.luot_thich, b.ngay_cong_bo,
---     c.ten as danh_mac_ten, c.slug as danh_mac_slug,
---     u.ho_ten as tac_gia_ten
--- FROM bai_viet_blog b
--- LEFT JOIN danh_mac_blog c ON b.danh_mac_id = c.id
--- LEFT JOIN nguoi_dung u ON b.tac_gia_id = u.id
--- WHERE b.trang_thai = 'cong_bo' AND c.slug = $1
--- ORDER BY b.ngay_cong_bo DESC
--- LIMIT $2 OFFSET $3;
+-- name: GetBlogsByAuthor :many
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.tac_gia_id = $1
+ORDER BY COALESCE(b.ngay_dang, b.ngay_tao) DESC
+LIMIT $2 OFFSET $3;
 
--- Increment blog post view count
--- name: IncrementBlogPostViews
--- UPDATE bai_viet_blog 
--- SET luot_xem = luot_xem + 1 
--- WHERE id = $1;
+-- name: UpdateBlog :one
+UPDATE blog
+SET 
+    tieu_de = COALESCE($2, tieu_de),
+    slug = COALESCE($3, slug),
+    tom_tat = COALESCE($4, tom_tat),
+    noi_dung = COALESCE($5, noi_dung),
+    anh_dai_dien = COALESCE($6, anh_dai_dien),
+    danh_muc = COALESCE($7, danh_muc),
+    tu_khoa = COALESCE($8, tu_khoa),
+    trang_thai = COALESCE($9, trang_thai),
+    noi_bat = COALESCE($10, noi_bat),
+    ngay_dang = COALESCE($11, ngay_dang),
+    ngay_cap_nhat = NOW()
+WHERE id = $1
+RETURNING *;
 
--- ==================== BLOG TAGS ====================
+-- name: DeleteBlog :exec
+DELETE FROM blog WHERE id = $1;
 
--- Get all blog tags
--- name: GetAllBlogTags
--- SELECT id, ten, slug, mau_sac 
--- FROM the_blog 
--- ORDER BY ten;
+-- name: IncrementBlogViews :exec
+UPDATE blog
+SET luot_xem = luot_xem + 1
+WHERE id = $1;
 
--- Get tags for a blog post
--- name: GetBlogPostTags
--- SELECT t.id, t.ten, t.slug, t.mau_sac
--- FROM the_blog t
--- JOIN bai_viet_the bt ON t.id = bt.the_id
--- WHERE bt.bai_viet_id = $1;
+-- name: IncrementBlogLikes :exec
+UPDATE blog
+SET luot_thich = luot_thich + 1
+WHERE id = $1;
 
--- ==================== BLOG COMMENTS ====================
+-- name: DecrementBlogLikes :exec
+UPDATE blog
+SET luot_thich = GREATEST(0, luot_thich - 1)
+WHERE id = $1;
 
--- Get approved comments for a blog post
--- name: GetBlogPostComments
--- SELECT 
---     bc.id, bc.noi_dung, bc.ngay_tao,
---     u.ho_ten as nguoi_dung_ten, u.email as nguoi_dung_email,
---     bc.phan_hoi_id
--- FROM binh_luan_blog bc
--- JOIN nguoi_dung u ON bc.nguoi_dung_id = u.id
--- WHERE bc.bai_viet_id = $1 AND bc.trang_thai = 'da_duyet'
--- ORDER BY bc.ngay_tao ASC;
+-- name: GetRelatedBlogs :many
+SELECT 
+    b.*,
+    nd.ho_ten AS ten_tac_gia,
+    nd.email AS email_tac_gia
+FROM blog b
+LEFT JOIN nguoi_dung nd ON b.tac_gia_id = nd.id
+WHERE b.id != $1
+    AND b.trang_thai = 'cong_bo'
+    AND (b.ngay_dang IS NULL OR b.ngay_dang <= NOW())
+    AND (
+        b.danh_muc = (SELECT danh_muc FROM blog WHERE id = $1)
+        OR b.tu_khoa && (SELECT tu_khoa FROM blog WHERE id = $1)
+    )
+ORDER BY COALESCE(b.ngay_dang, b.ngay_tao) DESC
+LIMIT $2;
 
--- Create blog comment
--- name: CreateBlogComment
--- INSERT INTO binh_luan_blog (bai_viet_id, nguoi_dung_id, noi_dung, phan_hoi_id)
--- VALUES ($1, $2, $3, $4)
--- RETURNING id, ngay_tao;
+-- name: GetBlogStats :one
+SELECT 
+    COUNT(*) FILTER (WHERE trang_thai = 'cong_bo') AS tong_so_da_dang,
+    COUNT(*) FILTER (WHERE trang_thai = 'nhap') AS tong_so_nhap,
+    COUNT(*) FILTER (WHERE trang_thai = 'luu_tru') AS tong_so_luu_tru,
+    COUNT(*) FILTER (WHERE noi_bat = TRUE) AS tong_so_noi_bat,
+    SUM(luot_xem) AS tong_luot_xem,
+    SUM(luot_thich) AS tong_luot_thich,
+    COUNT(*) FILTER (WHERE ngay_dang >= NOW() - INTERVAL '30 days') AS so_bai_trong_30_ngay
+FROM blog;
 
--- ==================== ADMIN BLOG MANAGEMENT ====================
+-- name: CountBlogs :one
+SELECT COUNT(*) FROM blog
+WHERE ($1::text IS NULL OR trang_thai = $1::text)
+    AND ($2::text IS NULL OR danh_muc = $2::text)
+    AND ($3::text IS NULL OR tac_gia_id::text = $3::text);
 
--- Get all blog posts for admin (with status)
--- name: GetAllBlogPostsAdmin
--- SELECT 
---     b.id, b.tieu_de, b.slug, b.trang_thai, b.noi_bat,
---     b.luot_xem, b.luot_thich, b.ngay_cong_bo, b.ngay_tao,
---     c.ten as danh_mac_ten,
---     u.ho_ten as tac_gia_ten
--- FROM bai_viet_blog b
--- LEFT JOIN danh_mac_blog c ON b.danh_mac_id = c.id
--- LEFT JOIN nguoi_dung u ON b.tac_gia_id = u.id
--- ORDER BY b.ngay_tao DESC
--- LIMIT $1 OFFSET $2;
+-- name: CountPublishedBlogs :one
+SELECT COUNT(*) FROM blog
+WHERE trang_thai = 'cong_bo'
+    AND (ngay_dang IS NULL OR ngay_dang <= NOW());
 
--- Create blog post
--- name: CreateBlogPost
--- INSERT INTO bai_viet_blog (
---     tieu_de, slug, tom_tat, noi_dung, anh_dai_dien,
---     danh_mac_id, tac_gia_id, trang_thai, noi_bat
--- ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
--- RETURNING id, ngay_tao;
+-- ===========================================
+-- BLOG AI HISTORY QUERIES
+-- ===========================================
 
--- Update blog post
--- name: UpdateBlogPost
--- UPDATE bai_viet_blog 
--- SET tieu_de = $2, slug = $3, tom_tat = $4, noi_dung = $5,
---     anh_dai_dien = $6, danh_mac_id = $7, trang_thai = $8,
---     noi_bat = $9, ngay_cap_nhat = CURRENT_TIMESTAMP
--- WHERE id = $1
--- RETURNING ngay_cap_nhat;
+-- name: CreateBlogAIHistory :one
+INSERT INTO lich_su_ai_blog (
+    blog_id,
+    prompt,
+    phan_hoi_ai,
+    mo_hinh_ai,
+    so_luong_token
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING *;
 
--- Delete blog post
--- name: DeleteBlogPost
--- DELETE FROM bai_viet_blog WHERE id = $1;
+-- name: GetBlogAIHistory :many
+SELECT * FROM lich_su_ai_blog
+WHERE blog_id = $1
+ORDER BY ngay_tao DESC;
+
+-- ===========================================
+-- BLOG COMMENT QUERIES
+-- ===========================================
+
+-- name: CreateBlogComment :one
+INSERT INTO binh_luan_blog (
+    blog_id,
+    nguoi_dung_id,
+    noi_dung,
+    binh_luan_cha_id,
+    da_duyet
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING *;
+
+-- name: GetBlogComments :many
+SELECT 
+    bl.*,
+    nd.ho_ten AS ten_nguoi_dung,
+    nd.email AS email_nguoi_dung
+FROM binh_luan_blog bl
+LEFT JOIN nguoi_dung nd ON bl.nguoi_dung_id = nd.id
+WHERE bl.blog_id = $1
+    AND bl.da_duyet = TRUE
+    AND bl.binh_luan_cha_id IS NULL -- Chỉ lấy comment gốc
+ORDER BY bl.ngay_tao DESC
+LIMIT $2 OFFSET $3;
+
+-- name: GetBlogCommentReplies :many
+SELECT 
+    bl.*,
+    nd.ho_ten AS ten_nguoi_dung,
+    nd.email AS email_nguoi_dung
+FROM binh_luan_blog bl
+LEFT JOIN nguoi_dung nd ON bl.nguoi_dung_id = nd.id
+WHERE bl.binh_luan_cha_id = $1
+    AND bl.da_duyet = TRUE
+ORDER BY bl.ngay_tao ASC;
+
+-- name: GetPendingComments :many
+SELECT 
+    bl.*,
+    nd.ho_ten AS ten_nguoi_dung,
+    nd.email AS email_nguoi_dung,
+    b.tieu_de AS ten_blog
+FROM binh_luan_blog bl
+LEFT JOIN nguoi_dung nd ON bl.nguoi_dung_id = nd.id
+LEFT JOIN blog b ON bl.blog_id = b.id
+WHERE bl.da_duyet = FALSE
+ORDER BY bl.ngay_tao DESC
+LIMIT $1 OFFSET $2;
+
+-- name: ApproveComment :one
+UPDATE binh_luan_blog
+SET 
+    da_duyet = TRUE,
+    ngay_cap_nhat = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteComment :exec
+DELETE FROM binh_luan_blog WHERE id = $1;
+
+-- name: CountBlogComments :one
+SELECT COUNT(*) FROM binh_luan_blog
+WHERE blog_id = $1
+    AND da_duyet = TRUE;

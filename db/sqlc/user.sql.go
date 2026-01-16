@@ -27,7 +27,44 @@ func (q *Queries) ChangePassword(ctx context.Context, arg ChangePasswordParams) 
 	return err
 }
 
-const forgotPassword = `-- name: ForgotPassword :one
+const createPasswordResetOTP = `-- name: CreatePasswordResetOTP :one
+INSERT INTO otp_dat_lai_mat_khau (nguoi_dung_id, ma_otp, thoi_han)
+VALUES ($1, $2, $3)
+RETURNING id, nguoi_dung_id, ma_otp, da_xac_thuc, thoi_han, ngay_tao, ngay_xac_thuc
+`
+
+type CreatePasswordResetOTPParams struct {
+	NguoiDungID pgtype.UUID      `json:"nguoi_dung_id"`
+	MaOtp       string           `json:"ma_otp"`
+	ThoiHan     pgtype.Timestamp `json:"thoi_han"`
+}
+
+func (q *Queries) CreatePasswordResetOTP(ctx context.Context, arg CreatePasswordResetOTPParams) (OtpDatLaiMatKhau, error) {
+	row := q.db.QueryRow(ctx, createPasswordResetOTP, arg.NguoiDungID, arg.MaOtp, arg.ThoiHan)
+	var i OtpDatLaiMatKhau
+	err := row.Scan(
+		&i.ID,
+		&i.NguoiDungID,
+		&i.MaOtp,
+		&i.DaXacThuc,
+		&i.ThoiHan,
+		&i.NgayTao,
+		&i.NgayXacThuc,
+	)
+	return i, err
+}
+
+const deleteExpiredOTPs = `-- name: DeleteExpiredOTPs :exec
+DELETE FROM otp_dat_lai_mat_khau
+WHERE thoi_han < NOW()
+`
+
+func (q *Queries) DeleteExpiredOTPs(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredOTPs)
+	return err
+}
+
+const forgotPassword = `-- name: ForgotPassword :exec
 UPDATE nguoi_dung
 SET mat_khau_ma_hoa = $1
 WHERE email = $2
@@ -39,22 +76,124 @@ type ForgotPasswordParams struct {
 	Email        string `json:"email"`
 }
 
-func (q *Queries) ForgotPassword(ctx context.Context, arg ForgotPasswordParams) (NguoiDung, error) {
-	row := q.db.QueryRow(ctx, forgotPassword, arg.MatKhauMaHoa, arg.Email)
-	var i NguoiDung
+func (q *Queries) ForgotPassword(ctx context.Context, arg ForgotPasswordParams) error {
+	_, err := q.db.Exec(ctx, forgotPassword, arg.MatKhauMaHoa, arg.Email)
+	return err
+}
+
+const getPasswordResetOTP = `-- name: GetPasswordResetOTP :one
+SELECT otp.id, otp.nguoi_dung_id, otp.ma_otp, otp.da_xac_thuc, otp.thoi_han, otp.ngay_tao, otp.ngay_xac_thuc FROM otp_dat_lai_mat_khau otp
+INNER JOIN nguoi_dung nd ON otp.nguoi_dung_id = nd.id
+WHERE nd.email = $1 AND otp.ma_otp = $2 AND otp.thoi_han > NOW()
+ORDER BY otp.ngay_tao DESC
+LIMIT 1
+`
+
+type GetPasswordResetOTPParams struct {
+	Email string `json:"email"`
+	MaOtp string `json:"ma_otp"`
+}
+
+func (q *Queries) GetPasswordResetOTP(ctx context.Context, arg GetPasswordResetOTPParams) (OtpDatLaiMatKhau, error) {
+	row := q.db.QueryRow(ctx, getPasswordResetOTP, arg.Email, arg.MaOtp)
+	var i OtpDatLaiMatKhau
 	err := row.Scan(
 		&i.ID,
-		&i.HoTen,
-		&i.Email,
-		&i.MatKhauMaHoa,
-		&i.SoDienThoai,
-		&i.VaiTro,
-		&i.DangHoatDong,
-		&i.XacThuc,
+		&i.NguoiDungID,
+		&i.MaOtp,
+		&i.DaXacThuc,
+		&i.ThoiHan,
 		&i.NgayTao,
-		&i.NgayCapNhat,
+		&i.NgayXacThuc,
 	)
 	return i, err
+}
+
+const getUnverifiedPasswordResetOTP = `-- name: GetUnverifiedPasswordResetOTP :one
+SELECT otp.id, otp.nguoi_dung_id, otp.ma_otp, otp.da_xac_thuc, otp.thoi_han, otp.ngay_tao, otp.ngay_xac_thuc FROM otp_dat_lai_mat_khau otp
+INNER JOIN nguoi_dung nd ON otp.nguoi_dung_id = nd.id
+WHERE nd.email = $1 AND otp.ma_otp = $2 AND otp.da_xac_thuc = FALSE AND otp.thoi_han > NOW()
+ORDER BY otp.ngay_tao DESC
+LIMIT 1
+`
+
+type GetUnverifiedPasswordResetOTPParams struct {
+	Email string `json:"email"`
+	MaOtp string `json:"ma_otp"`
+}
+
+func (q *Queries) GetUnverifiedPasswordResetOTP(ctx context.Context, arg GetUnverifiedPasswordResetOTPParams) (OtpDatLaiMatKhau, error) {
+	row := q.db.QueryRow(ctx, getUnverifiedPasswordResetOTP, arg.Email, arg.MaOtp)
+	var i OtpDatLaiMatKhau
+	err := row.Scan(
+		&i.ID,
+		&i.NguoiDungID,
+		&i.MaOtp,
+		&i.DaXacThuc,
+		&i.ThoiHan,
+		&i.NgayTao,
+		&i.NgayXacThuc,
+	)
+	return i, err
+}
+
+const getUserPaymentHistory = `-- name: GetUserPaymentHistory :many
+
+
+CREATE OR REPLACE FUNCTION xoa_otp_het_han()
+RETURNS INTEGER AS $$
+DECLARE
+    so_ban_ghi_xoa INTEGER;
+BEGIN
+    DELETE FROM otp_dat_lai_mat_khau 
+    WHERE thoi_han < NOW();
+    
+    GET DIAGNOSTICS so_ban_ghi_xoa = ROW_COUNT;
+    RETURN so_ban_ghi_xoa;
+END;
+$$ LANGUAGE plpgsql
+`
+
+type GetUserPaymentHistoryRow struct {
+}
+
+// Note: yeu_thich table doesn't exist yet, will implement in Sprint 3-4
+// -- name: GetUserFavorites :many
+// SELECT * FROM yeu_thich
+// WHERE nguoi_dung_id = $1;
+// Function để xóa các OTP đã hết hạn
+func (q *Queries) GetUserPaymentHistory(ctx context.Context) ([]GetUserPaymentHistoryRow, error) {
+	rows, err := q.db.Query(ctx, getUserPaymentHistory)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserPaymentHistoryRow
+	for rows.Next() {
+		var i GetUserPaymentHistoryRow
+		if err := rows.Scan(); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const invalidateAllOTPsForEmail = `-- name: InvalidateAllOTPsForEmail :exec
+UPDATE otp_dat_lai_mat_khau otp
+SET da_xac_thuc = TRUE
+FROM nguoi_dung nd
+WHERE otp.nguoi_dung_id = nd.id 
+  AND nd.email = $1 
+  AND otp.da_xac_thuc = FALSE
+`
+
+func (q *Queries) InvalidateAllOTPsForEmail(ctx context.Context, email string) error {
+	_, err := q.db.Exec(ctx, invalidateAllOTPsForEmail, email)
+	return err
 }
 
 const resetPassword = `-- name: ResetPassword :one
@@ -125,4 +264,25 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (NguoiDu
 		&i.NgayCapNhat,
 	)
 	return i, err
+}
+
+const verifyPasswordResetOTP = `-- name: VerifyPasswordResetOTP :exec
+UPDATE otp_dat_lai_mat_khau otp
+SET da_xac_thuc = TRUE, ngay_xac_thuc = CURRENT_TIMESTAMP
+FROM nguoi_dung nd
+WHERE otp.nguoi_dung_id = nd.id 
+  AND nd.email = $1 
+  AND otp.ma_otp = $2 
+  AND otp.da_xac_thuc = FALSE 
+  AND otp.thoi_han > NOW()
+`
+
+type VerifyPasswordResetOTPParams struct {
+	Email string `json:"email"`
+	MaOtp string `json:"ma_otp"`
+}
+
+func (q *Queries) VerifyPasswordResetOTP(ctx context.Context, arg VerifyPasswordResetOTPParams) error {
+	_, err := q.db.Exec(ctx, verifyPasswordResetOTP, arg.Email, arg.MaOtp)
+	return err
 }

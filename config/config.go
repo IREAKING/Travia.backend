@@ -158,18 +158,16 @@ func NewGoogleCloudConfig() *GoogleCloudConfig {
 }
 
 type SupabaseConfig struct {
-	URL        string
-	Key        string
-	Bucket     string
-	ServiceKey string
+	URL    string
+	Key    string
+	Bucket string
 }
 
 func NewSupabaseConfig() *SupabaseConfig {
 	return &SupabaseConfig{
-		URL:        os.Getenv("SUPABASE_URL"),
-		Key:        os.Getenv("SUPABASE_KEY_ROLE"),
-		Bucket:     os.Getenv("SUPABASE_BUCKET"),
-		ServiceKey: os.Getenv("SUPABASE_SERVICE_KEY"),
+		URL:    os.Getenv("SUPABASE_URL"),
+		Key:    os.Getenv("SUPABASE_KEY_ROLE"),
+		Bucket: os.Getenv("SUPABASE_BUCKET"),
 	}
 }
 

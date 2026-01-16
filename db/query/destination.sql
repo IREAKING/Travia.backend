@@ -13,157 +13,87 @@ INSERT INTO diem_den (
 RETURNING *;
 
 -- name: GetCountry :many
-SELECT quoc_gia FROM diem_den
-GROUP BY quoc_gia;
+SELECT id, quoc_gia FROM diem_den
+GROUP BY quoc_gia, id;
 
 -- name: GetProvinceByCountry :many
-SELECT tinh FROM diem_den
+SELECT id, tinh FROM diem_den
 WHERE quoc_gia = $1
-GROUP BY tinh;
+GROUP BY tinh, id;
 
 -- name: GetCityByProvince :many
-SELECT ten FROM diem_den
+SELECT id, ten FROM diem_den
 WHERE tinh = $1
-GROUP BY ten;
-
-
--- name: GetDestinationByID :one
-SELECT * FROM diem_den
-WHERE id = $1;
-
--- name: GetAllDestinations :many
-SELECT * FROM diem_den
-ORDER BY ngay_tao DESC;
-
--- name: GetDestinationsByCountry :many
-SELECT * FROM diem_den
-WHERE quoc_gia = $1
-ORDER BY ten ASC;
-
--- name: GetDestinationsByRegion :many
-SELECT * FROM diem_den
-WHERE khu_vuc = $1
-ORDER BY ten ASC;
-
--- name: GetDestinationsByCountryAndRegion :many
-SELECT * FROM diem_den
-WHERE quoc_gia = $1 AND khu_vuc = $2
-ORDER BY ten ASC;
-
--- name: UpdateDestination :one
-UPDATE diem_den
-SET
-    ten = COALESCE(sqlc.narg(ten), ten),
-    quoc_gia = COALESCE(sqlc.narg(quoc_gia), quoc_gia),
-    khu_vuc = COALESCE(sqlc.narg(khu_vuc), khu_vuc),
-    mo_ta = COALESCE(sqlc.narg(mo_ta), mo_ta),
-    anh = COALESCE(sqlc.narg(anh), anh),
-    vi_do = COALESCE(sqlc.narg(vi_do), vi_do),
-    kinh_do = COALESCE(sqlc.narg(kinh_do), kinh_do),
-    ngay_cap_nhat = CURRENT_TIMESTAMP
-WHERE id = sqlc.arg(id)
-RETURNING *;
-
--- name: DeleteDestination :exec
-DELETE FROM diem_den
-WHERE id = $1;
-
--- name: SearchDestinations :many
-SELECT * FROM diem_den
-WHERE 
-    ten ILIKE '%' || $1 || '%'
-    OR quoc_gia ILIKE '%' || $1 || '%'
-    OR khu_vuc ILIKE '%' || $1 || '%'
-    OR mo_ta ILIKE '%' || $1 || '%'
-ORDER BY ten ASC;
-
--- name: GetDestinationWithTourCount :many
-SELECT
-    d.*,
-    COUNT(td.tour_id)::int AS total_tours
-FROM diem_den d
-LEFT JOIN tour_diem_den td ON td.diem_den_id = d.id
-GROUP BY d.id
-ORDER BY total_tours DESC, d.ngay_tao DESC;
-
--- name: GetDestinationWithTourCountByID :one
-SELECT
-    d.*,
-    COUNT(td.tour_id)::int AS total_tours
-FROM diem_den d
-LEFT JOIN tour_diem_den td ON td.diem_den_id = d.id
-WHERE d.id = $1
-GROUP BY d.id;
+GROUP BY ten, id;
 
 -- name: GetPopularDestinations :many
-SELECT
-    d.*,
-    COUNT(td.tour_id)::int AS total_tours
-FROM diem_den d
-LEFT JOIN tour_diem_den td ON td.diem_den_id = d.id
-LEFT JOIN tour t ON t.id = td.tour_id AND t.dang_hoat_dong = TRUE
-where d.anh is not null
-GROUP BY d.id
-HAVING COUNT(td.tour_id) > 0
-ORDER BY total_tours DESC
-LIMIT $1;
-
--- name: GetDestinationsWithPagination :many
-SELECT * FROM diem_den
-ORDER BY ngay_tao DESC
-LIMIT $1 OFFSET $2;
-
--- name: CountDestinations :one
-SELECT COUNT(*)::int FROM diem_den;
-
--- name: CountDestinationsByCountry :many
-SELECT
-    quoc_gia,
-    COUNT(*)::int AS total
-FROM diem_den
-GROUP BY quoc_gia
-ORDER BY total DESC;
-
--- name: GetDestinationsByTourID :many
+-- Lấy các điểm đến phổ biến nhất (được nhiều tour sử dụng nhất)
 SELECT 
-    d.id,
-    d.ten,
-    d.quoc_gia,
-    d.khu_vuc,
-    d.mo_ta,
-    d.anh,
-    d.vi_do,
-    d.kinh_do,
-    td.thu_tu_tham_quan
-FROM diem_den d
-JOIN tour_diem_den td ON td.diem_den_id = d.id
-WHERE td.tour_id = $1
-ORDER BY td.thu_tu_tham_quan ASC;
-
--- name: CheckDestinationExists :one
-SELECT EXISTS(
-    SELECT 1 FROM diem_den
-    WHERE ten = $1 AND quoc_gia = $2
-) AS exists;
-
--- name: GetUniqueCountries :many
-SELECT DISTINCT quoc_gia
-FROM diem_den
-WHERE quoc_gia IS NOT NULL
-ORDER BY quoc_gia ASC;
-
--- name: BulkDeleteDestinations :exec
-DELETE FROM diem_den
-WHERE id = ANY($1::int[]);
-
-
--- name: GetDestinationsWithoutImage :many
-SELECT id, tinh
-FROM diem_den
-WHERE (anh IS NULL OR anh = '')
+    dd.id,
+    dd.ten,
+    dd.tinh,
+    dd.quoc_gia,
+    dd.khu_vuc,
+    dd.mo_ta,
+    dd.anh,
+    dd.vi_do,
+    dd.kinh_do,
+    COUNT(DISTINCT CASE WHEN t.trang_thai = 'cong_bo' AND t.dang_hoat_dong = TRUE THEN tdd.tour_id END) as so_luong_tour
+FROM diem_den dd
+LEFT JOIN tour_diem_den tdd ON dd.id = tdd.diem_den_id
+LEFT JOIN tour t ON tdd.tour_id = t.id
+GROUP BY dd.id, dd.ten, dd.tinh, dd.quoc_gia, dd.khu_vuc, dd.mo_ta, dd.anh, dd.vi_do, dd.kinh_do
+HAVING COUNT(DISTINCT CASE WHEN t.trang_thai = 'cong_bo' AND t.dang_hoat_dong = TRUE THEN tdd.tour_id END) > 0
+ORDER BY so_luong_tour DESC, dd.ten ASC
 LIMIT $1;
 
--- name: UpdateDestinationImage :exec
+-- name: GetTopPopularDestinations :many
+-- Lấy top N điểm đến phổ biến nhất với thông tin chi tiết (có số tour nổi bật)
+SELECT 
+    dd.id,
+    dd.ten,
+    dd.tinh,
+    dd.quoc_gia,
+    dd.khu_vuc,
+    dd.mo_ta,
+    dd.anh,
+    dd.vi_do,
+    dd.kinh_do,
+    COUNT(DISTINCT tdd.tour_id) as so_luong_tour,
+    COUNT(DISTINCT CASE WHEN t.noi_bat = TRUE THEN t.id END) as so_tour_noi_bat
+FROM diem_den dd
+INNER JOIN tour_diem_den tdd ON dd.id = tdd.diem_den_id
+INNER JOIN tour t ON tdd.tour_id = t.id
+WHERE t.trang_thai = 'cong_bo' 
+    AND t.dang_hoat_dong = TRUE
+GROUP BY dd.id, dd.ten, dd.tinh, dd.quoc_gia, dd.khu_vuc, dd.mo_ta, dd.anh, dd.vi_do, dd.kinh_do
+HAVING COUNT(DISTINCT tdd.tour_id) > 0
+ORDER BY so_luong_tour DESC, so_tour_noi_bat DESC, dd.ten ASC
+LIMIT $1;
+
+-- name: GetDestinationByID :one
+-- Lấy thông tin chi tiết điểm đến theo ID
+SELECT 
+    id,
+    ten,
+    tinh,
+    quoc_gia,
+    khu_vuc,
+    iso2,
+    iso3,
+    mo_ta,
+    anh,
+    vi_do,
+    kinh_do,
+    ngay_tao,
+    ngay_cap_nhat
+FROM diem_den
+WHERE id = $1;
+
+-- name: UpdateDestinationImage :one
+-- Cập nhật hình ảnh cho điểm đến
 UPDATE diem_den
-SET anh = $1, ngay_cap_nhat = NOW()
-WHERE id = $2;
+SET anh = $2,
+    ngay_cap_nhat = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
