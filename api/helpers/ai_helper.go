@@ -58,7 +58,7 @@ func GenerateTextWithOpenAI(apiKey string, prompt string, systemPrompt string) (
 }
 
 // GenerateChatbotResponse generates chatbot response with context from chat history and tours
-func GenerateChatbotResponse(apiKey string, userMessage string, chatHistory []string, toursList string) (string, error) {
+func GenerateChatbotResponse(apiKey string, userMessage string, chatHistory []string, toursList string, tourDetail string) (string, error) {
 	if apiKey == "" {
 		return "", fmt.Errorf("OpenAI API key is not configured")
 	}
@@ -72,15 +72,16 @@ func GenerateChatbotResponse(apiKey string, userMessage string, chatHistory []st
 	// System prompt
 	systemPrompt := `Bạn là trợ lý AI thân thiện và chuyên nghiệp của công ty du lịch Travia.
 Nhiệm vụ của bạn là:
-- Trả lời câu hỏi của khách hàng về tours, địa điểm, giá cả, lịch trình
+- Trả lời câu hỏi của khách hàng về tours, điểm đến, giá cả, lịch trình, khởi hành, đánh giá và ưu đãi
 - Tư vấn tour phù hợp với nhu cầu khách hàng
 - Cung cấp thông tin chính xác về các tour có sẵn
 - Thân thiện, nhiệt tình và chuyên nghiệp
 - Trả lời bằng tiếng Việt
-- Nếu không có thông tin, hãy thành thật và đề xuất liên hệ bộ phận hỗ trợ
+- Nếu không có thông tin trong dữ liệu được cung cấp, hãy thành thật và đề xuất khách hàng liên hệ bộ phận hỗ trợ
 
 Lưu ý:
 - Sử dụng thông tin tours từ danh sách có sẵn nếu có
+- Ưu tiên dùng "Chi tiết tour được tham chiếu" khi người dùng hỏi sâu về một tour cụ thể
 - Tham khảo lịch sử chat để hiểu ngữ cảnh
 - Trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin`
 
@@ -95,6 +96,9 @@ Lưu ý:
 	// Thêm thông tin tours vào system message nếu có
 	if toursList != "" {
 		messages[0].Content += fmt.Sprintf("\n\nDanh sách tours có sẵn:\n%s", toursList)
+	}
+	if tourDetail != "" {
+		messages[0].Content += fmt.Sprintf("\n\n%s", tourDetail)
 	}
 
 	// Thêm chat history (chỉ lấy 10 câu gần nhất để không quá dài)

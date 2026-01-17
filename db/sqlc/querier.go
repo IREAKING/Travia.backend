@@ -372,6 +372,7 @@ type Querier interface {
 	GetTopSuppliersByRevenue(ctx context.Context, limit int32) ([]GetTopSuppliersByRevenueRow, error)
 	// Top nhà cung cấp theo số tour
 	GetTopSuppliersByTours(ctx context.Context, limit int32) ([]GetTopSuppliersByToursRow, error)
+	GetTourContextForAI(ctx context.Context, arg GetTourContextForAIParams) ([]GetTourContextForAIRow, error)
 	GetTourDestinations(ctx context.Context, tourID int32) ([]GetTourDestinationsRow, error)
 	GetTourDetailByID(ctx context.Context, id int32) (GetTourDetailByIDRow, error)
 	// Lấy embedding của một tour
